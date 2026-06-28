@@ -1,0 +1,17 @@
+{
+  "name": "debut-deploy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Render-style control panel backed by Coolify on Hetzner",
+  "scripts": {
+    "setup": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n api,ui -c blue,magenta \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:api": "npm --prefix server run dev",
+    "dev:ui": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

@@ -1,10 +1,18 @@
-// SQLite layer: connection, pragmas, versioned migrations, user/identity queries.
+// SQLite layer: a single shared connection plus user/identity queries.
+// The connection is a module singleton (imported as `db` by ownership.js and
+// audit.js); auth.js imports the user/identity helpers. Schema is created and
+// migrated on first import.
+//
+// DATABASE_FILE overrides the location; use ':memory:' in tests.
 import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const MIGRATIONS = [
-  // index 0 -> user_version 1
-  (db) => {
-    db.exec(`
+  // -> user_version 1
+  (d) => {
+    d.exec(`
       CREATE TABLE users (
         id INTEGER PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
@@ -41,42 +49,69 @@ const MIGRATIONS = [
   },
 ];
 
-export function openDb(filename) {
-  const db = new Database(filename);
-  db.pragma("foreign_keys = ON");
-  db.pragma("journal_mode = WAL");
-  db.pragma("busy_timeout = 5000");
-  migrate(db);
-  return db;
+function resolveDbFile() {
+  const configured = process.env.DATABASE_FILE;
+  if (configured) return configured;
+  const serverDir = path.dirname(fileURLToPath(import.meta.url));
+  return path.join(serverDir, "data", "debut.db");
 }
 
-function migrate(db) {
-  let version = db.pragma("user_version", { simple: true });
+function openDb() {
+  const file = resolveDbFile();
+  if (file !== ":memory:") fs.mkdirSync(path.dirname(file), { recursive: true });
+  const d = new Database(file);
+  d.pragma("foreign_keys = ON");
+  d.pragma("journal_mode = WAL");
+  d.pragma("busy_timeout = 5000");
+  migrate(d);
+  return d;
+}
+
+function migrate(d) {
+  const version = d.pragma("user_version", { simple: true });
   for (let i = version; i < MIGRATIONS.length; i++) {
-    const run = db.transaction(() => {
-      MIGRATIONS[i](db);
-      db.pragma(`user_version = ${i + 1}`);
+    const run = d.transaction(() => {
+      MIGRATIONS[i](d);
+      d.pragma(`user_version = ${i + 1}`);
     });
     run();
   }
 }
 
-export function createUser(db, { email, name, avatarUrl, role }) {
+export const db = openDb();
+
+// --- user + identity queries -------------------------------------------------
+
+export function createUser({ email, name = null, avatar_url = null, role = "customer" }) {
   const info = db
     .prepare("INSERT INTO users (email, name, avatar_url, role, created_at) VALUES (?,?,?,?,?)")
-    .run(email, name ?? null, avatarUrl ?? null, role, new Date().toISOString());
-  return getUserById(db, info.lastInsertRowid);
+    .run(email, name, avatar_url, role, new Date().toISOString());
+  return getUserById(info.lastInsertRowid);
 }
 
-export const getUserById = (db, id) => db.prepare("SELECT * FROM users WHERE id=?").get(id);
-export const getUserByEmail = (db, email) => db.prepare("SELECT * FROM users WHERE email=?").get(email);
-export const findIdentity = (db, provider, providerUserId) =>
-  db.prepare("SELECT * FROM identities WHERE provider=? AND provider_user_id=?").get(provider, providerUserId);
+// Idempotent: returns the existing user for this email, or creates one.
+export function seedUser(fields) {
+  return getUserByEmail(fields.email) || createUser(fields);
+}
 
-export function linkIdentity(db, { provider, providerUserId, userId }) {
-  db.prepare("INSERT OR IGNORE INTO identities (provider, provider_user_id, user_id) VALUES (?,?,?)").run(
-    provider,
-    providerUserId,
-    userId
-  );
+export const getUserById = (id) => db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+export const getUserByEmail = (email) => db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+export const listUsers = () => db.prepare("SELECT * FROM users ORDER BY id").all();
+
+export const getIdentity = (provider, providerUserId) =>
+  db.prepare("SELECT * FROM identities WHERE provider = ? AND provider_user_id = ?").get(provider, providerUserId);
+
+export const getUserByIdentity = (provider, providerUserId) =>
+  db
+    .prepare(
+      "SELECT users.* FROM users JOIN identities ON identities.user_id = users.id " +
+        "WHERE identities.provider = ? AND identities.provider_user_id = ?"
+    )
+    .get(provider, providerUserId);
+
+export function upsertIdentity({ provider, provider_user_id, user_id }) {
+  db.prepare(
+    "INSERT INTO identities (provider, provider_user_id, user_id) VALUES (?,?,?) " +
+      "ON CONFLICT(provider, provider_user_id) DO UPDATE SET user_id = excluded.user_id"
+  ).run(provider, provider_user_id, user_id);
 }

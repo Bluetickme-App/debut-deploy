@@ -1,0 +1,180 @@
+// Thin client over the Coolify v1 REST API, with a DEMO_MODE fallback that serves
+// fixtures. Every method returns data already shaped for the UI, so the routes stay dumb.
+//
+// Coolify API reference: https://coolify.io/docs/api-reference  (base: <instance>/api/v1)
+
+import * as fx from "./fixtures.js";
+
+const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
+const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
+const TOKEN = process.env.COOLIFY_API_TOKEN || "";
+
+if (!DEMO && (!BASE || !TOKEN)) {
+  throw new Error("COOLIFY_BASE_URL and COOLIFY_API_TOKEN are required outside demo mode");
+}
+
+export const isDemo = () => DEMO;
+
+async function cf(path, { method = "GET", body } = {}) {
+  const res = await fetch(`${BASE}/api/v1${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw Object.assign(new Error(`Coolify ${method} ${path} → ${res.status}`), {
+      status: res.status,
+      detail: text,
+    });
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// --- normalisers: map Coolify's raw objects onto the UI shape ----------------
+
+function mapApp(a) {
+  return {
+    uuid: a.uuid,
+    name: a.name,
+    group: a.environment_name || a.project?.name || "Apps",
+    type: a.build_pack === "dockercompose" ? "service" : "web",
+    runtime: a.build_pack || "docker",
+    status: a.status?.split(":")[0] || "unknown", // Coolify returns e.g. "running:healthy"
+    server: a.destination?.server?.uuid || a.server_uuid || null,
+    branch: a.git_branch || "main",
+    repo: a.git_repository || "",
+    domain: a.fqdn ? a.fqdn.replace(/^https?:\/\//, "").split(",")[0] : null,
+    lastDeployedAt: a.updated_at || null,
+    health: a.status?.split(":")[1] || "healthy",
+  };
+}
+
+function mapDb(d) {
+  return {
+    uuid: d.uuid,
+    name: d.name,
+    type: (d.type || d.database_type || "postgresql").replace("standalone-", ""),
+    version: d.version || "",
+    status: d.status?.split(":")[0] || "running",
+    server: d.destination?.server?.uuid || null,
+    logicalDbs: [],
+    sizeMb: null,
+    connections: null,
+    internalUrl: d.internal_db_url || null,
+  };
+}
+
+// --- public API used by routes ----------------------------------------------
+
+export async function listServices() {
+  if (isDemo()) return fx.services;
+  const apps = await cf("/applications");
+  return (Array.isArray(apps) ? apps : []).map(mapApp);
+}
+
+export async function getService(uuid) {
+  if (isDemo()) return fx.services.find((s) => s.uuid === uuid) || null;
+  return mapApp(await cf(`/applications/${uuid}`));
+}
+
+export async function deployService(uuid) {
+  if (isDemo()) return { ok: true, message: "Deployment queued (demo)", uuid };
+  const r = await cf(`/deploy?uuid=${encodeURIComponent(uuid)}`, { method: "POST" });
+  return { ok: true, message: "Deployment queued", ...r };
+}
+
+export async function controlService(uuid, action) {
+  // action: start | stop | restart
+  if (isDemo()) return { ok: true, message: `${action} queued (demo)`, uuid };
+  await cf(`/applications/${uuid}/${action}`, { method: "POST" });
+  return { ok: true, message: `${action} queued`, uuid };
+}
+
+export async function listDeployments(uuid) {
+  if (isDemo()) return fx.getDeployments(uuid);
+  const all = await cf(`/deployments`);
+  return (Array.isArray(all) ? all : [])
+    .filter((d) => d.application_id === uuid || d.application?.uuid === uuid)
+    .map((d) => ({
+      uuid: d.deployment_uuid || d.id,
+      status: d.status,
+      commit: d.commit?.slice?.(0, 7) || "",
+      message: d.commit_message || "",
+      branch: d.git_branch || "main",
+      startedAt: d.created_at,
+      durationSec: null,
+      trigger: d.is_webhook ? "git push" : "manual",
+    }));
+}
+
+export async function getLogLines(uuid) {
+  const svc = await getService(uuid);
+  if (isDemo()) return fx.buildLog(svc?.name || "app");
+  const r = await cf(`/applications/${uuid}/logs`);
+  const raw = typeof r === "string" ? r : r?.logs || "";
+  return raw.split("\n").filter(Boolean);
+}
+
+export async function listEnvs(uuid) {
+  if (isDemo()) return fx.getEnvs(uuid);
+  const envs = await cf(`/applications/${uuid}/envs`);
+  return (Array.isArray(envs) ? envs : []).map((e) => ({
+    uuid: e.uuid,
+    key: e.key,
+    value: e.is_secret ? "••••••" : e.value,
+    is_secret: !!e.is_secret,
+  }));
+}
+
+export async function upsertEnv(uuid, { key, value, is_secret }) {
+  if (isDemo()) return { uuid: "demo-" + key, key, value, is_secret: !!is_secret };
+  // Coolify uses POST to create, PATCH to update by key
+  return cf(`/applications/${uuid}/envs`, {
+    method: "POST",
+    body: { key, value, is_preview: false, is_secret: !!is_secret },
+  });
+}
+
+export async function deleteEnv(uuid, envUuid) {
+  if (isDemo()) return { ok: true };
+  await cf(`/applications/${uuid}/envs/${envUuid}`, { method: "DELETE" });
+  return { ok: true };
+}
+
+export async function listDatabases() {
+  if (isDemo()) return fx.databases;
+  const dbs = await cf("/databases");
+  return (Array.isArray(dbs) ? dbs : []).map(mapDb);
+}
+
+export async function listServers() {
+  if (isDemo()) return fx.servers;
+  const servers = await cf("/servers");
+  const mapped = [];
+  for (const s of Array.isArray(servers) ? servers : []) {
+    let res = {};
+    try {
+      res = await cf(`/servers/${s.uuid}/resources`);
+    } catch {
+      /* resources optional */
+    }
+    mapped.push({
+      uuid: s.uuid,
+      name: s.name,
+      description: s.description || "",
+      ip: s.ip,
+      region: s.region || "",
+      spec: "",
+      reachable: s.is_reachable ?? true,
+      cpu: res?.cpu_usage_percent ?? null,
+      memory: res?.memory_usage_percent ?? null,
+      disk: res?.disk_usage_percent ?? null,
+    });
+  }
+  return mapped;
+}
