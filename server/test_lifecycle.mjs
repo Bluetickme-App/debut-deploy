@@ -21,8 +21,8 @@ test("setDomain rejects empty fqdn with status 400", async () => {
   }
 });
 
-test("setDomain demo returns ok + fqdn", async () => {
-  const r = await setDomain("any-uuid", "app.example.com");
-  assert.equal(r.ok, true);
-  assert.equal(r.fqdn, "app.example.com");
+test("setDomain normalizes to https:// (for TLS issuance)", async () => {
+  assert.equal((await setDomain("any-uuid", "app.example.com")).fqdn, "https://app.example.com");
+  // strips an existing scheme + trailing slash, forces https
+  assert.equal((await setDomain("any-uuid", "http://app.example.com/")).fqdn, "https://app.example.com");
 });
