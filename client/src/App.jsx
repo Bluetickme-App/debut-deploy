@@ -100,19 +100,6 @@ function Topbar() {
       className="flex h-14 shrink-0 items-center gap-3 border-b px-5"
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}
     >
-      {/* Search */}
-      <div className="relative w-full max-w-xs">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-          style={{ color: "var(--text-muted)" }}
-        />
-        <input
-          placeholder="Search services…"
-          className="input pl-9 py-1.5"
-          style={{ fontFamily: "'Inter', sans-serif" }}
-        />
-      </div>
-
       <div className="ml-auto flex items-center gap-2">
         {/* Mode pill */}
         {modePill && (

@@ -99,7 +99,14 @@ export async function listDeployments(uuid) {
   if (isDemo()) return fx.getDeployments(uuid);
   const all = await cf(`/deployments`);
   return (Array.isArray(all) ? all : [])
-    .filter((d) => d.application_id === uuid || d.application?.uuid === uuid)
+    // Coolify's deployment.application_id is a NUMERIC id, not the uuid; the
+    // app uuid appears inside deployment_url (…/application/<uuid>/deployment/…)
+    .filter(
+      (d) =>
+        (d.deployment_url || "").includes(uuid) ||
+        d.application_id === uuid ||
+        d.application?.uuid === uuid
+    )
     .map((d) => ({
       uuid: d.deployment_uuid || d.id,
       status: d.status,
