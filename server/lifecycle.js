@@ -38,8 +38,12 @@ export async function setDomain(uuid, fqdn) {
   if (!fqdn || typeof fqdn !== "string" || !fqdn.trim()) {
     throw Object.assign(new Error("fqdn is required"), { status: 400 });
   }
-  if (isDemo()) return { ok: true, fqdn };
-  return cf(`/applications/${uuid}`, { method: "PATCH", body: { domains: fqdn } });
+  // Normalize to https:// so Coolify/Traefik requests a Let's Encrypt cert
+  // (HTTP-01 challenge) and serves the domain over TLS, auto-renewing.
+  const host = fqdn.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const url = `https://${host}`;
+  if (isDemo()) return { ok: true, fqdn: url };
+  return cf(`/applications/${uuid}`, { method: "PATCH", body: { domains: url } });
 }
 
 export async function verifyDomain(uuid, fqdn) {
