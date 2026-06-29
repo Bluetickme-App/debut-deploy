@@ -25,6 +25,10 @@ import {
 } from "./db.js";
 import { record } from "./audit.js";
 import * as dns from "./dns.js";
+import * as resources from "./resources.js";
+import * as volumes from "./volumes.js";
+import * as sharedvars from "./sharedvars.js";
+import * as backups from "./backups.js";
 
 const app = express();
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5180";
@@ -544,6 +548,154 @@ app.delete("/api/tokens/:id", requireAuth, mutateGuard, h((req) => {
   record(req, "token.delete", { metadata: { id: req.params.id } });
   return { ok: true };
 }));
+
+// --- limits & health check ---
+app.patch(
+  "/api/services/:id/limits",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const result = await resources.setLimits(req.params.id, req.body || {});
+    record(req, "app.limits", { resourceType: "application", resourceUuid: req.params.id, metadata: req.body });
+    return result;
+  })
+);
+
+app.patch(
+  "/api/services/:id/healthcheck",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const result = await resources.setHealthcheck(req.params.id, req.body || {});
+    record(req, "app.healthcheck", { resourceType: "application", resourceUuid: req.params.id, metadata: req.body });
+    return result;
+  })
+);
+
+// --- server usage (admin only) ---
+app.get(
+  "/api/servers/:id/usage",
+  requireAuth,
+  requireAdmin,
+  h(async (req) => resources.getResourceUsage(req.params.id))
+);
+
+// --- rollback ---
+app.post(
+  "/api/services/:id/rollback",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const { commit } = req.body || {};
+    if (!commit) throw Object.assign(new Error("commit is required"), { status: 400 });
+    const result = await coolify.rollback(req.params.id, commit);
+    record(req, "rollback", { resourceType: "application", resourceUuid: req.params.id, metadata: { commit } });
+    return result;
+  })
+);
+
+// --- volumes ---
+app.get(
+  "/api/services/:id/volumes",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return volumes.listVolumes(req.params.id);
+  })
+);
+
+app.post(
+  "/api/services/:id/volumes",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const result = await volumes.addVolume(req.params.id, req.body || {});
+    record(req, "volume.add", { resourceType: "application", resourceUuid: req.params.id, metadata: { mountPath: req.body?.mountPath } });
+    return result;
+  })
+);
+
+app.delete(
+  "/api/services/:id/volumes/:vid",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const result = await volumes.deleteVolume(req.params.id, req.params.vid);
+    record(req, "volume.delete", { resourceType: "application", resourceUuid: req.params.id, metadata: { volumeUuid: req.params.vid } });
+    return result;
+  })
+);
+
+// --- shared vars (admin only) ---
+app.get(
+  "/api/shared-vars",
+  requireAuth,
+  requireAdmin,
+  h(() => sharedvars.listSharedVars())
+);
+
+app.post(
+  "/api/shared-vars",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const result = await sharedvars.upsertSharedVar(req.body || {});
+    record(req, "sharedvar.upsert", { metadata: { key: req.body?.key } });
+    return result;
+  })
+);
+
+app.delete(
+  "/api/shared-vars/:id",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const result = await sharedvars.deleteSharedVar(req.params.id);
+    record(req, "sharedvar.delete", { metadata: { uuid: req.params.id } });
+    return result;
+  })
+);
+
+// --- database backups ---
+app.get(
+  "/api/databases/:id/backups",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    return backups.getBackupConfig(req.params.id);
+  })
+);
+
+app.post(
+  "/api/databases/:id/backups",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    const result = await backups.setBackupSchedule(req.params.id, req.body || {});
+    record(req, "backup.schedule", { resourceType: "database", resourceUuid: req.params.id, metadata: { frequency: req.body?.frequency } });
+    return result;
+  })
+);
+
+app.post(
+  "/api/databases/:id/backups/run",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    const result = await backups.triggerBackup(req.params.id);
+    record(req, "backup.trigger", { resourceType: "database", resourceUuid: req.params.id });
+    return result;
+  })
+);
 
 // --- error handler ---
 app.use((err, _req, res, _next) => {

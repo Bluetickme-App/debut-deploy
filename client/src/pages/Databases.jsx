@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Database, Server, Cpu, MemoryStick, HardDrive, Plus, Play, Square, Trash2 } from "lucide-react";
+import { Database, Server, Cpu, MemoryStick, HardDrive, Plus, Play, Square, Trash2, ChevronDown, ChevronUp, Archive } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api.js";
 import {
-  Button, Card, EmptyState, Mono, PageHeader, Spinner, StatusPill,
+  Button, Card, EmptyState, Field, Input, Mono, PageHeader, Select, Spinner, StatusPill,
 } from "../components/ui.jsx";
 import { useAuth } from "../auth.jsx";
 
@@ -202,8 +202,98 @@ export default function Databases() {
                   ))}
                 </div>
               )}
+
+              {/* Backups */}
+              <BackupsPanel dbUuid={d.uuid} />
             </Card>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ponytail: collapsed by default so the DB list stays scannable
+function BackupsPanel({ dbUuid }) {
+  const [open, setOpen]         = useState(false);
+  const [config, setConfig]     = useState(null);
+  const [frequency, setFreq]    = useState("0 2 * * *");
+  const [saving, setSaving]     = useState(false);
+  const [running, setRunning]   = useState(false);
+  const [msg, setMsg]           = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    api.getBackupConfig(dbUuid)
+      .then(c => { setConfig(c); if (c?.frequency) setFreq(c.frequency); })
+      .catch(() => setConfig({}));
+  }, [open, dbUuid]);
+
+  async function save(e) {
+    e.preventDefault();
+    setSaving(true); setMsg(null);
+    try {
+      await api.setBackupSchedule(dbUuid, { frequency });
+      setMsg({ ok: true, text: "Schedule saved." });
+      api.getBackupConfig(dbUuid).then(setConfig).catch(() => {});
+    } catch (err) {
+      setMsg({ ok: false, text: err.message });
+    } finally { setSaving(false); }
+  }
+
+  async function runNow() {
+    setRunning(true); setMsg(null);
+    try {
+      await api.triggerBackup(dbUuid);
+      setMsg({ ok: true, text: "Backup started." });
+    } catch (err) {
+      setMsg({ ok: false, text: err.message });
+    } finally { setRunning(false); }
+  }
+
+  return (
+    <div className="border-t pt-2" style={{ borderColor: "var(--border)" }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 text-xs font-medium w-full"
+        style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--text-muted)" }}
+      >
+        <Archive className="h-3.5 w-3.5" />
+        Backups
+        {config?.enabled && <span className="pill pill-ok ml-1" style={{ fontSize: "10px", padding: "1px 6px" }}>Scheduled</span>}
+        {open ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-3">
+          {config === null ? (
+            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+              <Spinner /> Loading…
+            </div>
+          ) : (
+            <form onSubmit={save} className="flex items-end gap-2 flex-wrap">
+              <div className="flex-1 min-w-48">
+                <Field label="Cron schedule">
+                  <Input
+                    className="mono text-xs"
+                    value={frequency}
+                    onChange={e => setFreq(e.target.value)}
+                    placeholder="0 2 * * *"
+                  />
+                </Field>
+              </div>
+              <Button type="submit" variant="default" disabled={saving || !frequency.trim()}>
+                {saving ? <Spinner /> : null} Save schedule
+              </Button>
+              <Button type="button" variant="default" onClick={runNow} disabled={running}>
+                {running ? <Spinner /> : <Play className="h-3.5 w-3.5" />} Back up now
+              </Button>
+            </form>
+          )}
+          {msg && (
+            <p className="text-xs" style={{ color: msg.ok ? "var(--ok)" : "var(--err)" }}>{msg.text}</p>
+          )}
         </div>
       )}
     </div>

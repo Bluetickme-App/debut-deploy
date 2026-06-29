@@ -40,4 +40,12 @@ export const api = {
     }),
   getBranches: (owner, repo) => req(`/github/repos/${owner}/${repo}/branches`),
   createApp: (body) => req("/apps", { method: "POST", body }),
+  // Backups
+  getBackupConfig: (id) => req(`/databases/${id}/backups`),
+  setBackupSchedule: (id, body) => req(`/databases/${id}/backups`, { method: "POST", body }),
+  triggerBackup: (id) => req(`/databases/${id}/backups/run`, { method: "POST" }),
+  // Shared vars (admin)
+  sharedVars: () => req("/shared-vars"),
+  createSharedVar: (body) => req("/shared-vars", { method: "POST", body }),
+  deleteSharedVar: (id) => req(`/shared-vars/${id}`, { method: "DELETE" }),
 };

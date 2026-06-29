@@ -10,6 +10,22 @@ const BUILD_PACKS = [
   { value: "static", label: "Static" },
 ];
 
+// Maps service type to Coolify build/config hints
+const SERVICE_TYPES = [
+  { value: "web",    label: "Web",    description: "HTTP server with a public port" },
+  { value: "static", label: "Static", description: "Static files via Nginx (no runtime)" },
+  { value: "worker", label: "Worker", description: "Background process, no inbound port" },
+  { value: "cron",   label: "Cron",   description: "Scheduled one-off job" },
+];
+
+// Derive sensible defaults for build pack + port from service type
+function typeDefaults(type) {
+  if (type === "static") return { buildPack: "static", port: "" };
+  if (type === "worker") return { buildPack: "nixpacks", port: "" };
+  if (type === "cron")   return { buildPack: "nixpacks", port: "" };
+  return { buildPack: "nixpacks", port: "3000" }; // web
+}
+
 function parseDotEnv(text) {
   return text
     .split("\n")
@@ -36,6 +52,7 @@ export default function NewService() {
   const [branches, setBranches] = useState([]);
   const [databases, setDatabases] = useState([]);
 
+  const [serviceType, setServiceType] = useState("web");
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("");
   const [name, setName] = useState("");
@@ -59,6 +76,13 @@ export default function NewService() {
 
     api.databases().then((d) => setDatabases(Array.isArray(d) ? d : d.data ?? [])).catch(() => {});
   }, []);
+
+  function onTypeChange(type) {
+    setServiceType(type);
+    const d = typeDefaults(type);
+    setBuildPack(d.buildPack);
+    setPort(d.port);
+  }
 
   function onRepoChange(full_name) {
     setRepo(full_name);
@@ -108,8 +132,9 @@ export default function NewService() {
         repo,
         branch,
         name: name.trim(),
-        port: Number(port),
+        port: Number(port) || undefined,
         buildPack,
+        serviceType,
         envs: allEnvs,
       };
       if (installCommand.trim()) body.installCommand = installCommand.trim();

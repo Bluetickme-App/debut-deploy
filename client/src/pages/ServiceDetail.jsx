@@ -3,10 +3,11 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
   GitBranch, Globe, Trash2, CheckCircle2, XCircle, Copy, ChevronDown, ChevronUp,
+  HardDrive, Activity, Heart, Plus,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
-  StatusPill, Spinner, Button, Input, Mono, timeAgo,
+  StatusPill, Spinner, Button, Input, Mono, timeAgo, Field,
 } from "../components/ui.jsx";
 import EnvEditor from "../components/EnvEditor.jsx";
 import LogStream from "../components/LogStream.jsx";
@@ -21,6 +22,11 @@ export default function ServiceDetail() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [envKey, setEnvKey] = useState(0); // bump to remount EnvEditor after bulk paste
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    api.me().then(setUser).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,7 +163,14 @@ export default function ServiceDetail() {
       </div>
 
       <div className="py-6">
-        {tab === "Deployments" && <Deployments deploys={deploys} serviceId={id} onRedeploy={() => action("deploy")} />}
+        {tab === "Deployments" && (
+          <Deployments
+            deploys={deploys}
+            serviceId={id}
+            onRedeploy={() => action("deploy")}
+            onDeploysChange={setDeploys}
+          />
+        )}
         {tab === "Logs" && <LogStream serviceId={id} live={svc.status === "deploying"} />}
         {tab === "Environment" && (
           <div className="space-y-6">
@@ -165,7 +178,7 @@ export default function ServiceDetail() {
             <EnvEditor key={envKey} serviceId={id} />
           </div>
         )}
-        {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} />}
+        {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} isAdmin={user?.role === "admin"} />}
       </div>
     </div>
   );
@@ -173,12 +186,25 @@ export default function ServiceDetail() {
 
 // ── Deployments tab ────────────────────────────────────────────────────────────
 
-function Deployments({ deploys, onRedeploy }) {
+function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
   if (!deploys) return (
     <div className="text-sm" style={{ color: "var(--text-muted)" }}>
       <Spinner className="mr-2 inline" /> Loading deployments…
     </div>
   );
+
+  async function rollback(d) {
+    if (!d.commit) return;
+    if (!window.confirm(`Roll back to commit ${d.commit}?\n\nThis will redeploy the service at that commit.`)) return;
+    await fetch(`/api/services/${serviceId}/rollback`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commit: d.commit }),
+    });
+    // refresh deployments after a moment so the new one appears
+    setTimeout(() => api.deployments(serviceId).then(onDeploysChange), 1500);
+  }
 
   return (
     <div className="overflow-hidden rounded-xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
@@ -206,6 +232,11 @@ function Deployments({ deploys, onRedeploy }) {
           <div className="w-20 text-right text-xs" style={{ color: "var(--text-muted)" }}>
             {timeAgo(d.startedAt)}
           </div>
+          {d.commit && (
+            <Button variant="ghost" className="text-xs px-2 py-1 shrink-0" onClick={() => rollback(d)}>
+              Rollback
+            </Button>
+          )}
         </div>
       ))}
       <div className="px-4 py-2 text-right" style={{ borderTop: "1px solid var(--border)" }}>
@@ -219,7 +250,7 @@ function Deployments({ deploys, onRedeploy }) {
 
 // ── Settings tab ───────────────────────────────────────────────────────────────
 
-function SettingsTab({ svc, serviceId }) {
+function SettingsTab({ svc, serviceId, isAdmin }) {
   const navigate = useNavigate();
 
   // custom domain
@@ -312,6 +343,18 @@ function SettingsTab({ svc, serviceId }) {
         ))}
       </div>
 
+      {/* resources */}
+      <ResourceLimits serviceId={serviceId} />
+
+      {/* health check */}
+      <HealthCheck serviceId={serviceId} />
+
+      {/* persistent disks */}
+      <PersistentDisks serviceId={serviceId} />
+
+      {/* admin metrics strip */}
+      {isAdmin && svc.serverUuid && <MetricsStrip serverUuid={svc.serverUuid} />}
+
       {/* custom domain */}
       <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2 mb-4">
@@ -370,6 +413,327 @@ function SettingsTab({ svc, serviceId }) {
         <Button variant="danger" onClick={deleteSvc}>
           <Trash2 className="h-4 w-4" /> Delete service
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Resource limits ────────────────────────────────────────────────────────────
+
+function ResourceLimits({ serviceId }) {
+  const [memory, setMemory] = useState("");
+  const [cpus, setCpus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch(`/api/services/${serviceId}/limits`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memory: memory.trim(), cpus: cpus.trim() }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || String(r.status));
+      setMsg({ ok: true, text: "Limits saved — takes effect on next deploy." });
+    } catch (err) {
+      setMsg({ ok: false, text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Activity className="h-4 w-4" style={{ color: "var(--accent)" }} />
+        <span className="text-sm font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+          Resources
+        </span>
+      </div>
+      <form onSubmit={save} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Memory limit (e.g. 512M, 1G)">
+            <Input value={memory} onChange={(e) => setMemory(e.target.value)} placeholder="512M" />
+          </Field>
+          <Field label="CPU limit (e.g. 0.5, 1)">
+            <Input value={cpus} onChange={(e) => setCpus(e.target.value)} placeholder="0.5" />
+          </Field>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button type="submit" variant="primary" disabled={busy || (!memory.trim() && !cpus.trim())}>
+            {busy ? <Spinner /> : "Save limits"}
+          </Button>
+          {msg && (
+            <span className="text-xs" style={{ color: msg.ok ? "var(--ok)" : "var(--err)" }}>
+              {msg.text}
+            </span>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Health check ───────────────────────────────────────────────────────────────
+
+function HealthCheck({ serviceId }) {
+  const [enabled, setEnabled] = useState(false);
+  const [path, setPath] = useState("/");
+  const [port, setPort] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch(`/api/services/${serviceId}/healthcheck`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled, path: path.trim(), port: port ? Number(port) : undefined }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || String(r.status));
+      setMsg({ ok: true, text: "Health check updated." });
+    } catch (err) {
+      setMsg({ ok: false, text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Heart className="h-4 w-4" style={{ color: "var(--accent)" }} />
+        <span className="text-sm font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+          Health check
+        </span>
+      </div>
+      <form onSubmit={save} className="space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className="h-4 w-4 rounded"
+            style={{ accentColor: "var(--accent)" }}
+          />
+          <span className="text-sm" style={{ color: "var(--text)" }}>Enable health check</span>
+        </label>
+        {enabled && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Path">
+              <Input value={path} onChange={(e) => setPath(e.target.value)} placeholder="/healthz" />
+            </Field>
+            <Field label="Port (optional)">
+              <Input type="number" value={port} onChange={(e) => setPort(e.target.value)} placeholder="3000" />
+            </Field>
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <Button type="submit" variant="primary" disabled={busy}>
+            {busy ? <Spinner /> : "Save"}
+          </Button>
+          {msg && (
+            <span className="text-xs" style={{ color: msg.ok ? "var(--ok)" : "var(--err)" }}>
+              {msg.text}
+            </span>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Persistent disks ───────────────────────────────────────────────────────────
+
+function PersistentDisks({ serviceId }) {
+  const [volumes, setVolumes] = useState(null);
+  const [loadErr, setLoadErr] = useState(null);
+  const [name, setName] = useState("");
+  const [mountPath, setMountPath] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addMsg, setAddMsg] = useState(null);
+
+  useEffect(() => {
+    fetch(`/api/services/${serviceId}/volumes`, { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then(setVolumes)
+      .catch((e) => setLoadErr(e.message));
+  }, [serviceId]);
+
+  async function addVolume(e) {
+    e.preventDefault();
+    if (!mountPath.trim()) return;
+    setAddBusy(true);
+    setAddMsg(null);
+    try {
+      const r = await fetch(`/api/services/${serviceId}/volumes`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), mountPath: mountPath.trim() }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || String(r.status));
+      setName("");
+      setMountPath("");
+      setAddMsg({ ok: true, text: "Volume added." });
+      // refresh
+      fetch(`/api/services/${serviceId}/volumes`, { credentials: "same-origin" })
+        .then((r) => r.json())
+        .then(setVolumes)
+        .catch(() => {});
+    } catch (err) {
+      setAddMsg({ ok: false, text: err.message });
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
+  async function deleteVolume(vid) {
+    if (!window.confirm("Remove this volume? Data may be lost if the container used it.")) return;
+    const r = await fetch(`/api/services/${serviceId}/volumes/${vid}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (r.ok) {
+      setVolumes((v) => v.filter((vol) => vol.uuid !== vid && vol.id !== vid));
+    }
+  }
+
+  return (
+    <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      <div className="flex items-center gap-2 mb-4">
+        <HardDrive className="h-4 w-4" style={{ color: "var(--accent)" }} />
+        <span className="text-sm font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+          Persistent disks
+        </span>
+      </div>
+
+      {loadErr && (
+        <p className="text-xs mb-3" style={{ color: "var(--err)" }}>Failed to load volumes: {loadErr}</p>
+      )}
+
+      {volumes === null && !loadErr && (
+        <div className="text-sm mb-3" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading…</div>
+      )}
+
+      {volumes && volumes.length === 0 && (
+        <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>No persistent volumes configured.</p>
+      )}
+
+      {volumes && volumes.length > 0 && (
+        <div className="overflow-hidden rounded-lg border mb-4" style={{ borderColor: "var(--border)" }}>
+          {volumes.map((vol, i) => (
+            <div
+              key={vol.uuid || vol.id || i}
+              className="flex items-center justify-between px-3 py-2 text-sm"
+              style={i !== 0 ? { borderTop: "1px solid var(--border)" } : {}}
+            >
+              <div>
+                <span style={{ color: "var(--text)" }}>{vol.name || vol.mount_path}</span>
+                {vol.mount_path && vol.name && (
+                  <Mono className="ml-2" style={{ color: "var(--text-muted)" }}>{vol.mount_path}</Mono>
+                )}
+              </div>
+              <button
+                onClick={() => deleteVolume(vol.uuid || vol.id)}
+                className="text-xs px-2 py-1 rounded transition"
+                style={{ color: "var(--err)", background: "transparent" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--err) 10%, transparent)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                title="Delete volume"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={addVolume} className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Volume name (optional)"
+          />
+          <Input
+            value={mountPath}
+            onChange={(e) => setMountPath(e.target.value)}
+            placeholder="/data (mount path, required)"
+            required
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <Button type="submit" variant="primary" disabled={addBusy || !mountPath.trim()}>
+            {addBusy ? <Spinner /> : <><Plus className="h-4 w-4" /> Add volume</>}
+          </Button>
+          {addMsg && (
+            <span className="text-xs" style={{ color: addMsg.ok ? "var(--ok)" : "var(--err)" }}>
+              {addMsg.text}
+            </span>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Admin metrics strip ────────────────────────────────────────────────────────
+
+function MetricsStrip({ serverUuid }) {
+  const [usage, setUsage] = useState(null);
+
+  useEffect(() => {
+    fetch(`/api/servers/${serverUuid}/usage`, { credentials: "same-origin" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => d && setUsage(d))
+      .catch(() => {});
+  }, [serverUuid]);
+
+  if (!usage) return null;
+
+  const bars = [
+    { label: "CPU", value: usage.cpu, color: "var(--info)" },
+    { label: "Memory", value: usage.memory, color: "var(--warn)" },
+    { label: "Disk", value: usage.disk, color: "var(--accent)" },
+  ].filter((b) => b.value != null);
+
+  if (bars.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Activity className="h-4 w-4" style={{ color: "var(--accent)" }} />
+        <span className="text-sm font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+          Server usage
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {bars.map(({ label, value, color }) => (
+          <div key={label}>
+            <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+              <span>{label}</span>
+              <span style={{ color: "var(--text)" }}>{Math.round(value)}%</span>
+            </div>
+            <div className="h-1.5 rounded-full" style={{ background: "var(--surface-2)" }}>
+              <div
+                className="h-1.5 rounded-full transition-all"
+                style={{ width: `${Math.min(100, value)}%`, background: color }}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

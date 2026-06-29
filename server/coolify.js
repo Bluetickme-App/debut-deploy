@@ -252,3 +252,12 @@ export async function getDeploymentLogs(deploymentUuid) {
   const raw = r?.logs || "";
   return raw.split("\n").filter(Boolean);
 }
+
+export async function rollback(uuid, commit) {
+  if (isDemo()) return { ok: true, uuid, commit };
+  // ponytail: set the target sha then trigger deploy — Coolify has no dedicated rollback endpoint
+  await cf(`/applications/${uuid}`, { method: "PATCH", body: { git_commit_sha: commit } });
+  const r = await cf(`/deploy?uuid=${encodeURIComponent(uuid)}&force=true`, { method: "POST" });
+  const dep = r?.deployments?.[0];
+  return { ok: true, uuid, commit, deploymentUuid: dep?.deployment_uuid };
+}
