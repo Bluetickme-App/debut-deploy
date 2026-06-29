@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
-  GitBranch, Globe, Trash2, CheckCircle2, XCircle, Copy,
+  GitBranch, Globe, Trash2, CheckCircle2, XCircle, Copy, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
@@ -20,6 +20,7 @@ export default function ServiceDetail() {
   const [deploys, setDeploys] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [envKey, setEnvKey] = useState(0); // bump to remount EnvEditor after bulk paste
 
   useEffect(() => {
     let cancelled = false;
@@ -156,9 +157,14 @@ export default function ServiceDetail() {
       </div>
 
       <div className="py-6">
-        {tab === "Deployments" && <Deployments deploys={deploys} onRedeploy={() => action("deploy")} />}
+        {tab === "Deployments" && <Deployments deploys={deploys} serviceId={id} onRedeploy={() => action("deploy")} />}
         {tab === "Logs" && <LogStream serviceId={id} live={svc.status === "deploying"} />}
-        {tab === "Environment" && <EnvEditor serviceId={id} />}
+        {tab === "Environment" && (
+          <div className="space-y-6">
+            <BulkEnvPaste serviceId={id} onDone={() => setEnvKey((k) => k + 1)} />
+            <EnvEditor key={envKey} serviceId={id} />
+          </div>
+        )}
         {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} />}
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
   listUsers,
   setInstallation,
   getInstallation,
+  deleteInstallation,
   setCustomerProject,
   getCustomerProject,
   getIdentityByUser,
@@ -404,7 +405,7 @@ app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, re
 
 app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
   const userId = req.user.id;
-  const { repo, branch, name, port, envs } = req.body || {};
+  const { repo, branch, name, port, envs, buildPack, installCommand, buildCommand, startCommand } = req.body || {};
 
   // 0. Validate input
   if (!repo || !branch || !name || port === undefined || port === null || port === "") {
@@ -460,6 +461,10 @@ app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
     gitBranch: branch,
     portsExposes: String(port),
     name,
+    buildPack: buildPack || "nixpacks",
+    ...(installCommand ? { installCommand } : {}),
+    ...(buildCommand ? { buildCommand } : {}),
+    ...(startCommand ? { startCommand } : {}),
     instantDeploy: true,
   });
 
@@ -472,6 +477,28 @@ app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
 
   return { uuid };
 }));
+
+// build/deploy logs for one deployment
+app.get(
+  "/api/services/:id/deployments/:depId/logs",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return coolify.getDeploymentLogs(req.params.depId);
+  })
+);
+
+// disconnect GitHub so the user can connect a different account
+app.delete(
+  "/api/github/connection",
+  requireAuth,
+  mutateGuard,
+  h((req) => {
+    deleteInstallation(req.user.id);
+    record(req, "github.disconnect");
+    return { ok: true };
+  })
+);
 
 // --- error handler ---
 app.use((err, _req, res, _next) => {

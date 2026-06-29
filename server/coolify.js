@@ -213,23 +213,35 @@ export async function createPrivateGithubApp({
   name,
   buildPack = "nixpacks",
   instantDeploy = true,
+  installCommand,
+  buildCommand,
+  startCommand,
 }) {
   if (isDemo()) return { uuid: "demo-app-" + name };
-  const r = await cf("/applications/private-github-app", {
-    method: "POST",
-    body: {
-      github_app_uuid: githubAppUuid,
-      project_uuid: projectUuid,
-      environment_name: environmentName,
-      server_uuid: serverUuid,
-      destination_uuid: destinationUuid,
-      git_repository: gitRepository,
-      git_branch: gitBranch,
-      ports_exposes: portsExposes,
-      name,
-      build_pack: buildPack,
-      instant_deploy: instantDeploy,
-    },
-  });
+  const body = {
+    github_app_uuid: githubAppUuid,
+    project_uuid: projectUuid,
+    environment_name: environmentName,
+    server_uuid: serverUuid,
+    destination_uuid: destinationUuid,
+    git_repository: gitRepository,
+    git_branch: gitBranch,
+    ports_exposes: portsExposes,
+    name,
+    build_pack: buildPack,
+    instant_deploy: instantDeploy,
+  };
+  // ponytail: only send optional commands when provided — omitting beats sending null
+  if (installCommand !== undefined) body.install_command = installCommand;
+  if (buildCommand !== undefined) body.build_command = buildCommand;
+  if (startCommand !== undefined) body.start_command = startCommand;
+  const r = await cf("/applications/private-github-app", { method: "POST", body });
   return { uuid: r.uuid };
+}
+
+export async function getDeploymentLogs(deploymentUuid) {
+  if (isDemo()) return ["(demo) build step 1", "(demo) done"];
+  const r = await cf(`/deployments/${deploymentUuid}`);
+  const raw = r?.logs || "";
+  return raw.split("\n").filter(Boolean);
 }

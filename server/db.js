@@ -156,6 +156,9 @@ export function setInstallation({ userId, installationId, accountLogin = null })
 export const getInstallation = (userId) =>
   db.prepare("SELECT * FROM github_installations WHERE user_id = ?").get(userId);
 
+export const deleteInstallation = (userId) =>
+  db.prepare("DELETE FROM github_installations WHERE user_id = ?").run(userId);
+
 export function setCustomerProject({ userId, projectUuid, environmentName }) {
   db.prepare(
     "INSERT INTO customer_projects (user_id, project_uuid, environment_name, created_at) VALUES (?,?,?,?) " +
