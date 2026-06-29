@@ -69,7 +69,19 @@ export function createGithubApp({ appId = APP_ID, pem = PEM, slug = APP_SLUG, ht
     return `https://github.com/apps/${slug}/installations/new?state=${encodeURIComponent(state)}`;
   }
 
-  return { installationToken, listRepos, listBranches, installUrl };
+  // Verifies an installation exists and reveals whose account it's on (used to
+  // bind an installation to the signed-in user, not to a forged query param).
+  async function getInstallationInfo(installationId) {
+    const jwt = mintJwt(appId, pem);
+    const data = await gh(`/app/installations/${installationId}`, jwt);
+    return {
+      account_login: data.account?.login || null,
+      account_id: data.account?.id ?? null,
+      account_type: data.account?.type || null,
+    };
+  }
+
+  return { installationToken, listRepos, listBranches, installUrl, getInstallationInfo };
 }
 
 // --- default singleton (env-backed) -----------------------------------------

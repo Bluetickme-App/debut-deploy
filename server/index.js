@@ -1,12 +1,21 @@
 import "dotenv/config";
-import { createHmac } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import express from "express";
 import cors from "cors";
 import * as coolify from "./coolify.js";
 import * as githubApp from "./github-app.js";
 import { setupAuth } from "./auth.js";
 import { assertOwns, assign, ownedUuids } from "./ownership.js";
-import { listUsers, setInstallation, getInstallation, setCustomerProject, getCustomerProject } from "./db.js";
+import {
+  listUsers,
+  setInstallation,
+  getInstallation,
+  setCustomerProject,
+  getCustomerProject,
+  getIdentityByUser,
+  createOauthState,
+  consumeOauthState,
+} from "./db.js";
 import { record } from "./audit.js";
 
 const app = express();
@@ -230,30 +239,48 @@ app.post(
 
 // --- GitHub App state helpers ------------------------------------------------
 
-function signedState(userId) {
-  return createHmac("sha256", process.env.SESSION_SECRET || "")
-    .update(String(userId))
-    .digest("hex");
-}
-
-function verifyState(userId, state) {
-  return signedState(userId) === state;
-}
+const STATE_TTL_MS = 15 * 60 * 1000;
 
 // --- GitHub connect + callback ----------------------------------------------
 
 app.get("/github/connect", requireAuth, (req, res) => {
-  const url = githubApp.githubApp.installUrl(signedState(req.user.id));
-  res.redirect(url);
+  // one-time, server-stored nonce bound to this user (not a replayable HMAC)
+  const state = randomBytes(32).toString("hex");
+  createOauthState({ state, userId: req.user.id });
+  res.redirect(githubApp.githubApp.installUrl(state));
 });
 
 app.get("/github/setup", requireAuth, async (req, res, next) => {
   try {
-    const { installation_id, state, account_login } = req.query;
-    if (!verifyState(req.user.id, state)) {
-      return res.status(403).json({ error: "State mismatch" });
+    const { installation_id } = req.query;
+    const state = String(req.query.state || "");
+
+    // 1. consume the one-time nonce; must belong to this user and be fresh
+    const row = consumeOauthState(state);
+    if (!row || row.user_id !== req.user.id) {
+      return res.status(403).json({ error: "Invalid or expired state" });
     }
-    setInstallation({ userId: req.user.id, installationId: Number(installation_id), accountLogin: account_login || null });
+    if (Date.now() - new Date(row.created_at).getTime() > STATE_TTL_MS) {
+      return res.status(403).json({ error: "State expired" });
+    }
+
+    // 2. the installation must belong to THIS user's GitHub account — don't
+    //    trust installation_id from the query. We verify via the App JWT and
+    //    match the installation's account against the user's linked GitHub id.
+    const ghIdentity = getIdentityByUser(req.user.id, "github");
+    if (!ghIdentity) {
+      return res.status(403).json({ error: "Sign in with GitHub before connecting an installation." });
+    }
+    const info = await githubApp.githubApp.getInstallationInfo(Number(installation_id));
+    if (String(info.account_id) !== String(ghIdentity.provider_user_id)) {
+      // org installs (account is an Organization) need member verification we
+      // don't do yet — reject so no one can bind another account's installation
+      return res.status(403).json({
+        error: "That installation isn't on your personal GitHub account. Personal-account installs only for now.",
+      });
+    }
+
+    setInstallation({ userId: req.user.id, installationId: Number(installation_id), accountLogin: info.account_login });
     res.redirect((process.env.CLIENT_ORIGIN || "http://localhost:5180") + "/new");
   } catch (err) {
     next(err);
@@ -276,11 +303,36 @@ app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, re
 
 // --- App creation ------------------------------------------------------------
 
-app.post("/api/apps", requireAuth, mutateGuard, h(async (req) => {
+app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
   const userId = req.user.id;
   const { repo, branch, name, port, envs } = req.body || {};
 
-  // 1. Ensure customer project exists
+  // 0. Validate input
+  if (!repo || !branch || !name || port === undefined || port === null || port === "") {
+    throw Object.assign(new Error("repo, branch, name, and port are required"), { status: 400 });
+  }
+
+  // 1. Scope to the caller's OWN installation: the repo (and branch) must be
+  //    accessible to this user's installation, or we refuse — prevents
+  //    deploying another tenant's repo through the shared GitHub App.
+  const inst = getInstallation(userId);
+  if (!inst) {
+    res.status(409).json({ needsConnect: true });
+    return;
+  }
+  const repos = await githubApp.githubApp.listRepos(inst.installation_id);
+  if (!repos.some((r) => r.full_name === repo)) {
+    throw Object.assign(new Error("Repository is not accessible to your GitHub installation"), { status: 403 });
+  }
+  const slashIdx = repo.indexOf("/");
+  const owner = repo.slice(0, slashIdx);
+  const repoName = repo.slice(slashIdx + 1);
+  const branches = await githubApp.githubApp.listBranches(inst.installation_id, owner, repoName);
+  if (!branches.includes(branch)) {
+    throw Object.assign(new Error("Branch not found in the selected repository"), { status: 400 });
+  }
+
+  // 2. Ensure customer project exists
   let proj = getCustomerProject(userId);
   let projectUuid, environmentName;
   if (proj) {

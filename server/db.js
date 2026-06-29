@@ -65,6 +65,16 @@ const MIGRATIONS = [
       );
     `);
   },
+  // -> user_version 3: one-time OAuth/install state nonces
+  (d) => {
+    d.exec(`
+      CREATE TABLE oauth_states (
+        state TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -155,3 +165,25 @@ export function setCustomerProject({ userId, projectUuid, environmentName }) {
 
 export const getCustomerProject = (userId) =>
   db.prepare("SELECT * FROM customer_projects WHERE user_id = ?").get(userId);
+
+// reverse identity lookup: a user's linked account for a provider (used to
+// verify a GitHub App installation belongs to the signed-in user).
+export const getIdentityByUser = (userId, provider) =>
+  db.prepare("SELECT * FROM identities WHERE user_id = ? AND provider = ?").get(userId, provider);
+
+// --- one-time OAuth/install state nonces ------------------------------------
+
+export function createOauthState({ state, userId }) {
+  db.prepare("INSERT INTO oauth_states (state, user_id, created_at) VALUES (?,?,?)").run(
+    state,
+    userId,
+    new Date().toISOString()
+  );
+}
+
+// Single-use: returns the row (or undefined) and deletes it.
+export function consumeOauthState(state) {
+  const row = db.prepare("SELECT * FROM oauth_states WHERE state = ?").get(state);
+  if (row) db.prepare("DELETE FROM oauth_states WHERE state = ?").run(state);
+  return row;
+}
