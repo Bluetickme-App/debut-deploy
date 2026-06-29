@@ -1,5 +1,5 @@
 import { Routes, Route, NavLink, useLocation } from "react-router-dom";
-import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus, Sun, Moon } from "lucide-react";
+import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus, Sun, Moon, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "./lib/api.js";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -7,6 +7,7 @@ import ServiceDetail from "./pages/ServiceDetail.jsx";
 import Databases from "./pages/Databases.jsx";
 import NewService from "./pages/NewService.jsx";
 import NewDatabase from "./pages/NewDatabase.jsx";
+import SharedVars from "./pages/SharedVars.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
@@ -66,6 +67,9 @@ function Sidebar() {
             <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
             <NavLink to="/servers" className={link}>
               <Server className="h-4 w-4 shrink-0" /> Servers
+            </NavLink>
+            <NavLink to="/shared-vars" className={link}>
+              <KeyRound className="h-4 w-4 shrink-0" /> Shared Vars
             </NavLink>
           </>
         )}
@@ -157,6 +161,7 @@ function AppShell() {
             <Route path="/databases" element={<Databases />} />
             <Route path="/new" element={<NewService />} />
             <Route path="/new-database" element={<NewDatabase />} />
+            <Route path="/shared-vars" element={<SharedVars />} />
           </Routes>
         </main>
       </div>
