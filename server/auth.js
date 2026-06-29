@@ -53,6 +53,28 @@ function readVerifiedEmail(provider, profile) {
   return null;
 }
 
+// passport-github2 doesn't reliably include primary/verified flags on
+// profile.emails, so fall back to GitHub's /user/emails API with the token
+// (granted via the user:email scope).
+async function fetchGithubVerifiedEmail(accessToken) {
+  try {
+    const res = await fetch("https://api.github.com/user/emails", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": "DebutDeploy",
+      },
+    });
+    if (!res.ok) return null;
+    const emails = await res.json();
+    if (!Array.isArray(emails)) return null;
+    const chosen = emails.find((e) => e.primary && e.verified) || emails.find((e) => e.verified);
+    return chosen?.email?.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
 async function finishLogin(req, res, user, clientOrigin) {
   const destination = req.session?.returnTo || clientOrigin || "/";
   await new Promise((resolve, reject) => {
@@ -161,9 +183,10 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
           callbackURL: `${process.env.OAUTH_CALLBACK_BASE || "http://localhost:8787"}/auth/github/callback`,
           scope: ["user:email"],
         },
-        async (_accessToken, _refreshToken, profile, done) => {
+        async (accessToken, _refreshToken, profile, done) => {
           try {
-            const email = readVerifiedEmail("github", profile);
+            let email = readVerifiedEmail("github", profile);
+            if (!email) email = await fetchGithubVerifiedEmail(accessToken);
             if (!email) return done(error(401, "GitHub account must have a verified primary email"));
 
             const existing = getUserByIdentity("github", profile.id);
