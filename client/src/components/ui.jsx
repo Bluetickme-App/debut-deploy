@@ -1,53 +1,124 @@
 import { Loader2 } from "lucide-react";
 
-const STATUS = {
-  running: { dot: "bg-emerald-400", text: "text-emerald-300", label: "Live" },
-  healthy: { dot: "bg-emerald-400", text: "text-emerald-300", label: "Live" },
-  deploying: { dot: "bg-sky-400 animate-pulse", text: "text-sky-300", label: "Deploying" },
-  in_progress: { dot: "bg-sky-400 animate-pulse", text: "text-sky-300", label: "Building" },
-  degraded: { dot: "bg-amber-400", text: "text-amber-300", label: "Degraded" },
-  stopped: { dot: "bg-zinc-500", text: "text-zinc-400", label: "Suspended" },
-  failed: { dot: "bg-rose-500", text: "text-rose-300", label: "Failed" },
-  success: { dot: "bg-emerald-400", text: "text-emerald-300", label: "Live" },
-  unknown: { dot: "bg-zinc-500", text: "text-zinc-400", label: "Unknown" },
+// ── Status config ──────────────────────────────────────────────────────────
+const STATUS_MAP = {
+  running:     { pill: "pill-ok",    pulse: false, label: "Running" },
+  healthy:     { pill: "pill-ok",    pulse: false, label: "Healthy" },
+  success:     { pill: "pill-ok",    pulse: false, label: "Live" },
+  building:    { pill: "pill-warn",  pulse: true,  label: "Building" },
+  deploying:   { pill: "pill-warn",  pulse: true,  label: "Deploying" },
+  in_progress: { pill: "pill-warn",  pulse: true,  label: "Building" },
+  degraded:    { pill: "pill-warn",  pulse: false, label: "Degraded" },
+  stopped:     { pill: "pill-muted", pulse: false, label: "Stopped" },
+  unknown:     { pill: "pill-muted", pulse: false, label: "Unknown" },
+  failed:      { pill: "pill-err",   pulse: false, label: "Failed" },
+  error:       { pill: "pill-err",   pulse: false, label: "Error" },
 };
 
-export function StatusBadge({ status }) {
-  const s = STATUS[status] || STATUS.unknown;
+// dot bg colors keyed to pill variant
+const DOT_COLOR = {
+  "pill-ok":    "bg-[var(--ok)]",
+  "pill-warn":  "bg-[var(--warn)]",
+  "pill-err":   "bg-[var(--err)]",
+  "pill-muted": "bg-[var(--text-muted)]",
+};
+
+// ── New design-system components ───────────────────────────────────────────
+
+export function Card({ children, className = "" }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-      <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-      <span className={s.text}>{s.label}</span>
+    <div className={`card ${className}`}>{children}</div>
+  );
+}
+
+export function PageHeader({ title, subtitle, actions }) {
+  return (
+    <div className="flex items-start justify-between gap-4 mb-6">
+      <div>
+        <h1 className="text-2xl font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+          {title}
+        </h1>
+        {subtitle && <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{subtitle}</p>}
+      </div>
+      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+    </div>
+  );
+}
+
+export function Button({ children, variant = "default", className = "", ...props }) {
+  const variantClass = {
+    default:  "btn btn-ghost bg-[var(--surface-2)] text-[var(--text)] border-[var(--border)]",
+    primary:  "btn btn-primary",
+    ghost:    "btn btn-ghost",
+    danger:   "btn btn-danger",
+  }[variant] ?? "btn btn-ghost";
+
+  return (
+    <button className={`${variantClass} ${className}`} {...props}>
+      {children}
+    </button>
+  );
+}
+
+export function StatusPill({ status }) {
+  const s = STATUS_MAP[status] || STATUS_MAP.unknown;
+  const dotColor = DOT_COLOR[s.pill];
+  return (
+    <span className={`pill ${s.pill}`}>
+      <span className={`pulse-dot ${dotColor} ${s.pulse ? "is-pulsing" : ""}`}
+            style={{ color: s.pulse ? "var(--warn)" : undefined }} />
+      {s.label}
     </span>
   );
+}
+
+// ponytail: StatusBadge kept for backward compat — delegates to StatusPill
+export function StatusBadge({ status }) {
+  return <StatusPill status={status} />;
+}
+
+export function Field({ label, children }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+export function Input({ className = "", ...props }) {
+  return <input className={`input ${className}`} {...props} />;
+}
+
+export function Select({ className = "", children, ...props }) {
+  return (
+    <select className={`select ${className}`} {...props}>
+      {children}
+    </select>
+  );
+}
+
+export function EmptyState({ title, description, action }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+      <p className="text-lg font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+        {title}
+      </p>
+      {description && <p className="text-sm max-w-xs" style={{ color: "var(--text-muted)" }}>{description}</p>}
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  );
+}
+
+export function Mono({ children, className = "" }) {
+  return <span className={`mono ${className}`}>{children}</span>;
 }
 
 export function Spinner({ className = "" }) {
   return <Loader2 className={`h-4 w-4 animate-spin ${className}`} />;
 }
 
-export function Card({ children, className = "" }) {
-  return (
-    <div className={`rounded-xl border border-white/8 bg-[#13161d] ${className}`}>{children}</div>
-  );
-}
-
-export function Button({ children, variant = "default", className = "", ...props }) {
-  const variants = {
-    default: "bg-white/10 hover:bg-white/15 text-white",
-    primary: "bg-indigo-500 hover:bg-indigo-400 text-white",
-    ghost: "hover:bg-white/8 text-zinc-300",
-    danger: "bg-rose-500/90 hover:bg-rose-500 text-white",
-  };
-  return (
-    <button
-      className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${variants[variant]} ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
+// ── Unchanged legacy helpers ───────────────────────────────────────────────
 
 export function timeAgo(iso) {
   if (!iso) return "—";
@@ -62,5 +133,5 @@ export function timeAgo(iso) {
 
 export function RuntimeIcon({ runtime }) {
   const map = { Node: "⬢", Docker: "🐳", node: "⬢", docker: "🐳" };
-  return <span className="text-zinc-400">{map[runtime] || "▦"}</span>;
+  return <span style={{ color: "var(--text-muted)" }}>{map[runtime] || "▦"}</span>;
 }

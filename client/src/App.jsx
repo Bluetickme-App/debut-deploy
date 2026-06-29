@@ -1,5 +1,5 @@
 import { Routes, Route, NavLink, useLocation } from "react-router-dom";
-import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus } from "lucide-react";
+import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus, Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "./lib/api.js";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -9,45 +9,71 @@ import NewService from "./pages/NewService.jsx";
 import NewDatabase from "./pages/NewDatabase.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
+import { ThemeProvider, useTheme } from "./lib/theme.jsx";
 
 function Sidebar() {
   const { user } = useAuth();
+
   const link = ({ isActive }) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-      isActive ? "bg-white/10 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+    `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      isActive
+        ? "bg-[var(--accent)] text-[var(--accent-contrast)]"
+        : "text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
     }`;
+
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-white/8 bg-[#0e1117] p-3">
-      <div className="flex items-center gap-2 px-2 py-3">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-500 font-bold text-white">
+    <aside
+      className="flex w-60 shrink-0 flex-col border-r p-3"
+      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+    >
+      {/* Brand */}
+      <div className="flex items-center gap-2.5 px-2 py-3 mb-1">
+        <div
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg font-bold text-sm"
+          style={{ background: "var(--accent)", color: "var(--accent-contrast)", fontFamily: "'Space Grotesk', sans-serif" }}
+        >
           D
         </div>
-        <div className="leading-tight">
-          <div className="text-sm font-semibold text-white">DebutDeploy</div>
-          <div className="text-[11px] text-zinc-500">Coolify · Hetzner</div>
-        </div>
+        <span
+          className="text-sm font-bold tracking-tight"
+          style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)", fontWeight: 700 }}
+        >
+          DebutDeploy
+        </span>
       </div>
-      <nav className="mt-2 flex flex-col gap-1">
+
+      {/* Nav */}
+      <nav className="flex flex-col gap-0.5">
         <NavLink to="/" end className={link}>
-          <LayoutGrid className="h-4 w-4" /> Services
+          <LayoutGrid className="h-4 w-4 shrink-0" /> Services
         </NavLink>
         <NavLink to="/databases" className={link}>
-          <Database className="h-4 w-4" /> Databases
+          <Database className="h-4 w-4 shrink-0" /> Databases
         </NavLink>
+
+        {/* Divider */}
+        <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
+
         <NavLink to="/new" className={link}>
-          <Plus className="h-4 w-4" /> New Service
+          <Plus className="h-4 w-4 shrink-0" /> New Service
         </NavLink>
         <NavLink to="/new-database" className={link}>
-          <Plus className="h-4 w-4" /> New Database
+          <Plus className="h-4 w-4 shrink-0" /> New Database
         </NavLink>
+
         {user?.role === "admin" && (
-          <a className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600">
-            <Server className="h-4 w-4" /> Servers
-          </a>
+          <>
+            <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
+            <NavLink to="/servers" className={link}>
+              <Server className="h-4 w-4 shrink-0" /> Servers
+            </NavLink>
+          </>
         )}
       </nav>
-      <div className="mt-auto px-2 text-[11px] text-zinc-600">
-        Scaffold v0.1 · {new Date().getFullYear()}
+
+      {/* Footer */}
+      <div className="mt-auto px-2 pt-3 text-[11px] mono" style={{ color: "var(--text-muted)" }}>
+        v0.1 · Coolify · Hetzner
       </div>
     </aside>
   );
@@ -55,43 +81,75 @@ function Sidebar() {
 
 function Topbar() {
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const [mode, setMode] = useState(null);
+
   useEffect(() => {
     api.health().then((h) => setMode(h.mode)).catch(() => setMode("offline"));
   }, []);
+
+  // map mode → pill class + label
+  const modePill = {
+    live:    { cls: "pill-ok",   label: "Live · Coolify" },
+    demo:    { cls: "pill-warn", label: "Demo · Coolify" },
+    offline: { cls: "pill-err",  label: "API offline" },
+  }[mode] ?? null;
+
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-white/8 px-6">
-      <div className="relative w-full max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+    <header
+      className="flex h-14 shrink-0 items-center gap-3 border-b px-5"
+      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+    >
+      {/* Search */}
+      <div className="relative w-full max-w-xs">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+          style={{ color: "var(--text-muted)" }}
+        />
         <input
           placeholder="Search services…"
-          className="w-full rounded-lg border border-white/8 bg-[#13161d] py-1.5 pl-9 pr-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/60 focus:outline-none"
+          className="input pl-9 py-1.5"
+          style={{ fontFamily: "'Inter', sans-serif" }}
         />
       </div>
-      <div className="ml-auto flex items-center gap-3">
-        {mode && (
-          <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-              mode === "live"
-                ? "bg-emerald-500/15 text-emerald-300"
-                : mode === "demo"
-                ? "bg-amber-500/15 text-amber-300"
-                : "bg-rose-500/15 text-rose-300"
-            }`}
-          >
-            {mode === "demo" ? "Demo data" : mode === "live" ? "Live · Coolify" : "API offline"}
+
+      <div className="ml-auto flex items-center gap-2">
+        {/* Mode pill */}
+        {modePill && (
+          <span className={`pill ${modePill.cls}`}>
+            {/* ponytail: live dot is purely decorative */}
+            <span
+              className={`pulse-dot ${modePill.cls === "pill-ok" ? "bg-[var(--ok)]" : modePill.cls === "pill-warn" ? "bg-[var(--warn)]" : "bg-[var(--err)]"}`}
+            />
+            {modePill.label}
           </span>
         )}
-        <div className="hidden items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-300 sm:flex">
-          <UserCircle2 className="h-4 w-4 text-zinc-500" />
-          <span className="max-w-40 truncate">{user?.name || user?.email || "Signed in"}</span>
-        </div>
-        <button
-          onClick={logout}
-          className="inline-flex items-center gap-2 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-200 transition hover:bg-white/[0.07]"
+
+        {/* User chip */}
+        <div
+          className="hidden sm:flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm"
+          style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text-muted)" }}
         >
+          <UserCircle2 className="h-4 w-4 shrink-0" />
+          <span className="max-w-36 truncate" style={{ color: "var(--text)" }}>
+            {user?.name || user?.email || "Signed in"}
+          </span>
+        </div>
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggle}
+          className="btn btn-ghost"
+          aria-label="Toggle theme"
+          title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
+
+        {/* Logout */}
+        <button onClick={logout} className="btn btn-ghost">
           <LogOut className="h-4 w-4" />
-          Logout
+          <span className="hidden sm:inline">Logout</span>
         </button>
       </div>
     </header>
@@ -101,11 +159,11 @@ function Topbar() {
 function AppShell() {
   const location = useLocation();
   return (
-    <div className="flex h-full">
+    <div className="flex h-full" style={{ background: "var(--bg)" }}>
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main key={location.pathname} className="flex-1 overflow-y-auto">
+        <main key={location.pathname} className="flex-1 overflow-y-auto p-0">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
@@ -121,18 +179,20 @@ function AppShell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/*"
-          element={
-            <RequireAuth>
-              <AppShell />
-            </RequireAuth>
-          }
-        />
-      </Routes>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/*"
+            element={
+              <RequireAuth>
+                <AppShell />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

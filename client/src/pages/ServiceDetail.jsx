@@ -1,19 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink, GitBranch,
+  ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
+  GitBranch, Globe, Trash2, CheckCircle2, XCircle, Copy,
 } from "lucide-react";
 import { api } from "../lib/api.js";
-import { StatusBadge, Spinner, Button, timeAgo } from "../components/ui.jsx";
+import {
+  StatusPill, Spinner, Button, Input, Mono, timeAgo,
+} from "../components/ui.jsx";
 import EnvEditor from "../components/EnvEditor.jsx";
 import LogStream from "../components/LogStream.jsx";
 
-const TABS = ["Events", "Logs", "Environment", "Settings"];
+const TABS = ["Deployments", "Logs", "Environment", "Settings"];
 
 export default function ServiceDetail() {
   const { id } = useParams();
   const [svc, setSvc] = useState(null);
-  const [tab, setTab] = useState("Events");
+  const [tab, setTab] = useState("Deployments");
   const [deploys, setDeploys] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -29,12 +32,8 @@ export default function ServiceDetail() {
         setSvc(service);
         setDeploys(deploymentList);
       })
-      .catch((err) => {
-        if (!cancelled) setError(err);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch((err) => { if (!cancelled) setError(err); });
+    return () => { cancelled = true; };
   }, [id]);
 
   async function action(kind) {
@@ -49,21 +48,19 @@ export default function ServiceDetail() {
   }
 
   if (!svc) {
-    if (error) {
-      return (
-        <div className="mx-auto max-w-3xl px-6 py-16">
-          <div className="rounded-2xl border border-white/8 bg-[#13161d] p-6">
-            <div className="text-sm font-medium text-white">Unable to load service</div>
-            <p className="mt-2 text-sm text-zinc-400">{error.message}</p>
-            <Link to="/" className="mt-4 inline-flex text-sm text-indigo-300 hover:text-indigo-200">
-              Back to services
-            </Link>
-          </div>
+    if (error) return (
+      <div className="mx-auto max-w-3xl px-6 py-16">
+        <div className="card">
+          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Unable to load service</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{error.message}</p>
+          <Link to="/" className="mt-4 inline-flex text-sm" style={{ color: "var(--accent)" }}>
+            Back to services
+          </Link>
         </div>
-      );
-    }
+      </div>
+    );
     return (
-      <div className="flex h-64 items-center justify-center text-zinc-500">
+      <div className="flex h-64 items-center justify-center" style={{ color: "var(--text-muted)" }}>
         <Spinner className="mr-2" /> Loading…
       </div>
     );
@@ -71,24 +68,44 @@ export default function ServiceDetail() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-6">
-      <Link to="/" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-300">
+      {/* breadcrumb */}
+      <Link
+        to="/"
+        className="inline-flex items-center gap-1 text-sm transition-colors"
+        style={{ color: "var(--text-muted)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+      >
         <ArrowLeft className="h-4 w-4" /> Services
       </Link>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-white">{svc.name}</h1>
-        <StatusBadge status={svc.status} />
+      {/* ── header ── */}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <h1
+          className="text-2xl font-bold"
+          style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}
+        >
+          {svc.name}
+        </h1>
+        <StatusPill status={svc.status} />
         {svc.domain && (
           <a
             href={`https://${svc.domain}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-indigo-300 hover:text-indigo-200"
+            className="inline-flex items-center gap-1 text-sm transition-colors"
+            style={{ color: "var(--accent)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-strong)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--accent)")}
           >
-            {svc.domain} <ExternalLink className="h-3.5 w-3.5" />
+            <Globe className="h-3.5 w-3.5" />
+            {svc.domain}
+            <ExternalLink className="h-3 w-3" />
           </a>
         )}
-        <div className="ml-auto flex items-center gap-2">
+
+        {/* action buttons */}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button variant="primary" onClick={() => action("deploy")} disabled={busy}>
             {busy ? <Spinner /> : <Rocket className="h-4 w-4" />} Deploy
           </Button>
@@ -107,26 +124,31 @@ export default function ServiceDetail() {
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+      {/* meta row */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
         <span className="inline-flex items-center gap-1">
-          <GitBranch className="h-3.5 w-3.5" /> {svc.repo} · {svc.branch}
+          <GitBranch className="h-3.5 w-3.5" />
+          <Mono>{svc.repo}</Mono> · <Mono>{svc.branch}</Mono>
         </span>
         <span>Runtime: {svc.runtime}</span>
         <span>Server: {svc.server}</span>
         <span>Last deploy: {timeAgo(svc.lastDeployedAt)}</span>
       </div>
 
-      {/* tabs */}
-      <div className="mt-6 flex gap-1 border-b border-white/8">
+      {/* ── tabs ── */}
+      <div className="mt-6 flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
+            className="-mb-px border-b-2 px-3 py-2 text-sm font-medium transition"
+            style={
               tab === t
-                ? "border-indigo-400 text-white"
-                : "border-transparent text-zinc-500 hover:text-zinc-300"
-            }`}
+                ? { borderColor: "var(--accent)", color: "var(--text)" }
+                : { borderColor: "transparent", color: "var(--text-muted)" }
+            }
+            onMouseEnter={(e) => { if (tab !== t) e.currentTarget.style.color = "var(--text)"; }}
+            onMouseLeave={(e) => { if (tab !== t) e.currentTarget.style.color = "var(--text-muted)"; }}
           >
             {t}
           </button>
@@ -134,7 +156,7 @@ export default function ServiceDetail() {
       </div>
 
       <div className="py-6">
-        {tab === "Events" && <Events deploys={deploys} onRedeploy={() => action("deploy")} />}
+        {tab === "Deployments" && <Deployments deploys={deploys} onRedeploy={() => action("deploy")} />}
         {tab === "Logs" && <LogStream serviceId={id} live={svc.status === "deploying"} />}
         {tab === "Environment" && <EnvEditor serviceId={id} />}
         {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} />}
@@ -143,34 +165,44 @@ export default function ServiceDetail() {
   );
 }
 
-function Events({ deploys, onRedeploy }) {
-  if (!deploys)
-    return (
-      <div className="text-sm text-zinc-500">
-        <Spinner className="mr-2 inline" /> Loading deploys…
-      </div>
-    );
+// ── Deployments tab ────────────────────────────────────────────────────────────
+
+function Deployments({ deploys, onRedeploy }) {
+  if (!deploys) return (
+    <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+      <Spinner className="mr-2 inline" /> Loading deployments…
+    </div>
+  );
+
   return (
-    <div className="overflow-hidden rounded-xl border border-white/8 bg-[#13161d]">
+    <div className="overflow-hidden rounded-xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      {deploys.length === 0 && (
+        <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          No deployments yet.
+        </div>
+      )}
       {deploys.map((d, i) => (
         <div
           key={d.uuid}
-          className={`flex items-center gap-4 px-4 py-3 ${i !== 0 ? "border-t border-white/6" : ""}`}
+          className="flex items-center gap-4 px-4 py-3"
+          style={i !== 0 ? { borderTop: "1px solid var(--border)" } : {}}
         >
-          <StatusBadge status={d.status} />
+          <StatusPill status={d.status} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm text-zinc-200">{d.message}</div>
-            <div className="text-xs text-zinc-500">
-              <span className="font-mono">{d.commit}</span> · {d.branch} · {d.trigger}
+            <div className="truncate text-sm" style={{ color: "var(--text)" }}>{d.message || "—"}</div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              <Mono>{d.commit || "—"}</Mono> · <Mono>{d.branch}</Mono> · {d.trigger}
             </div>
           </div>
-          <div className="text-xs text-zinc-500">
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
             {d.durationSec != null ? `${d.durationSec}s` : "running…"}
           </div>
-          <div className="w-20 text-right text-xs text-zinc-500">{timeAgo(d.startedAt)}</div>
+          <div className="w-20 text-right text-xs" style={{ color: "var(--text-muted)" }}>
+            {timeAgo(d.startedAt)}
+          </div>
         </div>
       ))}
-      <div className="border-t border-white/6 px-4 py-2 text-right">
+      <div className="px-4 py-2 text-right" style={{ borderTop: "1px solid var(--border)" }}>
         <Button variant="ghost" onClick={onRedeploy}>
           <Rocket className="h-4 w-4" /> Redeploy latest
         </Button>
@@ -179,78 +211,220 @@ function Events({ deploys, onRedeploy }) {
   );
 }
 
+// ── Settings tab ───────────────────────────────────────────────────────────────
+
 function SettingsTab({ svc, serviceId }) {
   const navigate = useNavigate();
+
+  // custom domain
   const [fqdn, setFqdn] = useState(svc.domain || "");
   const [domainBusy, setDomainBusy] = useState(false);
-  const [domainMsg, setDomainMsg] = useState(null);
+  const [domainMsg, setDomainMsg] = useState(null); // { ok, text }
+
+  // dns verify
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null); // { host, serverIp, resolvedIps, pointsAt }
 
   async function saveDomain(e) {
     e.preventDefault();
     setDomainBusy(true);
     setDomainMsg(null);
+    setVerifyResult(null);
     try {
-      await fetch(`/api/services/${serviceId}/domain`, {
+      const r = await fetch(`/api/services/${serviceId}/domain`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fqdn: fqdn.trim() }),
-      }).then((r) => { if (!r.ok) return r.json().then((e) => { throw new Error(e.error || r.status); }); });
-      setDomainMsg("Saved.");
+      });
+      if (!r.ok) {
+        const e2 = await r.json().catch(() => ({}));
+        throw new Error(e2.error || String(r.status));
+      }
+      setDomainMsg({ ok: true, text: "Domain saved." });
     } catch (err) {
-      setDomainMsg(err.message);
+      setDomainMsg({ ok: false, text: err.message });
     } finally {
       setDomainBusy(false);
     }
   }
 
+  async function verifyDns() {
+    if (!fqdn.trim()) return;
+    setVerifyBusy(true);
+    setVerifyResult(null);
+    try {
+      const r = await fetch(
+        `/api/services/${serviceId}/domain/verify?fqdn=${encodeURIComponent(fqdn.trim())}`,
+        { credentials: "same-origin" }
+      );
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || String(r.status));
+      setVerifyResult(data);
+    } catch (err) {
+      setVerifyResult({ error: err.message });
+    } finally {
+      setVerifyBusy(false);
+    }
+  }
+
   async function deleteSvc() {
     if (!window.confirm(`Delete service "${svc.name}"? This cannot be undone.`)) return;
-    await fetch(`/api/services/${serviceId}`, { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" } });
+    await fetch(`/api/services/${serviceId}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+    });
     navigate("/");
   }
 
-  const Row = ({ label, value }) => (
-    <div className="flex items-center justify-between border-t border-white/6 px-4 py-3 first:border-t-0">
-      <span className="text-sm text-zinc-400">{label}</span>
-      <span className="font-mono text-sm text-zinc-200">{value || "—"}</span>
+  const MetaRow = ({ label, value }) => (
+    <div
+      className="flex items-center justify-between px-4 py-3"
+      style={{ borderTop: "1px solid var(--border)" }}
+    >
+      <span className="text-sm" style={{ color: "var(--text-muted)" }}>{label}</span>
+      <Mono className="text-sm" style={{ color: "var(--text)" }}>{value || "—"}</Mono>
     </div>
   );
+
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-xl border border-white/8 bg-[#13161d]">
-        <Row label="Repository" value={svc.repo} />
-        <Row label="Branch" value={svc.branch} />
-        <Row label="Runtime" value={svc.runtime} />
-        <Row label="Server" value={svc.server} />
-        <Row label="UUID" value={svc.uuid} />
+      {/* service info */}
+      <div className="overflow-hidden rounded-xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
+          Service info
+        </div>
+        {[
+          ["Repository", svc.repo],
+          ["Branch", svc.branch],
+          ["Runtime", svc.runtime],
+          ["Server", svc.server],
+          ["UUID", svc.uuid],
+        ].map(([label, value]) => (
+          <MetaRow key={label} label={label} value={value} />
+        ))}
       </div>
 
-      <div className="rounded-xl border border-white/8 bg-[#13161d] p-4">
-        <div className="text-sm font-medium text-zinc-200 mb-3">Custom domain</div>
+      {/* custom domain */}
+      <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Globe className="h-4 w-4" style={{ color: "var(--accent)" }} />
+          <span className="text-sm font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+            Custom domain
+          </span>
+        </div>
+
         <form onSubmit={saveDomain} className="flex gap-2">
-          <input
+          <Input
             value={fqdn}
-            onChange={(e) => setFqdn(e.target.value)}
+            onChange={(e) => { setFqdn(e.target.value); setVerifyResult(null); }}
             placeholder="app.example.com"
-            className="flex-1 rounded-lg border border-white/8 bg-[#0e1117] px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/60 focus:outline-none"
           />
-          <Button type="submit" variant="primary" disabled={domainBusy}>
-            {domainBusy ? <Spinner className="h-4 w-4" /> : "Save"}
+          <Button type="submit" variant="primary" disabled={domainBusy || !fqdn.trim()}>
+            {domainBusy ? <Spinner /> : "Save domain"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={verifyDns} disabled={verifyBusy || !fqdn.trim()}>
+            {verifyBusy ? <Spinner /> : "Verify DNS"}
           </Button>
         </form>
-        {domainMsg && <p className="mt-2 text-xs text-zinc-400">{domainMsg}</p>}
+
+        {domainMsg && (
+          <p className="mt-2 text-xs" style={{ color: domainMsg.ok ? "var(--ok)" : "var(--err)" }}>
+            {domainMsg.text}
+          </p>
+        )}
+
+        {verifyResult && !verifyResult.error && (
+          <DnsResult result={verifyResult} />
+        )}
+        {verifyResult?.error && (
+          <p className="mt-3 text-xs" style={{ color: "var(--err)" }}>Verify failed: {verifyResult.error}</p>
+        )}
+
+        <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
+          Auto HTTPS is managed by Coolify via Let&apos;s Encrypt — TLS provisions automatically once DNS resolves.
+        </p>
       </div>
 
-      <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
-        <div className="text-sm font-medium text-rose-200">Danger zone</div>
-        <p className="mt-1 text-xs text-zinc-400">
-          Deleting a service removes it from Coolify. Databases are not affected.
+      {/* danger zone */}
+      <div
+        className="rounded-xl border p-5"
+        style={{ background: "color-mix(in srgb, var(--err) 5%, transparent)", borderColor: "color-mix(in srgb, var(--err) 20%, transparent)" }}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <Trash2 className="h-4 w-4" style={{ color: "var(--err)" }} />
+          <span className="text-sm font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--err)" }}>
+            Danger zone
+          </span>
+        </div>
+        <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+          Deletes the service from Coolify permanently. Databases are not affected.
         </p>
-        <Button variant="danger" className="mt-3" onClick={deleteSvc}>
-          Delete service
+        <Button variant="danger" onClick={deleteSvc}>
+          <Trash2 className="h-4 w-4" /> Delete service
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ── DNS verification result ────────────────────────────────────────────────────
+
+function DnsResult({ result }) {
+  const { host, serverIp, resolvedIps, pointsAt } = result;
+  const [copied, setCopied] = useState(false);
+
+  function copy(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <div
+      className="mt-3 rounded-lg border p-3 text-xs space-y-2"
+      style={{
+        background: "var(--surface-2)",
+        borderColor: pointsAt ? "color-mix(in srgb, var(--ok) 30%, transparent)" : "color-mix(in srgb, var(--warn) 30%, transparent)",
+      }}
+    >
+      <div className="flex items-center gap-2">
+        {pointsAt
+          ? <CheckCircle2 className="h-4 w-4 shrink-0" style={{ color: "var(--ok)" }} />
+          : <XCircle className="h-4 w-4 shrink-0" style={{ color: "var(--warn)" }} />}
+        <span style={{ color: "var(--text)" }}>
+          {pointsAt
+            ? `${host} points at the server — DNS is correct.`
+            : resolvedIps.length
+              ? `${host} resolves to ${resolvedIps.join(", ")} but expected ${serverIp || "??"}.`
+              : `${host} did not resolve — no DNS record found.`}
+        </span>
+      </div>
+
+      {!pointsAt && serverIp && (
+        <div
+          className="rounded-md border p-2.5 flex items-start justify-between gap-2"
+          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        >
+          <div>
+            <p className="font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Create an A record:</p>
+            <p style={{ color: "var(--text)" }}>
+              <Mono>@</Mono> or <Mono>{host.split(".")[0]}</Mono> → <Mono>{serverIp}</Mono>
+            </p>
+          </div>
+          <button
+            onClick={() => copy(`A\t${host}\t${serverIp}`)}
+            className="flex items-center gap-1 shrink-0 rounded px-2 py-1 transition"
+            style={{ color: copied ? "var(--ok)" : "var(--text-muted)", background: "var(--surface-2)" }}
+            title="Copy"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

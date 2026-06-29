@@ -19,6 +19,7 @@ import {
   consumeOauthState,
 } from "./db.js";
 import { record } from "./audit.js";
+import * as dns from "./dns.js";
 
 const app = express();
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5180";
@@ -263,6 +264,15 @@ app.delete(
   })
 );
 
+app.get(
+  "/api/services/:id/domain/verify",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return dns.verifyDomain(req.query.fqdn);
+  })
+);
+
 app.post(
   "/api/services/:id/domain",
   requireAuth,
@@ -272,6 +282,16 @@ app.post(
     const result = await lifecycle.setDomain(req.params.id, req.body?.fqdn);
     record(req, "app.domain", { resourceType: "application", resourceUuid: req.params.id, metadata: { fqdn: req.body?.fqdn } });
     return result;
+  })
+);
+
+app.get(
+  "/api/services/:id/domain/verify",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const { fqdn } = req.query;
+    return lifecycle.verifyDomain(req.params.id, fqdn);
   })
 );
 
