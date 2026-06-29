@@ -8,6 +8,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomBytes, createHash } from "node:crypto";
 
 const MIGRATIONS = [
   // -> user_version 1
@@ -72,6 +73,19 @@ const MIGRATIONS = [
         state TEXT PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id),
         created_at TEXT NOT NULL
+      );
+    `);
+  },
+  // -> user_version 4: programmatic API tokens (hashed; for Claude Code / CI)
+  (d) => {
+    d.exec(`
+      CREATE TABLE api_tokens (
+        id INTEGER PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name TEXT,
+        token_hash TEXT UNIQUE NOT NULL,
+        created_at TEXT NOT NULL,
+        last_used_at TEXT
       );
     `);
   },
@@ -190,3 +204,31 @@ export function consumeOauthState(state) {
   if (row) db.prepare("DELETE FROM oauth_states WHERE state = ?").run(state);
   return row;
 }
+
+// --- programmatic API tokens (hashed at rest) -------------------------------
+
+const hashToken = (raw) => createHash("sha256").update(raw).digest("hex");
+
+// Returns { id, token } — the raw token is shown ONCE and never stored.
+export function createApiToken(userId, name) {
+  const token = "dd_" + randomBytes(24).toString("hex");
+  const info = db
+    .prepare("INSERT INTO api_tokens (user_id, name, token_hash, created_at) VALUES (?,?,?,?)")
+    .run(userId, name || null, hashToken(token), new Date().toISOString());
+  return { id: info.lastInsertRowid, token };
+}
+
+// Resolve a raw bearer token to its user (and stamp last_used_at), or undefined.
+export function getUserByApiToken(rawToken) {
+  if (!rawToken) return undefined;
+  const row = db.prepare("SELECT * FROM api_tokens WHERE token_hash = ?").get(hashToken(rawToken));
+  if (!row) return undefined;
+  db.prepare("UPDATE api_tokens SET last_used_at = ? WHERE id = ?").run(new Date().toISOString(), row.id);
+  return getUserById(row.user_id);
+}
+
+export const listApiTokens = (userId) =>
+  db.prepare("SELECT id, name, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY id DESC").all(userId);
+
+export const deleteApiToken = (userId, id) =>
+  db.prepare("DELETE FROM api_tokens WHERE id = ? AND user_id = ?").run(id, userId);

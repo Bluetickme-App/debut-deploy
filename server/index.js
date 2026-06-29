@@ -18,6 +18,10 @@ import {
   getIdentityByUser,
   createOauthState,
   consumeOauthState,
+  createApiToken,
+  getUserByApiToken,
+  listApiTokens,
+  deleteApiToken,
 } from "./db.js";
 import { record } from "./audit.js";
 import * as dns from "./dns.js";
@@ -39,6 +43,22 @@ app.use(express.json());
 
 const { requireAuth, requireAdmin, demoUser } = setupAuth(app, { demoMode, clientOrigin });
 
+// Programmatic access: if there's no session user but a Bearer token is present,
+// authenticate via API token (for Claude Code / CI to read logs, set env, deploy).
+app.use((req, _res, next) => {
+  if (!req.user) {
+    const m = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
+    if (m) {
+      const user = getUserByApiToken(m[1].trim());
+      if (user) {
+        req.user = user;
+        req.viaApiToken = true;
+      }
+    }
+  }
+  next();
+});
+
 const h = (fn) => async (req, res, next) => {
   try {
     const payload = await fn(req, res, next);
@@ -51,6 +71,9 @@ const h = (fn) => async (req, res, next) => {
 };
 
 function mutateGuard(req, res, next) {
+  // Token-authenticated requests carry no cookie, so they're not subject to
+  // CSRF — skip the origin check (Claude Code / CI use Bearer tokens).
+  if (req.viaApiToken) return next();
   const contentType = req.headers["content-type"] || "";
   const origin = req.get("origin") || req.get("referer") || "";
   let originHost = "";
@@ -504,6 +527,23 @@ app.delete(
     return { ok: true };
   })
 );
+
+// --- programmatic API tokens (for Claude Code / CI) ---
+app.get("/api/tokens", requireAuth, h((req) => listApiTokens(req.user.id)));
+
+app.post("/api/tokens", requireAuth, mutateGuard, h((req) => {
+  const name = (req.body?.name || "").toString().slice(0, 60) || "token";
+  const { id, token } = createApiToken(req.user.id, name);
+  record(req, "token.create", { metadata: { id, name } });
+  // token is returned ONCE; only its hash is stored
+  return { id, name, token };
+}));
+
+app.delete("/api/tokens/:id", requireAuth, mutateGuard, h((req) => {
+  deleteApiToken(req.user.id, Number(req.params.id));
+  record(req, "token.delete", { metadata: { id: req.params.id } });
+  return { ok: true };
+}));
 
 // --- error handler ---
 app.use((err, _req, res, _next) => {
