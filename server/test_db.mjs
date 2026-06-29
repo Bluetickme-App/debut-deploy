@@ -5,7 +5,8 @@ process.env.DATABASE_FILE = ":memory:";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { db, createUser, seedUser, getUserById, getUserByEmail, getUserByIdentity, upsertIdentity, listUsers } =
+const { db, createUser, seedUser, getUserById, getUserByEmail, getUserByIdentity, upsertIdentity, listUsers,
+  setInstallation, getInstallation, setCustomerProject, getCustomerProject } =
   await import("./db.js");
 
 test("schema + pragmas are in place", () => {
@@ -39,4 +40,30 @@ test("seedUser is idempotent by email", () => {
   const again = seedUser({ email: "demo@x.com", name: "Demo", role: "admin" });
   assert.equal(first.id, again.id);
   assert.ok(listUsers().length >= 1);
+});
+
+test("setInstallation / getInstallation upserts correctly", () => {
+  const u = createUser({ email: "gh@x.com", role: "customer" });
+  setInstallation({ userId: u.id, installationId: 42, accountLogin: "acme" });
+  const row = getInstallation(u.id);
+  assert.equal(row.installation_id, 42);
+  assert.equal(row.account_login, "acme");
+  // upsert: update installation_id
+  setInstallation({ userId: u.id, installationId: 99, accountLogin: "acme2" });
+  assert.equal(getInstallation(u.id).installation_id, 99);
+  assert.equal(getInstallation(u.id).account_login, "acme2");
+  assert.equal(getInstallation(999999), undefined);
+});
+
+test("setCustomerProject / getCustomerProject upserts correctly", () => {
+  const u = createUser({ email: "cp@x.com", role: "customer" });
+  setCustomerProject({ userId: u.id, projectUuid: "uuid-1", environmentName: "production" });
+  const row = getCustomerProject(u.id);
+  assert.equal(row.project_uuid, "uuid-1");
+  assert.equal(row.environment_name, "production");
+  // upsert: change env
+  setCustomerProject({ userId: u.id, projectUuid: "uuid-2", environmentName: "staging" });
+  assert.equal(getCustomerProject(u.id).project_uuid, "uuid-2");
+  assert.equal(getCustomerProject(u.id).environment_name, "staging");
+  assert.equal(getCustomerProject(999999), undefined);
 });

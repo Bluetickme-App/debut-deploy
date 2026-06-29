@@ -32,4 +32,12 @@ export const api = {
   deleteEnv: (id, envId) => req(`/services/${id}/envs/${envId}`, { method: "DELETE" }),
   databases: () => req("/databases"),
   servers: () => req("/servers"),
+  getRepos: () =>
+    fetch("/api/github/repos", { credentials: "same-origin" }).then((res) => {
+      if (res.status === 409) return { needsConnect: true };
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      return res.json();
+    }),
+  getBranches: (owner, repo) => req(`/github/repos/${owner}/${repo}/branches`),
+  createApp: (body) => req("/apps", { method: "POST", body }),
 };

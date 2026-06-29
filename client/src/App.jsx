@@ -1,10 +1,11 @@
 import { Routes, Route, NavLink, useLocation } from "react-router-dom";
-import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2 } from "lucide-react";
+import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "./lib/api.js";
 import Dashboard from "./pages/Dashboard.jsx";
 import ServiceDetail from "./pages/ServiceDetail.jsx";
 import Databases from "./pages/Databases.jsx";
+import NewService from "./pages/NewService.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 
@@ -31,6 +32,9 @@ function Sidebar() {
         </NavLink>
         <NavLink to="/databases" className={link}>
           <Database className="h-4 w-4" /> Databases
+        </NavLink>
+        <NavLink to="/new" className={link}>
+          <Plus className="h-4 w-4" /> New Service
         </NavLink>
         {user?.role === "admin" && (
           <a className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600">
@@ -102,6 +106,7 @@ function AppShell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
             <Route path="/databases" element={<Databases />} />
+            <Route path="/new" element={<NewService />} />
           </Routes>
         </main>
       </div>

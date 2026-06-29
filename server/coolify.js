@@ -178,3 +178,58 @@ export async function listServers() {
   }
   return mapped;
 }
+
+export async function getDefaultDestination(serverUuid) {
+  if (isDemo()) return "demo-dest-uuid";
+  // ponytail: prefer the server detail endpoint; fall back to /destinations list
+  const server = await cf(`/servers/${serverUuid}`);
+  const dest = (server?.destinations || []).find(
+    (d) => d.type === "standalone-docker" || !d.type
+  );
+  if (dest?.uuid) return dest.uuid;
+  const all = await cf("/destinations");
+  const match = (Array.isArray(all) ? all : []).find(
+    (d) => d.server_uuid === serverUuid && (d.type === "standalone-docker" || !d.type)
+  );
+  if (!match) throw Object.assign(new Error("No standalone-docker destination found"), { status: 404 });
+  return match.uuid;
+}
+
+export async function createProject(name) {
+  if (isDemo()) return { uuid: "demo-proj-" + name };
+  const r = await cf("/projects", { method: "POST", body: { name } });
+  return { uuid: r.uuid };
+}
+
+export async function createPrivateGithubApp({
+  githubAppUuid,
+  projectUuid,
+  environmentName,
+  serverUuid,
+  destinationUuid,
+  gitRepository,
+  gitBranch,
+  portsExposes,
+  name,
+  buildPack = "nixpacks",
+  instantDeploy = true,
+}) {
+  if (isDemo()) return { uuid: "demo-app-" + name };
+  const r = await cf("/applications/private-github-app", {
+    method: "POST",
+    body: {
+      github_app_uuid: githubAppUuid,
+      project_uuid: projectUuid,
+      environment_name: environmentName,
+      server_uuid: serverUuid,
+      destination_uuid: destinationUuid,
+      git_repository: gitRepository,
+      git_branch: gitBranch,
+      ports_exposes: portsExposes,
+      name,
+      build_pack: buildPack,
+      instant_deploy: instantDeploy,
+    },
+  });
+  return { uuid: r.uuid };
+}

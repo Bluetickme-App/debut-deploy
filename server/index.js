@@ -1,10 +1,12 @@
 import "dotenv/config";
+import { createHmac } from "node:crypto";
 import express from "express";
 import cors from "cors";
 import * as coolify from "./coolify.js";
+import * as githubApp from "./github-app.js";
 import { setupAuth } from "./auth.js";
 import { assertOwns, assign, ownedUuids } from "./ownership.js";
-import { listUsers } from "./db.js";
+import { listUsers, setInstallation, getInstallation, setCustomerProject, getCustomerProject } from "./db.js";
 import { record } from "./audit.js";
 
 const app = express();
@@ -225,6 +227,100 @@ app.post(
     return { ok: true };
   })
 );
+
+// --- GitHub App state helpers ------------------------------------------------
+
+function signedState(userId) {
+  return createHmac("sha256", process.env.SESSION_SECRET || "")
+    .update(String(userId))
+    .digest("hex");
+}
+
+function verifyState(userId, state) {
+  return signedState(userId) === state;
+}
+
+// --- GitHub connect + callback ----------------------------------------------
+
+app.get("/github/connect", requireAuth, (req, res) => {
+  const url = githubApp.githubApp.installUrl(signedState(req.user.id));
+  res.redirect(url);
+});
+
+app.get("/github/setup", requireAuth, async (req, res, next) => {
+  try {
+    const { installation_id, state, account_login } = req.query;
+    if (!verifyState(req.user.id, state)) {
+      return res.status(403).json({ error: "State mismatch" });
+    }
+    setInstallation({ userId: req.user.id, installationId: Number(installation_id), accountLogin: account_login || null });
+    res.redirect((process.env.CLIENT_ORIGIN || "http://localhost:5180") + "/new");
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- GitHub API routes -------------------------------------------------------
+
+app.get("/api/github/repos", requireAuth, h(async (req, res) => {
+  const inst = getInstallation(req.user.id);
+  if (!inst) return res.status(409).json({ needsConnect: true });
+  return githubApp.githubApp.listRepos(inst.installation_id);
+}));
+
+app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, res) => {
+  const inst = getInstallation(req.user.id);
+  if (!inst) return res.status(409).json({ needsConnect: true });
+  return githubApp.githubApp.listBranches(inst.installation_id, req.params.owner, req.params.repo);
+}));
+
+// --- App creation ------------------------------------------------------------
+
+app.post("/api/apps", requireAuth, mutateGuard, h(async (req) => {
+  const userId = req.user.id;
+  const { repo, branch, name, port, envs } = req.body || {};
+
+  // 1. Ensure customer project exists
+  let proj = getCustomerProject(userId);
+  let projectUuid, environmentName;
+  if (proj) {
+    projectUuid = proj.project_uuid;
+    environmentName = proj.environment_name;
+  } else {
+    const created = await coolify.createProject("deploy-" + userId);
+    projectUuid = created.uuid;
+    environmentName = "production";
+    setCustomerProject({ userId, projectUuid, environmentName });
+  }
+
+  // 2. Resolve destination
+  const serverUuid = process.env.COOLIFY_SERVER_UUID;
+  const destinationUuid = process.env.COOLIFY_DESTINATION_UUID ||
+    await coolify.getDefaultDestination(serverUuid);
+
+  // 3. Create app in Coolify
+  const { uuid } = await coolify.createPrivateGithubApp({
+    githubAppUuid: process.env.COOLIFY_GITHUB_APP_UUID,
+    projectUuid,
+    environmentName,
+    serverUuid,
+    destinationUuid,
+    gitRepository: repo,
+    gitBranch: branch,
+    portsExposes: String(port),
+    name,
+    instantDeploy: true,
+  });
+
+  // 4. Assign ownership + audit (only after successful create)
+  assign(uuid, "application", userId);
+  record(req, "app.create", { resourceType: "application", resourceUuid: uuid });
+
+  // 5. Set env vars
+  for (const e of envs || []) await coolify.upsertEnv(uuid, e);
+
+  return { uuid };
+}));
 
 // --- error handler ---
 app.use((err, _req, res, _next) => {

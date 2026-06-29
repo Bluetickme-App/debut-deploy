@@ -48,6 +48,23 @@ const MIGRATIONS = [
       );
     `);
   },
+  // -> user_version 2
+  (d) => {
+    d.exec(`
+      CREATE TABLE github_installations (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id),
+        installation_id INTEGER NOT NULL,
+        account_login TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE customer_projects (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id),
+        project_uuid TEXT NOT NULL,
+        environment_name TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -116,3 +133,25 @@ export function upsertIdentity({ provider, provider_user_id, user_id }) {
       "ON CONFLICT(provider, provider_user_id) DO UPDATE SET user_id = excluded.user_id"
   ).run(provider, provider_user_id, user_id, new Date().toISOString());
 }
+
+// --- github installation + customer project helpers -------------------------
+
+export function setInstallation({ userId, installationId, accountLogin = null }) {
+  db.prepare(
+    "INSERT INTO github_installations (user_id, installation_id, account_login, created_at) VALUES (?,?,?,?) " +
+      "ON CONFLICT(user_id) DO UPDATE SET installation_id = excluded.installation_id, account_login = excluded.account_login, created_at = excluded.created_at"
+  ).run(userId, installationId, accountLogin, new Date().toISOString());
+}
+
+export const getInstallation = (userId) =>
+  db.prepare("SELECT * FROM github_installations WHERE user_id = ?").get(userId);
+
+export function setCustomerProject({ userId, projectUuid, environmentName }) {
+  db.prepare(
+    "INSERT INTO customer_projects (user_id, project_uuid, environment_name, created_at) VALUES (?,?,?,?) " +
+      "ON CONFLICT(user_id) DO UPDATE SET project_uuid = excluded.project_uuid, environment_name = excluded.environment_name, created_at = excluded.created_at"
+  ).run(userId, projectUuid, environmentName, new Date().toISOString());
+}
+
+export const getCustomerProject = (userId) =>
+  db.prepare("SELECT * FROM customer_projects WHERE user_id = ?").get(userId);
