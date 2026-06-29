@@ -4,6 +4,8 @@ import express from "express";
 import cors from "cors";
 import * as coolify from "./coolify.js";
 import * as githubApp from "./github-app.js";
+import * as databases from "./databases.js";
+import * as lifecycle from "./lifecycle.js";
 import { setupAuth } from "./auth.js";
 import { assertOwns, assign, ownedUuids } from "./ownership.js";
 import {
@@ -194,6 +196,83 @@ app.get(
   "/api/databases",
   requireAuth,
   h(async (req) => filterByOwnership(await coolify.listDatabases(), req.user, "database"))
+);
+
+app.post(
+  "/api/databases",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    const userId = req.user.id;
+    const { type, name } = req.body || {};
+    if (!type || !name) throw Object.assign(new Error("type and name are required"), { status: 400 });
+    let proj = getCustomerProject(userId);
+    let projectUuid, environmentName;
+    if (proj) {
+      projectUuid = proj.project_uuid;
+      environmentName = proj.environment_name;
+    } else {
+      const created = await coolify.createProject("deploy-" + userId);
+      projectUuid = created.uuid;
+      environmentName = "production";
+      setCustomerProject({ userId, projectUuid, environmentName });
+    }
+    const { uuid } = await databases.createDatabase({
+      type, name, projectUuid, environmentName,
+      serverUuid: process.env.COOLIFY_SERVER_UUID,
+    });
+    assign(uuid, "database", userId);
+    record(req, "db.create", { resourceType: "database", resourceUuid: uuid });
+    return { uuid };
+  })
+);
+
+app.post(
+  "/api/databases/:id/:action(start|stop)",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    return req.params.action === "start"
+      ? databases.startDatabase(req.params.id)
+      : databases.stopDatabase(req.params.id);
+  })
+);
+
+app.delete(
+  "/api/databases/:id",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    await databases.deleteDatabase(req.params.id);
+    record(req, "db.delete", { resourceType: "database", resourceUuid: req.params.id });
+    return { ok: true };
+  })
+);
+
+app.delete(
+  "/api/services/:id",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    await lifecycle.deleteApp(req.params.id);
+    record(req, "app.delete", { resourceType: "application", resourceUuid: req.params.id });
+    return { ok: true };
+  })
+);
+
+app.post(
+  "/api/services/:id/domain",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const result = await lifecycle.setDomain(req.params.id, req.body?.fqdn);
+    record(req, "app.domain", { resourceType: "application", resourceUuid: req.params.id, metadata: { fqdn: req.body?.fqdn } });
+    return result;
+  })
 );
 
 app.get(

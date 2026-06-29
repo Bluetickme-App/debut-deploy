@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Database, Server, Cpu, MemoryStick, HardDrive } from "lucide-react";
+import { Database, Server, Cpu, MemoryStick, HardDrive, Plus, Play, Square, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { StatusBadge, Spinner } from "../components/ui.jsx";
 import { useAuth } from "../auth.jsx";
@@ -11,9 +12,18 @@ const DB_LABEL = {
   mongodb: "MongoDB",
 };
 
+async function dbAction(uuid, action) {
+  return fetch(`/api/databases/${uuid}/${action}`, {
+    method: action === "delete" ? "DELETE" : "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export default function Databases() {
   const [dbs, setDbs] = useState(null);
   const [servers, setServers] = useState(null);
+  const [busy, setBusy] = useState({});
   const { user } = useAuth();
 
   useEffect(() => {
@@ -25,6 +35,17 @@ export default function Databases() {
     }
   }, [user]);
 
+  async function handleAction(uuid, action) {
+    if (action === "delete" && !window.confirm("Delete this database? This cannot be undone.")) return;
+    setBusy((b) => ({ ...b, [uuid]: action }));
+    try {
+      await dbAction(uuid, action);
+      api.databases().then(setDbs).catch(() => {});
+    } finally {
+      setBusy((b) => { const n = { ...b }; delete n[uuid]; return n; });
+    }
+  }
+
   if (!dbs || servers === null) {
     return (
       <div className="flex h-64 items-center justify-center text-zinc-500">
@@ -35,11 +56,21 @@ export default function Databases() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <h1 className="text-2xl font-semibold text-white">Infrastructure</h1>
-      <p className="mt-1 text-sm text-zinc-500">
-        {user?.role === "admin" ? `${servers.length} Hetzner servers · ` : ""}
-        {dbs.length} databases
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">Infrastructure</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            {user?.role === "admin" ? `${servers.length} Hetzner servers · ` : ""}
+            {dbs.length} databases
+          </p>
+        </div>
+        <Link
+          to="/new-database"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+        >
+          <Plus className="h-4 w-4" /> New Database
+        </Link>
+      </div>
 
       {user?.role === "admin" && (
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -87,6 +118,26 @@ export default function Databases() {
                 {d.connections != null && <div>{d.connections} conns</div>}
               </div>
               <StatusBadge status={d.status} />
+              <div className="flex items-center gap-1 ml-2">
+                {busy[d.uuid] ? (
+                  <Spinner className="h-4 w-4" />
+                ) : (
+                  <>
+                    {d.status === "stopped" ? (
+                      <button onClick={() => handleAction(d.uuid, "start")} title="Start" className="rounded p-1 text-zinc-400 hover:bg-white/8 hover:text-emerald-300">
+                        <Play className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button onClick={() => handleAction(d.uuid, "stop")} title="Stop" className="rounded p-1 text-zinc-400 hover:bg-white/8 hover:text-amber-300">
+                        <Square className="h-4 w-4" />
+                      </button>
+                    )}
+                    <button onClick={() => handleAction(d.uuid, "delete")} title="Delete" className="rounded p-1 text-zinc-400 hover:bg-white/8 hover:text-rose-300">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             {d.logicalDbs?.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5 pl-8">

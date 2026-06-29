@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink, GitBranch,
 } from "lucide-react";
@@ -137,7 +137,7 @@ export default function ServiceDetail() {
         {tab === "Events" && <Events deploys={deploys} onRedeploy={() => action("deploy")} />}
         {tab === "Logs" && <LogStream serviceId={id} live={svc.status === "deploying"} />}
         {tab === "Environment" && <EnvEditor serviceId={id} />}
-        {tab === "Settings" && <SettingsTab svc={svc} />}
+        {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} />}
       </div>
     </div>
   );
@@ -179,7 +179,37 @@ function Events({ deploys, onRedeploy }) {
   );
 }
 
-function SettingsTab({ svc }) {
+function SettingsTab({ svc, serviceId }) {
+  const navigate = useNavigate();
+  const [fqdn, setFqdn] = useState(svc.domain || "");
+  const [domainBusy, setDomainBusy] = useState(false);
+  const [domainMsg, setDomainMsg] = useState(null);
+
+  async function saveDomain(e) {
+    e.preventDefault();
+    setDomainBusy(true);
+    setDomainMsg(null);
+    try {
+      await fetch(`/api/services/${serviceId}/domain`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fqdn: fqdn.trim() }),
+      }).then((r) => { if (!r.ok) return r.json().then((e) => { throw new Error(e.error || r.status); }); });
+      setDomainMsg("Saved.");
+    } catch (err) {
+      setDomainMsg(err.message);
+    } finally {
+      setDomainBusy(false);
+    }
+  }
+
+  async function deleteSvc() {
+    if (!window.confirm(`Delete service "${svc.name}"? This cannot be undone.`)) return;
+    await fetch(`/api/services/${serviceId}`, { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" } });
+    navigate("/");
+  }
+
   const Row = ({ label, value }) => (
     <div className="flex items-center justify-between border-t border-white/6 px-4 py-3 first:border-t-0">
       <span className="text-sm text-zinc-400">{label}</span>
@@ -192,16 +222,32 @@ function SettingsTab({ svc }) {
         <Row label="Repository" value={svc.repo} />
         <Row label="Branch" value={svc.branch} />
         <Row label="Runtime" value={svc.runtime} />
-        <Row label="Custom domain" value={svc.domain} />
         <Row label="Server" value={svc.server} />
         <Row label="UUID" value={svc.uuid} />
       </div>
+
+      <div className="rounded-xl border border-white/8 bg-[#13161d] p-4">
+        <div className="text-sm font-medium text-zinc-200 mb-3">Custom domain</div>
+        <form onSubmit={saveDomain} className="flex gap-2">
+          <input
+            value={fqdn}
+            onChange={(e) => setFqdn(e.target.value)}
+            placeholder="app.example.com"
+            className="flex-1 rounded-lg border border-white/8 bg-[#0e1117] px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/60 focus:outline-none"
+          />
+          <Button type="submit" variant="primary" disabled={domainBusy}>
+            {domainBusy ? <Spinner className="h-4 w-4" /> : "Save"}
+          </Button>
+        </form>
+        {domainMsg && <p className="mt-2 text-xs text-zinc-400">{domainMsg}</p>}
+      </div>
+
       <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
         <div className="text-sm font-medium text-rose-200">Danger zone</div>
         <p className="mt-1 text-xs text-zinc-400">
           Deleting a service removes it from Coolify. Databases are not affected.
         </p>
-        <Button variant="danger" className="mt-3">
+        <Button variant="danger" className="mt-3" onClick={deleteSvc}>
           Delete service
         </Button>
       </div>

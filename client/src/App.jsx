@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import ServiceDetail from "./pages/ServiceDetail.jsx";
 import Databases from "./pages/Databases.jsx";
 import NewService from "./pages/NewService.jsx";
+import NewDatabase from "./pages/NewDatabase.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 
@@ -35,6 +36,9 @@ function Sidebar() {
         </NavLink>
         <NavLink to="/new" className={link}>
           <Plus className="h-4 w-4" /> New Service
+        </NavLink>
+        <NavLink to="/new-database" className={link}>
+          <Plus className="h-4 w-4" /> New Database
         </NavLink>
         {user?.role === "admin" && (
           <a className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600">
@@ -107,6 +111,7 @@ function AppShell() {
             <Route path="/services/:id" element={<ServiceDetail />} />
             <Route path="/databases" element={<Databases />} />
             <Route path="/new" element={<NewService />} />
+            <Route path="/new-database" element={<NewDatabase />} />
           </Routes>
         </main>
       </div>
