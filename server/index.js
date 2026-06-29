@@ -484,6 +484,11 @@ app.get(
   requireAuth,
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
+    // the deployment must belong to THIS service, else 404 (no cross-service log access)
+    const deployments = await coolify.listDeployments(req.params.id);
+    if (!deployments.some((d) => d.uuid === req.params.depId)) {
+      throw Object.assign(new Error("Not found"), { status: 404 });
+    }
     return coolify.getDeploymentLogs(req.params.depId);
   })
 );
