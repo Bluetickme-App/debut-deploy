@@ -25,6 +25,7 @@ const MIGRATIONS = [
         provider TEXT NOT NULL,
         provider_user_id TEXT NOT NULL,
         user_id INTEGER NOT NULL REFERENCES users(id),
+        created_at TEXT NOT NULL,
         PRIMARY KEY (provider, provider_user_id)
       );
       CREATE TABLE resource_ownership (
@@ -111,7 +112,7 @@ export const getUserByIdentity = (provider, providerUserId) =>
 
 export function upsertIdentity({ provider, provider_user_id, user_id }) {
   db.prepare(
-    "INSERT INTO identities (provider, provider_user_id, user_id) VALUES (?,?,?) " +
+    "INSERT INTO identities (provider, provider_user_id, user_id, created_at) VALUES (?,?,?,?) " +
       "ON CONFLICT(provider, provider_user_id) DO UPDATE SET user_id = excluded.user_id"
-  ).run(provider, provider_user_id, user_id);
+  ).run(provider, provider_user_id, user_id, new Date().toISOString());
 }
