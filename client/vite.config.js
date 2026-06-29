@@ -10,6 +10,7 @@ export default defineConfig({
       // forward API calls to the Express proxy so the browser never sees the Coolify token
       "/api": "http://localhost:8787",
       "/auth": "http://localhost:8787",
+      "/github": "http://localhost:8787",
     },
   },
 });
