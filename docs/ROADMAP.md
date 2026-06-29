@@ -76,3 +76,23 @@ Legend: ✅ done · 🔶 partial · ⬜ not started · ⚠️ risk/decision
 4. Then 4–7 as the business demands, with **Phase 7 quotas** gating any paid launch.
 
 Each phase = its own brainstorm → spec → plan → build (we have the workflow for it).
+
+---
+
+## Requested infrastructure backlog (the "all of Render" asks)
+
+Captured verbatim from the brief. These are **infra projects**, not UI batches — each needs its own design + (often) the Hetzner API + cost/decisions. Feasibility noted.
+
+| Ask | Feasibility | Notes |
+|-----|-------------|-------|
+| ✅ Bulk env, link-database (`DATABASE_URL`), auto build-pack, deploy logs, GitHub reconnect | **Done** | shipped |
+| Instance sizing (2GB / CPU tiers) | 🔶 two layers | Per-app CPU/mem **limits** = Coolify supports (easy). True "instance type" = the Hetzner **VM size** = provisioning (below). |
+| Multiple servers + **provision new servers** | ⬜ big | Needs Hetzner Cloud API (create server, costs money) + Coolify "add server". Real project. |
+| SSH key mgmt + connect servers via SSH | 🔶 medium | Coolify adds servers over SSH (the "SSH Authentication" screen you saw). We'd manage keys + call Coolify's server-add. |
+| **Web SSH terminal** per server (Render-style) | ⬜ hard | Coolify has a terminal; embedding a live shell in our UI = websockets/PTY proxy. Non-trivial + security-sensitive. |
+| Persistent disks / SSD (block storage) | 🔶 medium | Coolify volumes; Hetzner Volumes via API for true block storage. |
+| Private networking + region (Frankfurt) internal links; Postgres external+internal URL | 🔶 medium | Same-server services already share an internal network in Coolify; cross-server/region private networking is more. Expose internal vs external DB URLs. |
+| Backups (DB + app, scheduled) | 🔶 medium | Coolify supports scheduled backups to S3 — build the config UI. |
+| **Programmatic API for Claude Code** (monitor logs, change env, deploy) | 🔶 achievable, security-sensitive | Add API personal-access-tokens + Bearer auth on `/api/*` so an agent can drive deploys/logs/env without a browser session. Own careful pass. |
+
+**Sequencing:** the cheap wins (per-app limits, backups config, internal/external DB URLs, the API tokens) before the heavy provisioning stack (Hetzner API → multi-server → disks → web terminal). Provisioning is the gate to "instance sizing" and "new servers" feeling like Render.
