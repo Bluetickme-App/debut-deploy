@@ -20,7 +20,16 @@ async function req(path, opts = {}) {
 export const api = {
   health: () => req("/health"),
   me: () => req("/me"),
-  logout: () => req("/logout", { method: "POST" }),
+  // Auth routes live under /auth (not /api) — req() would hit /api/logout → 404.
+  logout: () =>
+    fetch("/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+    }).then((res) => {
+      if (!res.ok) throw new Error(`Logout failed: ${res.status}`);
+      return res.json();
+    }),
   services: () => req("/services"),
   service: (id) => req(`/services/${id}`),
   deploy: (id) => req(`/services/${id}/deploy`, { method: "POST" }),
