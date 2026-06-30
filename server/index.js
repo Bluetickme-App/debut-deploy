@@ -805,6 +805,15 @@ app.post(
   mutateGuard,
   h(async (req) => {
     const { renderServiceId, target, apiKey } = req.body || {};
+    // Provisioning dedicated infra (real, billed Hetzner servers) is admin-only,
+    // matching the /api/hetzner/* + /api/servers/provision routes. Non-admins may
+    // only import onto existing shared infra. Fail closed when mode is unclear.
+    if (target?.mode !== "shared" && req.user.role !== "admin") {
+      throw Object.assign(
+        new Error("Admin role required to import onto dedicated/provisioned infrastructure"),
+        { status: 403 }
+      );
+    }
     const result = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
     // audit without the apiKey
     record(req, "import.render", { metadata: { renderServiceId, target } });

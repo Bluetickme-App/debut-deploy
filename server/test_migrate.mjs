@@ -7,7 +7,19 @@ process.env.DATABASE_FILE = ":memory:";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { importFromRender } = await import("./migrate.js");
+const { importFromRender, assertPgUrl } = await import("./migrate.js");
+
+// Security: pg connection URL validation (argument-injection guard)
+test("assertPgUrl accepts postgres:// and postgresql:// URLs", () => {
+  assert.equal(assertPgUrl("postgres://u:p@h:5432/db"), "postgres://u:p@h:5432/db");
+  assert.equal(assertPgUrl("postgresql://u:p@h/db"), "postgresql://u:p@h/db");
+});
+
+test("assertPgUrl rejects flag-smuggling / non-postgres values with 400", () => {
+  for (const bad of ["--version", "-X", "file:///etc/passwd", "", null]) {
+    assert.throws(() => assertPgUrl(bad), (e) => e.status === 400);
+  }
+});
 
 // Shared stubs
 const baseDeps = {

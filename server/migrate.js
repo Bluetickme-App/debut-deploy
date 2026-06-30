@@ -15,12 +15,23 @@ import {
 import { assign } from "./ownership.js";
 import { spawn } from "node:child_process";
 
+// Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
+// so a value like "--foo" can't smuggle flags into pg_dump (argument injection).
+export function assertPgUrl(url) {
+  if (typeof url !== "string" || !/^postgres(ql)?:\/\//i.test(url)) {
+    throw Object.assign(new Error("Invalid Postgres connection URL"), { status: 400 });
+  }
+  return url;
+}
+
 // ponytail: local helper — overridable via deps for tests
 async function migratePostgres({ renderConn, appUuid, _upsertEnv }) {
   if (process.env.DEMO_MODE === "true") return { ok: true, note: "demo-skip" };
+  assertPgUrl(renderConn);
   // VERIFY LIVE: pg_dump | pg_restore; never persist dump to disk long-term
   const connUrl = await new Promise((resolve, reject) => {
-    const dump = spawn("pg_dump", ["--no-owner", renderConn], { stdio: ["ignore", "pipe", "inherit"] });
+    // --dbname pins renderConn as a value (not a positional that could parse as a flag)
+    const dump = spawn("pg_dump", ["--no-owner", "--dbname", renderConn], { stdio: ["ignore", "pipe", "inherit"] });
     const restore = spawn("pg_restore", ["--no-owner", "--clean", "-d", "postgres://localhost/target"], {
       stdio: [dump.stdout, "inherit", "inherit"],
     });

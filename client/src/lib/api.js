@@ -48,4 +48,14 @@ export const api = {
   sharedVars: () => req("/shared-vars"),
   createSharedVar: (body) => req("/shared-vars", { method: "POST", body }),
   deleteSharedVar: (id) => req(`/shared-vars/${id}`, { method: "DELETE" }),
+  // Hetzner provisioning (admin)
+  hetznerServerTypes: () => req("/hetzner/server-types"),
+  hetznerLocations:   () => req("/hetzner/locations"),
+  provisionServer:    (body) => req("/servers/provision", { method: "POST", body }),
+  provisionStatus:    (id) => req(`/servers/${id}/provision-status`),
+  // GitHub
+  githubInstallations: () => req("/github/installations"),
+  // Render importer (admin)
+  renderServices: (apiKey) => req("/import/render/services", { method: "POST", body: { apiKey } }),
+  importRender:   (body) => req("/import/render", { method: "POST", body }),
 };
