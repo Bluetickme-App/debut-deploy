@@ -6,7 +6,10 @@
 import { createSign } from "node:crypto";
 
 const APP_ID          = process.env.GITHUB_APP_ID             || "";
-const PEM             = process.env.GITHUB_APP_PRIVATE_KEY    || "";
+// Accept the PEM as real newlines (local .env) OR single-line with \n escapes —
+// docker-compose .env files can't hold multi-line values, so hosted envs store
+// it escaped. The replace is a no-op when the value already has real newlines.
+const PEM             = (process.env.GITHUB_APP_PRIVATE_KEY    || "").replace(/\\n/g, "\n");
 const APP_SLUG        = process.env.GITHUB_APP_SLUG           || "";
 const GITHUB_CLIENT_ID     = process.env.GITHUB_APP_CLIENT_ID     || "";
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET || "";
