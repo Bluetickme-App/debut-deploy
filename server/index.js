@@ -1,5 +1,8 @@
 import "dotenv/config";
 import { randomBytes } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import * as coolify from "./coolify.js";
@@ -921,6 +924,22 @@ app.put(
     return saved;
   })
 );
+
+// --- serve the built client (single-process hosting) ---
+// When client/dist exists (prod build), serve it + SPA fallback so client-side
+// routes like /activity resolve. In local dev the client is served by Vite, so
+// this is a no-op (dist absent) — run `npm run build` to produce it.
+const clientDist = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "client", "dist");
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.use((req, res, next) => {
+    // Only HTML navigations — let API/auth/github 404s stay JSON, and don't
+    // shadow static assets (already handled above).
+    if (req.method !== "GET") return next();
+    if (/^\/(api|auth|github)(\/|$)/.test(req.path)) return next();
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
 
 // --- error handler ---
 app.use((err, _req, res, _next) => {
