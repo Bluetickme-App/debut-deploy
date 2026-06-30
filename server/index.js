@@ -499,7 +499,11 @@ app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
   assign(uuid, "application", userId);
   record(req, "app.create", { resourceType: "application", resourceUuid: uuid });
 
-  // 5. Set env vars
+  // 5. Set env vars — team shared variables first (env-group behavior), then
+  //    the app's own (so per-app values win on key collisions).
+  for (const sv of await sharedvars.listSharedVars()) {
+    await coolify.upsertEnv(uuid, { key: sv.key, value: sv.value, is_secret: sv.is_secret });
+  }
   for (const e of envs || []) await coolify.upsertEnv(uuid, e);
 
   return { uuid };
