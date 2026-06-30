@@ -416,14 +416,35 @@ app.get("/github/setup", requireAuth, async (req, res, next) => {
 
 // --- GitHub API routes -------------------------------------------------------
 
+// Resolve the user's GitHub App installation. If we haven't recorded one,
+// auto-discover it by matching an installation's account to the user's linked
+// GitHub id — so we don't depend on GitHub's flaky Setup-URL callback.
+async function ensureInstallation(user) {
+  const existing = getInstallation(user.id);
+  if (existing) return existing;
+  const gh = getIdentityByUser(user.id, "github");
+  if (!gh) return null;
+  try {
+    const installs = await githubApp.githubApp.listInstallations();
+    const match = installs.find((i) => String(i.account_id) === String(gh.provider_user_id));
+    if (match) {
+      setInstallation({ userId: user.id, installationId: match.id, accountLogin: match.account_login });
+      return getInstallation(user.id);
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
 app.get("/api/github/repos", requireAuth, h(async (req, res) => {
-  const inst = getInstallation(req.user.id);
+  const inst = await ensureInstallation(req.user);
   if (!inst) return res.status(409).json({ needsConnect: true });
   return githubApp.githubApp.listRepos(inst.installation_id);
 }));
 
 app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, res) => {
-  const inst = getInstallation(req.user.id);
+  const inst = await ensureInstallation(req.user);
   if (!inst) return res.status(409).json({ needsConnect: true });
   return githubApp.githubApp.listBranches(inst.installation_id, req.params.owner, req.params.repo);
 }));
@@ -442,7 +463,7 @@ app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
   // 1. Scope to the caller's OWN installation: the repo (and branch) must be
   //    accessible to this user's installation, or we refuse — prevents
   //    deploying another tenant's repo through the shared GitHub App.
-  const inst = getInstallation(userId);
+  const inst = await ensureInstallation(req.user);
   if (!inst) {
     res.status(409).json({ needsConnect: true });
     return;

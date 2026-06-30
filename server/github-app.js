@@ -81,7 +81,20 @@ export function createGithubApp({ appId = APP_ID, pem = PEM, slug = APP_SLUG, ht
     };
   }
 
-  return { installationToken, listRepos, listBranches, installUrl, getInstallationInfo };
+  // List every installation of this App, so we can auto-discover the one that
+  // belongs to a signed-in user (no reliance on GitHub's Setup-URL callback).
+  async function listInstallations() {
+    const jwt = mintJwt(appId, pem);
+    const data = await gh(`/app/installations`, jwt);
+    return (Array.isArray(data) ? data : []).map((i) => ({
+      id: i.id,
+      account_login: i.account?.login || null,
+      account_id: i.account?.id ?? null,
+      account_type: i.account?.type || null,
+    }));
+  }
+
+  return { installationToken, listRepos, listBranches, installUrl, getInstallationInfo, listInstallations };
 }
 
 // --- default singleton (env-backed) -----------------------------------------
