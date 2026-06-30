@@ -411,6 +411,14 @@ const STATE_TTL_MS = 15 * 60 * 1000;
 // --- GitHub connect + callback ----------------------------------------------
 
 app.get("/github/connect", requireAuth, (req, res) => {
+  // Fail loud if the App slug isn't configured — otherwise installUrl builds
+  // github.com/apps//installations/new which is a confusing GitHub 404. (If you
+  // just set GITHUB_APP_SLUG in .env, restart the server so it loads.)
+  if (!process.env.GITHUB_APP_SLUG) {
+    return res
+      .status(500)
+      .json({ error: "GitHub App not configured: GITHUB_APP_SLUG is missing. Set it in server/.env and restart the server." });
+  }
   // one-time, server-stored nonce bound to this user (not a replayable HMAC)
   const state = randomBytes(32).toString("hex");
   createOauthState({ state, userId: req.user.id });
