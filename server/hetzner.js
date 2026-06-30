@@ -3,7 +3,9 @@
 // Hetzner API reference: https://docs.hetzner.cloud/
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
-const TOKEN = process.env.HETZNER_API_TOKEN || "";
+// Accept either name — HETZNER_API_TOKEN is canonical; HETZNER_API_KEY is the
+// common instinct (matches RENDER_API_KEY) so we don't make operators rename it.
+const TOKEN = process.env.HETZNER_API_TOKEN || process.env.HETZNER_API_KEY || "";
 
 export const isDemo = () => DEMO || !TOKEN;
 
