@@ -261,3 +261,6 @@ export const listUserInstallations = (userId) =>
 
 export const findUserInstallationByAccount = (userId, accountId) =>
   db.prepare("SELECT * FROM user_installations WHERE user_id = ? AND account_id = ?").get(userId, accountId);
+
+export const findUserInstallationByLogin = (userId, accountLogin) =>
+  db.prepare("SELECT * FROM user_installations WHERE user_id = ? AND account_login = ? COLLATE NOCASE").get(userId, accountLogin);

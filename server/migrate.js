@@ -4,7 +4,7 @@
 import { getService, getEnvVars, getConnectionInfo } from "./render.js";
 import { provisionServer } from "./provision.js";
 import { ensureCoolifySourceForInstallation } from "./coolify-github.js";
-import { findUserInstallationByAccount } from "./db.js";
+import { findUserInstallationByLogin } from "./db.js";
 import {
   createProject,
   getDefaultDestination,
@@ -13,7 +13,6 @@ import {
   deployService,
 } from "./coolify.js";
 import { assign } from "./ownership.js";
-import { spawn } from "node:child_process";
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
 // so a value like "--foo" can't smuggle flags into pg_dump (argument injection).
@@ -25,22 +24,19 @@ export function assertPgUrl(url) {
 }
 
 // ponytail: local helper — overridable via deps for tests
-async function migratePostgres({ renderConn, appUuid, _upsertEnv }) {
+async function migratePostgres({ renderConn }) {
   if (process.env.DEMO_MODE === "true") return { ok: true, note: "demo-skip" };
+  // Validate the source URL (also keeps assertPgUrl's argument-injection guard live).
   assertPgUrl(renderConn);
-  // VERIFY LIVE: pg_dump | pg_restore; never persist dump to disk long-term
-  const connUrl = await new Promise((resolve, reject) => {
-    // --dbname pins renderConn as a value (not a positional that could parse as a flag)
-    const dump = spawn("pg_dump", ["--no-owner", "--dbname", renderConn], { stdio: ["ignore", "pipe", "inherit"] });
-    const restore = spawn("pg_restore", ["--no-owner", "--clean", "-d", "postgres://localhost/target"], {
-      stdio: [dump.stdout, "inherit", "inherit"],
-    });
-    restore.on("close", (code) => (code === 0 ? resolve(renderConn) : reject(new Error(`pg_restore exited ${code}`))));
-    dump.on("error", reject);
-    restore.on("error", reject);
-  });
-  await _upsertEnv(appUuid, { key: "DATABASE_URL", value: connUrl, is_secret: true });
-  return { ok: true };
+  // The previous live path restored to a hardcoded postgres://localhost/target and
+  // then wrote the SOURCE renderConn back as DATABASE_URL — i.e. it would wire the
+  // new app to Render's DB and restore nowhere useful. Fail loud rather than corrupt.
+  // TODO live: provision a Coolify Postgres → `pg_dump <source> | pg_restore` into it →
+  //   set DATABASE_URL to the COOLIFY db's connection string (never the Render source).
+  throw Object.assign(
+    new Error("Live Postgres migration not yet implemented: needs a Coolify-provisioned target DB + restore wiring"),
+    { status: 501 }
+  );
 }
 
 export async function importFromRender({ renderServiceId, target, userId, apiKey, deps = {} }) {
@@ -51,7 +47,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     getConnectionInfo,
     provisionServer,
     ensureCoolifySourceForInstallation,
-    findUserInstallationByAccount,
+    findUserInstallationByLogin,
     createProject,
     getDefaultDestination,
     createPrivateGithubApp,
@@ -99,10 +95,9 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     const repoUrl = service.repo || "";
     const repoPath = repoUrl.replace(/^https?:\/\/github\.com\//, "");
     const owner = repoPath.split("/")[0];
-    // VERIFY LIVE: findUserInstallationByAccount keys on account_id (numeric) but we only
-    // have the account_login from the URL; this works when account_id === login or when
-    // the caller stored account_id as the login string. Gap: may need a login→id lookup.
-    const row = await d.findUserInstallationByAccount(userId, owner);
+    // owner is a login STRING parsed from the repo URL — key the lookup by
+    // account_login (case-insensitive), not the numeric account_id.
+    const row = await d.findUserInstallationByLogin(userId, owner);
     const installation_id = row?.installation_id;
     if (!installation_id) {
       throw Object.assign(new Error(`No GitHub installation found for account "${owner}"`), { status: 404 });
@@ -159,7 +154,9 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   try {
     for (const { key, value } of envVars) {
       // ponytail: never log key or value — security boundary
-      await d.upsertEnv(appUuid, { key, value, is_secret: false });
+      // Default-secret: Render's API doesn't reliably flag secrets, and its env
+      // vars routinely hold API keys / DATABASE_URL / tokens. Safe default.
+      await d.upsertEnv(appUuid, { key, value, is_secret: true });
     }
     steps.push({ step: "push-env", status: "ok", detail: { count: envVars.length } });
   } catch (err) {

@@ -421,6 +421,29 @@ app.get("/github/setup", requireAuth, async (req, res, next) => {
       accountLogin: info.account_login,
       accountId: info.account_id,
     });
+
+    // Multi-account: when the App is configured to "Request user authorization
+    // during installation", GitHub returns a `code` alongside installation_id.
+    // Exchange it for a user token and record EVERY install the user can see, so
+    // one connect populates all accounts. Additive — never blocks the single path.
+    // VERIFY LIVE: needs GITHUB_APP_CLIENT_ID/SECRET + user-auth enabled on the App.
+    if (req.query.code) {
+      try {
+        const userToken = await githubApp.githubApp.exchangeUserCode(req.query.code);
+        const installs = await githubApp.githubApp.listUserInstallations(userToken);
+        for (const inst of installs) {
+          addUserInstallation({
+            userId: req.user.id,
+            installationId: inst.id,
+            accountLogin: inst.account_login,
+            accountId: String(inst.account_id),
+          });
+        }
+      } catch {
+        // Don't 500 the whole setup on an OAuth hiccup; the single-install path
+        // above already succeeded. No logging — never surface the token/code.
+      }
+    }
     res.redirect((process.env.CLIENT_ORIGIN || "http://localhost:5180") + "/new");
   } catch (err) {
     next(err);

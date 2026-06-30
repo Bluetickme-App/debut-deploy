@@ -11,6 +11,12 @@ function makeFetch(responseBody) {
   });
 }
 
+test("exchangeUserCode + listUserInstallations are exported (route wiring reachable)", () => {
+  const app = createGithubApp({ clientId: "x", clientSecret: "y", httpClient: makeFetch({}) });
+  assert.equal(typeof app.exchangeUserCode, "function");
+  assert.equal(typeof app.listUserInstallations, "function");
+});
+
 test("exchangeUserCode returns access_token", async () => {
   const app = createGithubApp({
     clientId: "x",

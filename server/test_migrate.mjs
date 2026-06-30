@@ -8,6 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const { importFromRender, assertPgUrl } = await import("./migrate.js");
+const { addUserInstallation, findUserInstallationByLogin, seedUser } = await import("./db.js");
 
 // Security: pg connection URL validation (argument-injection guard)
 test("assertPgUrl accepts postgres:// and postgresql:// URLs", () => {
@@ -23,9 +24,19 @@ test("assertPgUrl rejects flag-smuggling / non-postgres values with 400", () => 
 
 // Shared stubs
 const baseDeps = {
-  findUserInstallationByAccount: () => ({ installation_id: 42 }),
+  findUserInstallationByLogin: () => ({ installation_id: 42 }),
   assign: () => {},
 };
+
+// Real db helper: login-keyed lookup must be case-insensitive (the bug was
+// keying by numeric account_id while migrate.js only has the login string).
+test("findUserInstallationByLogin matches account_login case-insensitively", () => {
+  const user = seedUser({ email: "login-test@example.com" }); // FK target for user_installations
+  addUserInstallation({ userId: user.id, installationId: 99, accountLogin: "Acme", accountId: "12345" });
+  const row = findUserInstallationByLogin(user.id, "acme");
+  assert.ok(row, "should find the row by login regardless of case");
+  assert.equal(row.installation_id, 99);
+});
 
 test("(a) happy path: ok:true, truthy appUuid, all non-skipped steps ok", async () => {
   const result = await importFromRender({
