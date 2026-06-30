@@ -48,6 +48,12 @@ export async function registerCoolifyServer({ ip, name }) {
   return { uuid: data.uuid };
 }
 
+// Names currently being provisioned — blocks a double-click / client retry from
+// billing a duplicate server while the first (up-to-2-min) request is in flight.
+// ponytail: in-process lock; persistent name-dedup needs a hetzner listServers()
+// check, the upgrade path noted in the header.
+const inFlight = new Set();
+
 export async function provisionServer({
   name,
   serverType,
@@ -61,7 +67,12 @@ export async function provisionServer({
   if (!name || !serverType) {
     throw Object.assign(new Error("name and serverType are required"), { status: 400 });
   }
+  if (inFlight.has(name)) {
+    throw Object.assign(new Error(`A server named "${name}" is already being provisioned`), { status: 409 });
+  }
+  inFlight.add(name);
   steps.push({ step: "validate", status: "ok", detail: null });
+  try {
 
   // Step 2 — create Hetzner server
   let serverId, ip;
@@ -104,4 +115,7 @@ export async function provisionServer({
   }
 
   return { serverUuid, ip, status: "running", steps };
+  } finally {
+    inFlight.delete(name);
+  }
 }

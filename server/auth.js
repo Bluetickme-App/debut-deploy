@@ -1,5 +1,6 @@
 import session from "express-session";
 import connectSqlite3 from "connect-sqlite3";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -117,7 +118,10 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
         createDirIfNotExists: true,
         concurrentDB: true,
       }),
-      secret: sessionSecret || "demo-session-secret",
+      // No guessable fallback: outside demo mode SESSION_SECRET is required (throws
+      // above); in demo/dev we mint a random per-boot secret so cookies can't be
+      // forged from a public constant (sessions just don't survive a restart).
+      secret: sessionSecret || randomBytes(32).toString("hex"),
       resave: false,
       saveUninitialized: false,
       rolling: true,
@@ -248,8 +252,21 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
+  // Only same-origin/relative redirects survive — blocks OAuth open-redirect
+  // (?returnTo=https://evil.example) used for post-login phishing.
+  function safeReturnTo(raw) {
+    if (!raw) return clientOrigin || "/";
+    try {
+      const u = new URL(raw, clientOrigin || "http://localhost");
+      const base = new URL(clientOrigin || "http://localhost");
+      return u.origin === base.origin ? u.pathname + u.search : clientOrigin || "/";
+    } catch {
+      return clientOrigin || "/";
+    }
+  }
+
   function setReturnTo(req, _res, next) {
-    req.session.returnTo = req.query.returnTo || clientOrigin || "/";
+    req.session.returnTo = safeReturnTo(req.query.returnTo);
     next();
   }
 

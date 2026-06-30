@@ -41,6 +41,10 @@ import { importFromRender } from "./migrate.js";
 import * as render from "./render.js";
 
 const app = express();
+// Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
+// hop so `secure` cookies are set over the proxied connection and req.ip is the
+// real client, not the proxy. ponytail: set to the real hop count if >1 proxy.
+app.set("trust proxy", 1);
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5180";
 const allowedOrigins = new Set(
   [clientOrigin, ...(process.env.ALLOWED_ORIGINS || "").split(",")].map((origin) => origin.trim()).filter(Boolean)
@@ -57,16 +61,37 @@ app.use(express.json());
 
 const { requireAuth, requireAdmin, demoUser } = setupAuth(app, { demoMode, clientOrigin });
 
+// Throttle FAILED Bearer-token auth per IP to blunt online token guessing.
+// Tokens are 192-bit random, so this is defense-in-depth. ponytail: in-process
+// fixed window; use a shared store if you run multiple instances.
+const tokenFails = new Map(); // ip -> { count, resetAt }
+const TOKEN_FAIL_MAX = 10;
+const TOKEN_FAIL_WINDOW_MS = 60_000;
+function tokenAuthBlocked(ip) {
+  const rec = tokenFails.get(ip);
+  return !!rec && Date.now() <= rec.resetAt && rec.count >= TOKEN_FAIL_MAX;
+}
+function recordTokenFail(ip) {
+  if (tokenFails.size > 10_000) tokenFails.clear(); // crude cap against IP-spray memory growth
+  const now = Date.now();
+  const rec = tokenFails.get(ip);
+  if (!rec || now > rec.resetAt) tokenFails.set(ip, { count: 1, resetAt: now + TOKEN_FAIL_WINDOW_MS });
+  else rec.count += 1;
+}
+
 // Programmatic access: if there's no session user but a Bearer token is present,
 // authenticate via API token (for Claude Code / CI to read logs, set env, deploy).
-app.use((req, _res, next) => {
+app.use((req, res, next) => {
   if (!req.user) {
     const m = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
     if (m) {
+      if (tokenAuthBlocked(req.ip)) return res.status(429).json({ error: "Too many attempts" });
       const user = getUserByApiToken(m[1].trim());
       if (user) {
         req.user = user;
         req.viaApiToken = true;
+      } else {
+        recordTokenFail(req.ip);
       }
     }
   }
@@ -98,7 +123,9 @@ function mutateGuard(req, res, next) {
   }
   const isJson = contentType.includes("application/json") || contentType === "";
   if (!isJson) return res.status(403).json({ error: "JSON requests only" });
-  if (originHost && !allowedOrigins.has(originHost)) {
+  // Fail closed: a cookie-authed mutation must carry a recognized same-origin
+  // Origin/Referer. An absent/unparseable header is rejected, not allowed through.
+  if (!originHost || !allowedOrigins.has(originHost)) {
     return res.status(403).json({ error: "Forbidden" });
   }
   next();
@@ -897,8 +924,11 @@ app.put(
 
 // --- error handler ---
 app.use((err, _req, res, _next) => {
+  // Log upstream detail server-side only; never forward it (it carries raw
+  // Coolify/Hetzner/Render response bodies — internal hosts, paths, other UUIDs).
   console.error(err.message, err.detail || "");
-  res.status(err.status || 500).json({ error: err.message, detail: err.detail });
+  const status = err.status || 500;
+  res.status(status).json({ error: status >= 500 ? "Internal error" : err.message });
 });
 
 // --- health monitor: poll live services, audit + notify owners on transitions ---

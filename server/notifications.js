@@ -37,10 +37,16 @@ function isPrivateIp(addr) {
   if (fam === 6) {
     const a = addr.toLowerCase();
     if (a === "::1" || a === "::") return true;                 // loopback / unspecified
-    if (a.startsWith("fe8") || a.startsWith("fe9") || a.startsWith("fea") || a.startsWith("feb")) return true; // fe80::/10
-    if (a.startsWith("fc") || a.startsWith("fd")) return true;  // unique-local fc00::/7
-    const m = a.match(/::ffff:(\d+\.\d+\.\d+\.\d+)/);           // IPv4-mapped
+    if (/^fe[89ab]/.test(a)) return true;                       // fe80::/10 link-local
+    if (/^f[cd]/.test(a)) return true;                          // fc00::/7 unique-local
+    if (a.startsWith("64:ff9b:")) return true;                  // NAT64 — translates to v4, incl. metadata/private
+    const m = a.match(/^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);    // IPv4-mapped / -compatible, dotted form
     if (m) return isPrivateV4(m[1]);
+    const hx = a.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/); // IPv4-mapped, hex form
+    if (hx) {
+      const hi = parseInt(hx[1], 16), lo = parseInt(hx[2], 16);
+      return isPrivateV4(`${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`);
+    }
     return false;
   }
   return true; // not a valid IP literal where one was expected → block
