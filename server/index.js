@@ -852,12 +852,15 @@ app.post(
 app.get(
   "/api/events",
   requireAuth,
-  h((req) =>
-    listEvents({
-      userId: req.user.role === "admin" ? null : req.user.id,
+  h((req) => {
+    const isAdmin = req.user.role === "admin";
+    return listEvents({
+      userId: isAdmin ? null : req.user.id,
+      // include system (user_id NULL) down/up events on the customer's own apps
+      ownedUuids: isAdmin ? [] : ownedUuids(req.user.id, "application"),
       limit: Number(req.query.limit) || 100,
-    })
-  )
+    });
+  })
 );
 
 app.get(
@@ -865,7 +868,11 @@ app.get(
   requireAuth,
   h((req) => {
     assertOwns(req.user, "application", req.params.id);
-    return listEventsForResource(req.params.id, { limit: 100 });
+    return listEventsForResource(req.params.id, {
+      limit: 100,
+      viewerId: req.user.id,
+      isAdmin: req.user.role === "admin",
+    });
   })
 );
 
@@ -896,8 +903,11 @@ app.use((err, _req, res, _next) => {
 
 // --- health monitor: poll live services, audit + notify owners on transitions ---
 let healthSnapshot = {};
+let healthRunning = false; // reentrancy guard: a slow tick must not overlap the next
 if (!demoMode && process.env.NODE_ENV !== "test") {
   const timer = setInterval(async () => {
+    if (healthRunning) return; // previous run still in flight (Coolify slow / many flaps)
+    healthRunning = true;
     try {
       const { snapshot } = await runHealthCheck({
         listServices: coolify.listServices,
@@ -925,6 +935,8 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
       healthSnapshot = snapshot;
     } catch (err) {
       console.error("health monitor:", err.message);
+    } finally {
+      healthRunning = false;
     }
   }, 60_000); // VERIFY LIVE: cadence
   timer.unref?.();

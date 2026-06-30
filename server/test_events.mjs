@@ -45,6 +45,37 @@ test("recordSystem + listEventsForResource returns both events newest-first", ()
   assert.equal(events[1].action, "deploy");
 });
 
+test("listEventsForResource redacts prior-owner actor identity for non-admins", () => {
+  // app-1's deploy was performed by alice. A different viewer (bob) who now owns
+  // the resource must NOT see alice's email/name; an admin must.
+  const asBob = listEventsForResource("app-1", { viewerId: other.id, isAdmin: false });
+  const deployRow = asBob.find((e) => e.action === "deploy");
+  assert.ok(deployRow, "deploy row missing");
+  assert.equal(deployRow.actor_email, null, "prior owner email must be redacted");
+  assert.equal(deployRow.actor_name, null, "prior owner name must be redacted");
+
+  const asAdmin = listEventsForResource("app-1", { viewerId: other.id, isAdmin: true });
+  assert.equal(asAdmin.find((e) => e.action === "deploy").actor_email, "alice@example.com");
+
+  // the owner themselves still sees their own identity
+  const asAlice = listEventsForResource("app-1", { viewerId: user.id, isAdmin: false });
+  assert.equal(asAlice.find((e) => e.action === "deploy").actor_email, "alice@example.com");
+});
+
+test("listEvents includes system events on the customer's owned resources", () => {
+  // alice owns app-1, which has a system service.down (user_id NULL). Without
+  // ownedUuids it would be invisible to her; with it, it appears.
+  const without = listEvents({ userId: user.id });
+  assert.equal(without.some((e) => e.action === "service.down"), false);
+
+  const withOwned = listEvents({ userId: user.id, ownedUuids: ["app-1"] });
+  assert.ok(withOwned.some((e) => e.action === "service.down" && e.resource_uuid === "app-1"),
+    "system down event on owned resource must appear in the customer feed");
+  // and it carries no actor identity (system event)
+  const downRow = withOwned.find((e) => e.action === "service.down");
+  assert.equal(downRow.actor_email, null);
+});
+
 test("limit is clamped to 500", () => {
   // Just verify the query runs (can't easily exceed 500 rows in unit test);
   // pass 9999 and confirm it doesn't throw and returns ≤500
