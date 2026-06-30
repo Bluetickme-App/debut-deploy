@@ -103,6 +103,17 @@ const MIGRATIONS = [
       );
     `);
   },
+  // -> user_version 6: per-user outbound webhook notification settings
+  (d) => {
+    d.exec(`
+      CREATE TABLE notification_settings (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id),
+        webhook_url TEXT,
+        enabled INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 function resolveDbFile() {
