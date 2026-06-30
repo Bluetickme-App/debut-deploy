@@ -22,6 +22,8 @@ import {
   getUserByApiToken,
   listApiTokens,
   deleteApiToken,
+  addUserInstallation,
+  listUserInstallations,
 } from "./db.js";
 import { record } from "./audit.js";
 import * as dns from "./dns.js";
@@ -29,6 +31,10 @@ import * as resources from "./resources.js";
 import * as volumes from "./volumes.js";
 import * as sharedvars from "./sharedvars.js";
 import * as backups from "./backups.js";
+import * as hetzner from "./hetzner.js";
+import { provisionServer } from "./provision.js";
+import { importFromRender } from "./migrate.js";
+import * as render from "./render.js";
 
 const app = express();
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5180";
@@ -408,6 +414,13 @@ app.get("/github/setup", requireAuth, async (req, res, next) => {
     }
 
     setInstallation({ userId: req.user.id, installationId: Number(installation_id), accountLogin: info.account_login });
+    // Also populate multi-install storage alongside the legacy single-install row.
+    addUserInstallation({
+      userId: req.user.id,
+      installationId: Number(installation_id),
+      accountLogin: info.account_login,
+      accountId: info.account_id,
+    });
     res.redirect((process.env.CLIENT_ORIGIN || "http://localhost:5180") + "/new");
   } catch (err) {
     next(err);
@@ -437,10 +450,29 @@ async function ensureInstallation(user) {
   return null;
 }
 
+app.get("/api/github/installations", requireAuth, h((req) => listUserInstallations(req.user.id)));
+
 app.get("/api/github/repos", requireAuth, h(async (req, res) => {
-  const inst = await ensureInstallation(req.user);
-  if (!inst) return res.status(409).json({ needsConnect: true });
-  return githubApp.githubApp.listRepos(inst.installation_id);
+  // Aggregate across all of the user's installations. Fall back to the legacy
+  // single install (auto-discovered) when the multi list is empty — back-compat.
+  let installs = listUserInstallations(req.user.id).map((r) => ({
+    installation_id: r.installation_id,
+    account_login: r.account_login,
+  }));
+  if (installs.length === 0) {
+    const inst = await ensureInstallation(req.user);
+    if (!inst) return res.status(409).json({ needsConnect: true });
+    installs = [{ installation_id: inst.installation_id, account_login: inst.account_login }];
+  }
+  // ponytail: per-installation listRepos in series is fine for a handful of installs; parallelize only if it's slow.
+  const out = [];
+  for (const inst of installs) {
+    const repos = await githubApp.githubApp.listRepos(inst.installation_id);
+    for (const r of repos) {
+      out.push({ ...r, account_login: inst.account_login, installation_id: inst.installation_id });
+    }
+  }
+  return out;
 }));
 
 app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, res) => {
@@ -718,6 +750,64 @@ app.post(
     assertOwns(req.user, "database", req.params.id);
     const result = await backups.triggerBackup(req.params.id);
     record(req, "backup.trigger", { resourceType: "database", resourceUuid: req.params.id });
+    return result;
+  })
+);
+
+// --- Hetzner provisioning (admin only) ---
+app.get(
+  "/api/hetzner/server-types",
+  requireAuth,
+  requireAdmin,
+  h(() => hetzner.listServerTypes())
+);
+
+app.get(
+  "/api/hetzner/locations",
+  requireAuth,
+  requireAdmin,
+  h(() => hetzner.listLocations())
+);
+
+app.post(
+  "/api/servers/provision",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const { name, serverType, location } = req.body || {};
+    const result = await provisionServer({ name, serverType, location });
+    record(req, "server.provision", { metadata: { name, serverType, location } });
+    return result;
+  })
+);
+
+app.get(
+  "/api/servers/:id/provision-status",
+  requireAuth,
+  requireAdmin,
+  // ponytail: no job store yet — status is read straight from Hetzner.
+  h((req) => hetzner.getServer(req.params.id))
+);
+
+// --- Render importer ---
+app.post(
+  "/api/import/render/services",
+  requireAuth,
+  mutateGuard,
+  // POST (not GET) because the API key travels in the body; never logged.
+  h((req) => render.listServices(req.body?.apiKey))
+);
+
+app.post(
+  "/api/import/render",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    const { renderServiceId, target, apiKey } = req.body || {};
+    const result = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
+    // audit without the apiKey
+    record(req, "import.render", { metadata: { renderServiceId, target } });
     return result;
   })
 );
