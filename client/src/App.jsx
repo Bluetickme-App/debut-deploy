@@ -1,6 +1,10 @@
-import { Routes, Route, NavLink, useLocation } from "react-router-dom";
-import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus, Sun, Moon, KeyRound, DownloadCloud, Activity as ActivityIcon, Bell } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
+  ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
 import Dashboard from "./pages/Dashboard.jsx";
 import ServiceDetail from "./pages/ServiceDetail.jsx";
@@ -12,162 +16,356 @@ import NotificationSettings from "./pages/NotificationSettings.jsx";
 import SharedVars from "./pages/SharedVars.jsx";
 import Servers from "./pages/Servers.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
+import Projects from "./pages/Projects.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
+import { ProjectProvider, useProjects } from "./lib/projects.jsx";
+
+// ─── Project Switcher ────────────────────────────────────────────────────────
+
+function ProjectSwitcher() {
+  const { projects, activeProject, setActive } = useProjects();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const tile = (color) => ({
+    width: 22, height: 22, borderRadius: 6,
+    background: color, color: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 11, fontWeight: 700, flexShrink: 0,
+  });
+
+  return (
+    <div ref={ref} style={{ position: "relative", padding: "0 12px 12px" }}>
+      {/* trigger button */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 8, padding: "8px 10px", borderRadius: 9,
+          border: "1px solid var(--border)", background: "var(--surface)",
+          cursor: "pointer", width: "100%", transition: "background .15s, border-color .15s",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.background = "var(--surface-2)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--surface)"; }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+          <span style={tile(activeProject.color)}>
+            {activeProject.name[0].toUpperCase()}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, minWidth: 0 }}>
+            <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", color: "var(--text-muted)", textTransform: "uppercase" }}>
+              Project
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {activeProject.name}
+            </span>
+          </div>
+        </div>
+        <ChevronsUpDown size={15} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+      </button>
+
+      {/* dropdown */}
+      {open && (
+        <div style={{
+          position: "absolute", top: "100%", left: 12, right: 12, marginTop: 5,
+          background: "var(--surface)", border: "1px solid var(--border)",
+          borderRadius: 11, boxShadow: "var(--shadow-lg)", padding: 6, zIndex: 40,
+        }}>
+          {projects.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => { setActive(p.id); setOpen(false); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 9,
+                padding: "7px 8px", borderRadius: 8, cursor: "pointer",
+                width: "100%", background: "transparent", border: "none",
+                transition: "background .15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <span style={tile(p.color)}>{p.name[0].toUpperCase()}</span>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--text)", textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p.name}
+              </span>
+              {p.id === activeProject.id && (
+                <Check size={15} style={{ color: "var(--accent)", flexShrink: 0 }} />
+              )}
+            </button>
+          ))}
+
+          <div style={{ height: 1, background: "var(--border)", margin: "6px 4px" }} />
+
+          <button
+            onClick={() => { setOpen(false); navigate("/projects"); }}
+            style={{
+              display: "flex", alignItems: "center", gap: 9,
+              padding: "7px 8px", borderRadius: 8, cursor: "pointer",
+              width: "100%", background: "transparent", border: "none",
+              color: "var(--accent-text)", fontSize: 13, fontWeight: 600,
+              transition: "background .15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-soft)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <Plus size={16} />
+            New project
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 function Sidebar() {
   const { user } = useAuth();
 
-  const link = ({ isActive }) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-      isActive
-        ? "bg-[var(--accent)] text-[var(--accent-contrast)]"
-        : "text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
-    }`;
+  const navLink = ({ isActive }) => ({
+    display: "flex", alignItems: "center", gap: 11,
+    padding: "8px 11px", borderRadius: 8,
+    textDecoration: "none", fontSize: 13.5, fontWeight: isActive ? 600 : 500,
+    color: isActive ? "var(--accent-text)" : "var(--text-muted)",
+    background: isActive ? "var(--accent-soft)" : "transparent",
+    transition: "background .15s, color .15s",
+  });
+
+  // hover handled via onMouse events on the <NavLink> wrapper
+  function HoverNavLink({ to, end, children }) {
+    const [hov, setHov] = useState(false);
+    return (
+      <NavLink
+        to={to}
+        end={end}
+        style={({ isActive }) => ({
+          ...navLink({ isActive }),
+          ...(hov && !isActive ? { background: "var(--surface-2)", color: "var(--text)" } : {}),
+        })}
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}
+      >
+        {children}
+      </NavLink>
+    );
+  }
 
   return (
-    <aside
-      className="flex w-60 shrink-0 flex-col border-r p-3"
-      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-    >
+    <aside style={{
+      width: 240, flexShrink: 0, height: "100%",
+      display: "flex", flexDirection: "column",
+      background: "var(--surface)", borderRight: "1px solid var(--border)",
+    }}>
       {/* Brand */}
-      <div className="flex items-center gap-2.5 px-2 py-3 mb-1">
-        <div
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg font-bold text-sm"
-          style={{ background: "var(--accent)", color: "var(--accent-contrast)", fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          D
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 18px 14px" }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 8,
+          background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 1px 2px rgba(0,0,0,.18)",
+        }}>
+          <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--accent-contrast)", lineHeight: 1 }}>D</span>
         </div>
-        <span
-          className="text-sm font-bold tracking-tight"
-          style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)", fontWeight: 700 }}
-        >
-          DebutDeploy
+        <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--text)" }}>
+          Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
         </span>
       </div>
 
+      {/* Project switcher */}
+      <ProjectSwitcher />
+
       {/* Nav */}
-      <nav className="flex flex-col gap-0.5">
-        <NavLink to="/" end className={link}>
-          <LayoutGrid className="h-4 w-4 shrink-0" /> Services
-        </NavLink>
-        <NavLink to="/databases" className={link}>
-          <Database className="h-4 w-4 shrink-0" /> Databases
-        </NavLink>
-
-        {/* Divider */}
-        <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
-
-        <NavLink to="/new" className={link}>
-          <Plus className="h-4 w-4 shrink-0" /> New Service
-        </NavLink>
-        <NavLink to="/new-database" className={link}>
-          <Plus className="h-4 w-4 shrink-0" /> New Database
-        </NavLink>
-        <NavLink to="/activity" className={link}>
-          <ActivityIcon className="h-4 w-4 shrink-0" /> Activity
-        </NavLink>
-        <NavLink to="/notifications" className={link}>
-          <Bell className="h-4 w-4 shrink-0" /> Notifications
-        </NavLink>
+      <nav style={{ flex: 1, overflowY: "auto", padding: "6px 12px", display: "flex", flexDirection: "column", gap: 2 }}>
+        <HoverNavLink to="/projects"><FolderOpen size={18} /><span>Projects</span></HoverNavLink>
+        <HoverNavLink to="/" end><Layers size={18} /><span>Services</span></HoverNavLink>
+        <HoverNavLink to="/databases"><Database size={18} /><span>Infrastructure</span></HoverNavLink>
+        <HoverNavLink to="/new"><SquarePlus size={18} /><span>New Service</span></HoverNavLink>
+        <HoverNavLink to="/new-database"><Database size={18} /><span>New Database</span></HoverNavLink>
+        <HoverNavLink to="/activity"><ActivityIcon size={18} /><span>Activity</span></HoverNavLink>
+        <HoverNavLink to="/notifications"><Bell size={18} /><span>Notifications</span></HoverNavLink>
 
         {user?.role === "admin" && (
           <>
-            <div className="my-1.5 border-t" style={{ borderColor: "var(--border)" }} />
-            <NavLink to="/servers" className={link}>
-              <Server className="h-4 w-4 shrink-0" /> Servers
-            </NavLink>
-            <NavLink to="/shared-vars" className={link}>
-              <KeyRound className="h-4 w-4 shrink-0" /> Shared Vars
-            </NavLink>
-            <NavLink to="/import" className={link}>
-              <DownloadCloud className="h-4 w-4 shrink-0" /> Import from Render
-            </NavLink>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 10px 6px" }}>
+              <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.09em", color: "var(--text-muted)", textTransform: "uppercase" }}>Admin</span>
+              <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            </div>
+            <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
+            <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
+            <HoverNavLink to="/import"><DownloadCloud size={18} /><span>Import from Render</span></HoverNavLink>
           </>
         )}
       </nav>
 
       {/* Footer */}
-      <div className="mt-auto px-2 pt-3 text-[11px] mono" style={{ color: "var(--text-muted)" }}>
-        v0.1 · Coolify · Hetzner
+      <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 7 }}>
+        <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>v1.4.2</span>
+        <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-muted)", opacity: 0.6 }} />
+        <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>Coolify 4.0</span>
       </div>
     </aside>
   );
 }
 
+// ─── Topbar ──────────────────────────────────────────────────────────────────
+
+const CRUMB_MAP = {
+  "/": "Services",
+  "/projects": "Projects",
+  "/databases": "Infrastructure",
+  "/new": "New Service",
+  "/new-database": "New Database",
+  "/activity": "Activity",
+  "/notifications": "Notifications",
+  "/servers": "Servers",
+  "/shared-vars": "Variable Groups",
+  "/import": "Import from Render",
+};
+
 function Topbar() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
+  const location = useLocation();
   const [mode, setMode] = useState(null);
+  const [logoutHov, setLogoutHov] = useState(false);
+  const [themeHov, setThemeHov] = useState(false);
 
   useEffect(() => {
     api.health().then((h) => setMode(h.mode)).catch(() => setMode("offline"));
   }, []);
 
-  // map mode → pill class + label
-  const modePill = {
-    live:    { cls: "pill-ok",   label: "Live · Coolify" },
-    demo:    { cls: "pill-warn", label: "Demo · Coolify" },
-    offline: { cls: "pill-err",  label: "API offline" },
-  }[mode] ?? null;
+  const crumb = CRUMB_MAP[location.pathname] ??
+    (location.pathname.startsWith("/services/") ? "Service Detail" : "");
+
+  const isLive = mode === "live";
+  const envLabel = mode === "demo" ? "Demo" : mode === "live" ? "Live" : null;
+
+  const initials = user?.name
+    ? user.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+    : (user?.email?.[0] ?? "?").toUpperCase();
 
   return (
-    <header
-      className="flex h-14 shrink-0 items-center gap-3 border-b px-5"
-      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-    >
-      <div className="ml-auto flex items-center gap-2">
-        {/* Mode pill */}
-        {modePill && (
-          <span className={`pill ${modePill.cls}`}>
-            {/* ponytail: live dot is purely decorative */}
-            <span
-              className={`pulse-dot ${modePill.cls === "pill-ok" ? "bg-[var(--ok)]" : modePill.cls === "pill-warn" ? "bg-[var(--warn)]" : "bg-[var(--err)]"}`}
-            />
-            {modePill.label}
-          </span>
+    <header style={{
+      height: 56, flexShrink: 0,
+      borderBottom: "1px solid var(--border)", background: "var(--surface)",
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "0 18px 0 24px",
+    }}>
+      {/* Breadcrumb */}
+      <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--text-muted)", fontSize: 13 }}>
+        <span style={{ fontWeight: 500, color: "var(--text)" }}>{crumb}</span>
+      </div>
+
+      {/* Right cluster */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {/* Env pill */}
+        {envLabel && (
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            padding: "5px 11px", borderRadius: 999,
+            fontSize: 12, fontWeight: 600,
+            background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)",
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: isLive ? "var(--ok)" : "var(--warn)",
+              boxShadow: isLive ? "0 0 0 3px var(--ok-soft)" : "0 0 0 3px var(--warn-soft)",
+            }} />
+            {envLabel}
+            <span style={{ opacity: 0.6, fontWeight: 450 }}> · Coolify</span>
+          </div>
         )}
 
-        {/* User chip */}
-        <div
-          className="hidden sm:flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm"
-          style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text-muted)" }}
-        >
-          <UserCircle2 className="h-4 w-4 shrink-0" />
-          <span className="max-w-36 truncate" style={{ color: "var(--text)" }}>
-            {user?.name || user?.email || "Signed in"}
-          </span>
-        </div>
+        {/* Divider */}
+        <span style={{ width: 1, height: 22, background: "var(--border)", margin: "0 2px" }} />
 
         {/* Theme toggle */}
         <button
           onClick={toggle}
-          className="btn btn-ghost"
-          aria-label="Toggle theme"
-          title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+          title="Toggle theme"
+          onMouseEnter={() => setThemeHov(true)}
+          onMouseLeave={() => setThemeHov(false)}
+          style={{
+            width: 34, height: 34, borderRadius: 8,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", border: "1px solid transparent",
+            background: themeHov ? "var(--surface-2)" : "transparent",
+            color: themeHov ? "var(--text)" : "var(--text-muted)",
+            transition: "background .15s, color .15s",
+          }}
         >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
+        {/* User chip */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 9,
+          padding: "4px 8px 4px 5px", borderRadius: 9, cursor: "default",
+          border: "1px solid transparent",
+        }}>
+          <span style={{
+            width: 28, height: 28, borderRadius: "50%",
+            background: "linear-gradient(135deg,#6366f1,#2563eb)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#fff", fontSize: 11.5, fontWeight: 600, letterSpacing: "0.02em",
+          }}>
+            {initials}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
+              {user?.name || user?.email || "User"}
+            </span>
+            <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>
+              {user?.role || "member"}
+            </span>
+          </div>
+          <ChevronDown size={14} style={{ color: "var(--text-muted)", marginLeft: 1 }} />
+        </div>
+
         {/* Logout */}
-        <button onClick={logout} className="btn btn-ghost">
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Logout</span>
+        <button
+          onClick={logout}
+          title="Log out"
+          onMouseEnter={() => setLogoutHov(true)}
+          onMouseLeave={() => setLogoutHov(false)}
+          style={{
+            width: 34, height: 34, borderRadius: 8,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", border: "1px solid transparent",
+            background: logoutHov ? "var(--err-soft)" : "transparent",
+            color: logoutHov ? "var(--err-text)" : "var(--text-muted)",
+            transition: "background .15s, color .15s",
+          }}
+        >
+          <LogOut size={17} />
         </button>
       </div>
     </header>
   );
 }
 
+// ─── App Shell ───────────────────────────────────────────────────────────────
+
 function AppShell() {
   const location = useLocation();
   return (
-    <div className="flex h-full" style={{ background: "var(--bg)" }}>
+    <div style={{ display: "flex", height: "100%", background: "var(--bg)" }}>
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%" }}>
         <Topbar />
-        <main key={location.pathname} className="flex-1 overflow-y-auto p-0">
+        <main key={location.pathname} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--bg)" }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
@@ -179,12 +377,15 @@ function AppShell() {
             <Route path="/shared-vars" element={<SharedVars />} />
             <Route path="/servers" element={<Servers />} />
             <Route path="/import" element={<ImportRender />} />
+            <Route path="/projects" element={<Projects />} />
           </Routes>
         </main>
       </div>
     </div>
   );
 }
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
   return (
@@ -196,7 +397,9 @@ export default function App() {
             path="/*"
             element={
               <RequireAuth>
-                <AppShell />
+                <ProjectProvider>
+                  <AppShell />
+                </ProjectProvider>
               </RequireAuth>
             }
           />
