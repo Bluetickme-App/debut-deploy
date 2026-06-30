@@ -1,5 +1,5 @@
 import { Routes, Route, NavLink, useLocation } from "react-router-dom";
-import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus, Sun, Moon, KeyRound, DownloadCloud } from "lucide-react";
+import { LayoutGrid, Database, Server, Search, LogOut, UserCircle2, Plus, Sun, Moon, KeyRound, DownloadCloud, Activity as ActivityIcon, Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "./lib/api.js";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -7,6 +7,8 @@ import ServiceDetail from "./pages/ServiceDetail.jsx";
 import Databases from "./pages/Databases.jsx";
 import NewService from "./pages/NewService.jsx";
 import NewDatabase from "./pages/NewDatabase.jsx";
+import Activity from "./pages/Activity.jsx";
+import NotificationSettings from "./pages/NotificationSettings.jsx";
 import SharedVars from "./pages/SharedVars.jsx";
 import Servers from "./pages/Servers.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
@@ -62,6 +64,12 @@ function Sidebar() {
         </NavLink>
         <NavLink to="/new-database" className={link}>
           <Plus className="h-4 w-4 shrink-0" /> New Database
+        </NavLink>
+        <NavLink to="/activity" className={link}>
+          <ActivityIcon className="h-4 w-4 shrink-0" /> Activity
+        </NavLink>
+        <NavLink to="/notifications" className={link}>
+          <Bell className="h-4 w-4 shrink-0" /> Notifications
         </NavLink>
 
         {user?.role === "admin" && (
@@ -166,6 +174,8 @@ function AppShell() {
             <Route path="/databases" element={<Databases />} />
             <Route path="/new" element={<NewService />} />
             <Route path="/new-database" element={<NewDatabase />} />
+            <Route path="/activity" element={<Activity />} />
+            <Route path="/notifications" element={<NotificationSettings />} />
             <Route path="/shared-vars" element={<SharedVars />} />
             <Route path="/servers" element={<Servers />} />
             <Route path="/import" element={<ImportRender />} />

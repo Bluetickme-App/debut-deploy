@@ -58,4 +58,9 @@ export const api = {
   // Render importer (admin)
   renderServices: (apiKey) => req("/import/render/services", { method: "POST", body: { apiKey } }),
   importRender:   (body) => req("/import/render", { method: "POST", body }),
+  // Activity & notifications
+  events:           (limit) => req(`/events${limit ? `?limit=${limit}` : ""}`),
+  serviceEvents:    (id) => req(`/services/${id}/events`),
+  getNotifications: () => req("/notifications"),
+  saveNotifications:(body) => req("/notifications", { method: "PUT", body }),
 };

@@ -6,13 +6,14 @@ import {
   HardDrive, Activity, Heart, Plus,
 } from "lucide-react";
 import { api } from "../lib/api.js";
+import { actionLabel } from "../lib/eventLabels.js";
 import {
   StatusPill, Spinner, Button, Input, Mono, timeAgo, Field,
 } from "../components/ui.jsx";
 import EnvEditor from "../components/EnvEditor.jsx";
 import LogStream from "../components/LogStream.jsx";
 
-const TABS = ["Deployments", "Logs", "Environment", "Settings"];
+const TABS = ["Deployments", "Logs", "Environment", "Events", "Settings"];
 
 export default function ServiceDetail() {
   const { id } = useParams();
@@ -178,6 +179,7 @@ export default function ServiceDetail() {
             <EnvEditor key={envKey} serviceId={id} />
           </div>
         )}
+        {tab === "Events" && <EventsTab serviceId={id} />}
         {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} isAdmin={user?.role === "admin"} />}
       </div>
     </div>
@@ -244,6 +246,61 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
           <Rocket className="h-4 w-4" /> Redeploy latest
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ── Events tab ─────────────────────────────────────────────────────────────────
+
+function EventsTab({ serviceId }) {
+  const [events, setEvents] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.serviceEvents(serviceId)
+      .then((data) => { if (!cancelled) setEvents(data); })
+      .catch((e) => { if (!cancelled) setErr(e); });
+    return () => { cancelled = true; };
+  }, [serviceId]);
+
+  if (err) return (
+    <div className="card text-sm" style={{ color: "var(--err)" }}>
+      Failed to load events: {err.message}
+    </div>
+  );
+
+  if (!events) return (
+    <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+      <Spinner className="mr-2 inline" /> Loading events…
+    </div>
+  );
+
+  return (
+    <div className="overflow-hidden rounded-xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      {events.length === 0 && (
+        <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          No events recorded yet.
+        </div>
+      )}
+      {events.map((ev, i) => {
+        const isDown = ev.action === "service.down";
+        const isUp = ev.action === "service.up";
+        const labelColor = isDown ? "var(--err)" : isUp ? "var(--ok)" : "var(--text)";
+        const label = actionLabel(ev.action);
+        const actor = ev.actor_name || ev.actor_email || "system";
+        return (
+          <div
+            key={ev.id ?? i}
+            className="flex items-center gap-4 px-4 py-3 text-sm"
+            style={i !== 0 ? { borderTop: "1px solid var(--border)" } : {}}
+          >
+            <span className="font-medium min-w-0" style={{ color: labelColor }}>{label}</span>
+            <span className="truncate flex-1 text-xs" style={{ color: "var(--text-muted)" }}>{actor}</span>
+            <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>{timeAgo(ev.created_at)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
