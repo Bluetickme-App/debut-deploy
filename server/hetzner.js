@@ -100,3 +100,28 @@ export async function deleteServer(id) {
   await hz(`/servers/${id}`, { method: "DELETE" });
   return { ok: true };
 }
+
+export async function listSshKeys() {
+  if (isDemo()) {
+    return [{ id: 1, name: "demo-key", fingerprint: "aa:bb:cc", public_key: "ssh-ed25519 DEMOKEY" }];
+  }
+  const data = await hz("/ssh_keys"); // live-verified shape: { ssh_keys: [{id,name,fingerprint,public_key}] }
+  return (data.ssh_keys || []).map(({ id, name, fingerprint, public_key }) => ({ id, name, fingerprint, public_key }));
+}
+
+// Idempotent: returns the existing Hetzner key matching `publicKey`, else creates
+// it. Used so a Coolify private key's public half is present on provisioned boxes.
+export async function ensureSshKey({ name, publicKey } = {}) {
+  if (!publicKey) throw Object.assign(new Error("publicKey is required"), { status: 400 });
+  if (isDemo()) return { id: 1, name: name || "demo-key" };
+  // Compare on the type+base64 body, ignoring the trailing comment.
+  const body = (s) => (s || "").trim().split(/\s+/).slice(0, 2).join(" ");
+  const keys = await listSshKeys();
+  const match = keys.find((k) => body(k.public_key) === body(publicKey));
+  if (match) return { id: match.id, name: match.name };
+  // Hetzner key names must be unique; suffix on collision.
+  let finalName = name || "key";
+  if (keys.some((k) => k.name === finalName)) finalName = `${finalName}-${Date.now().toString(36)}`;
+  const data = await hz("/ssh_keys", { method: "POST", body: { name: finalName, public_key: publicKey } });
+  return { id: data.ssh_key.id, name: data.ssh_key.name };
+}

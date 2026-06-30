@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 process.env.DEMO_MODE = "true";
 // HETZNER_API_TOKEN intentionally not set → isDemo() is true regardless
 
-const { createServer, listServerTypes } = await import("./hetzner.js");
+const { createServer, listServerTypes, listSshKeys, ensureSshKey } = await import("./hetzner.js");
 
 test("createServer demo returns object with id and ip", async () => {
   const result = await createServer({ name: "test-srv", serverType: "cx22" });
@@ -39,4 +39,16 @@ test("listServerTypes demo returns non-empty array with name on each item", asyn
   for (const t of types) {
     assert.ok(typeof t.name === "string", "each item should have a name string");
   }
+});
+
+test("listSshKeys demo returns keys with a public_key", async () => {
+  const keys = await listSshKeys();
+  assert.ok(Array.isArray(keys) && keys.length > 0);
+  assert.ok(typeof keys[0].public_key === "string");
+});
+
+test("ensureSshKey demo returns a key; rejects missing publicKey", async () => {
+  const k = await ensureSshKey({ name: "coolify-provision", publicKey: "ssh-ed25519 AAAA" });
+  assert.ok(k.name, "should return a named key");
+  await assert.rejects(() => ensureSshKey({ name: "x" }), (e) => e.status === 400);
 });

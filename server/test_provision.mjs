@@ -47,6 +47,7 @@ test("missing serverType rejects with status 400", async () => {
 test("steps array includes create-server, await-running, register-coolify", async () => {
   const result = await provisionServer({ name: "box1", serverType: "cx22", sleep: noSleep });
   const stepNames = result.steps.map((s) => s.step);
+  assert.ok(stepNames.includes("prepare-ssh-key"), "missing prepare-ssh-key step");
   assert.ok(stepNames.includes("create-server"), "missing create-server step");
   assert.ok(stepNames.includes("await-running"), "missing await-running step");
   assert.ok(stepNames.includes("register-coolify"), "missing register-coolify step");
