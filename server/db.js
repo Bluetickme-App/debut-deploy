@@ -89,6 +89,20 @@ const MIGRATIONS = [
       );
     `);
   },
+  // -> user_version 5: multi-installation support (one user, many GitHub App installs)
+  (d) => {
+    d.exec(`
+      CREATE TABLE user_installations (
+        id INTEGER PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        installation_id INTEGER NOT NULL,
+        account_login TEXT,
+        account_id TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE(user_id, installation_id)
+      );
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -232,3 +246,18 @@ export const listApiTokens = (userId) =>
 
 export const deleteApiToken = (userId, id) =>
   db.prepare("DELETE FROM api_tokens WHERE id = ? AND user_id = ?").run(id, userId);
+
+// --- multi-installation helpers (user_installations table) -------------------
+
+export function addUserInstallation({ userId, installationId, accountLogin = null, accountId = null }) {
+  db.prepare(
+    "INSERT INTO user_installations (user_id, installation_id, account_login, account_id, created_at) VALUES (?,?,?,?,?) " +
+      "ON CONFLICT(user_id, installation_id) DO UPDATE SET account_login = excluded.account_login, account_id = excluded.account_id"
+  ).run(userId, installationId, accountLogin, accountId, new Date().toISOString());
+}
+
+export const listUserInstallations = (userId) =>
+  db.prepare("SELECT * FROM user_installations WHERE user_id = ? ORDER BY id").all(userId);
+
+export const findUserInstallationByAccount = (userId, accountId) =>
+  db.prepare("SELECT * FROM user_installations WHERE user_id = ? AND account_id = ?").get(userId, accountId);

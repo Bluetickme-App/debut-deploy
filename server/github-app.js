@@ -5,9 +5,11 @@
 
 import { createSign } from "node:crypto";
 
-const APP_ID   = process.env.GITHUB_APP_ID   || "";
-const PEM      = process.env.GITHUB_APP_PRIVATE_KEY || "";
-const APP_SLUG = process.env.GITHUB_APP_SLUG || "";
+const APP_ID          = process.env.GITHUB_APP_ID             || "";
+const PEM             = process.env.GITHUB_APP_PRIVATE_KEY    || "";
+const APP_SLUG        = process.env.GITHUB_APP_SLUG           || "";
+const GITHUB_CLIENT_ID     = process.env.GITHUB_APP_CLIENT_ID     || "";
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET || "";
 
 // --- JWT helpers (RS256) -----------------------------------------------------
 
@@ -27,7 +29,7 @@ export function mintJwt(appId, pem, now = Math.floor(Date.now() / 1000)) {
 
 // --- factory (injectable) ----------------------------------------------------
 
-export function createGithubApp({ appId = APP_ID, pem = PEM, slug = APP_SLUG, httpClient = fetch } = {}) {
+export function createGithubApp({ appId = APP_ID, pem = PEM, slug = APP_SLUG, clientId = GITHUB_CLIENT_ID, clientSecret = GITHUB_CLIENT_SECRET, httpClient = fetch } = {}) {
 
   async function gh(path, token, { method = "GET", body } = {}) {
     const res = await httpClient(`https://api.github.com${path}`, {
@@ -94,7 +96,42 @@ export function createGithubApp({ appId = APP_ID, pem = PEM, slug = APP_SLUG, ht
     }));
   }
 
-  return { installationToken, listRepos, listBranches, installUrl, getInstallationInfo, listInstallations };
+  // VERIFY LIVE — exchanges the OAuth callback code for a user access token.
+  async function exchangeUserCode(code) {
+    const res = await httpClient("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error_description || data.error);
+    return data.access_token;
+  }
+
+  // Lists GitHub App installations visible to the signed-in user (user-token endpoint).
+  // Distinct from listInstallations() which uses a JWT and hits /app/installations.
+  async function listUserInstallations(userToken) {
+    const res = await httpClient("https://api.github.com/user/installations", {
+      headers: {
+        Authorization: `Bearer ${userToken}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw Object.assign(new Error(`GitHub GET /user/installations → ${res.status}: ${text}`), { status: res.status });
+    }
+    const data = await res.json();
+    return data.installations.map(i => ({
+      id: i.id,
+      account_login: i.account?.login || null,
+      account_id: i.account?.id ?? null,
+      account_type: i.account?.type || null,
+    }));
+  }
+
+  return { installationToken, listRepos, listBranches, installUrl, getInstallationInfo, listInstallations, exchangeUserCode, listUserInstallations };
 }
 
 // --- default singleton (env-backed) -----------------------------------------
