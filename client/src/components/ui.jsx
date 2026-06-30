@@ -35,7 +35,7 @@ export function PageHeader({ title, subtitle, actions }) {
   return (
     <div className="flex items-start justify-between gap-4 mb-6">
       <div>
-        <h1 className="text-2xl font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+        <h1 className="text-2xl font-bold" style={{ fontFamily: "'Geist', sans-serif", letterSpacing: "-0.01em", color: "var(--text)" }}>
           {title}
         </h1>
         {subtitle && <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{subtitle}</p>}
@@ -101,7 +101,7 @@ export function Select({ className = "", children, ...props }) {
 export function EmptyState({ title, description, action }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-      <p className="text-lg font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
+      <p className="text-lg font-semibold" style={{ fontFamily: "'Geist', sans-serif", letterSpacing: "-0.01em", color: "var(--text)" }}>
         {title}
       </p>
       {description && <p className="text-sm max-w-xs" style={{ color: "var(--text-muted)" }}>{description}</p>}
