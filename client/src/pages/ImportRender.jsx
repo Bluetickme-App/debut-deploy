@@ -198,7 +198,9 @@ export default function ImportRender() {
                 <StepBadge status={s.status} />
                 <span className="flex-1 text-sm" style={{ color: "var(--text)" }}>{s.step}</span>
                 {s.detail && (
-                  <span className="text-xs truncate max-w-xs" style={{ color: "var(--text-muted)" }}>{s.detail}</span>
+                  <span className="text-xs truncate max-w-xs" style={{ color: "var(--text-muted)" }}>
+                    {typeof s.detail === "string" ? s.detail : Object.values(s.detail).join(" ")}
+                  </span>
                 )}
               </li>
             ))}

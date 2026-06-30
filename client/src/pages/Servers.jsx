@@ -162,7 +162,7 @@ export default function Servers() {
                     <li key={i} className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
                       <StepIcon status={s.status} />
                       <span style={{ color: "var(--text)" }}>{s.step}</span>
-                      {s.detail && <span>— {s.detail}</span>}
+                      {s.detail && <span>— {typeof s.detail === "string" ? s.detail : Object.values(s.detail).join(" ")}</span>}
                     </li>
                   ))}
                 </ul>
