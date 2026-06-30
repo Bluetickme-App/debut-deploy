@@ -9,6 +9,7 @@ import * as lifecycle from "./lifecycle.js";
 import { setupAuth } from "./auth.js";
 import { assertOwns, assign, ownedUuids } from "./ownership.js";
 import {
+  db,
   listUsers,
   setInstallation,
   getInstallation,
@@ -25,7 +26,10 @@ import {
   addUserInstallation,
   listUserInstallations,
 } from "./db.js";
-import { record } from "./audit.js";
+import { record, recordSystem } from "./audit.js";
+import { listEvents, listEventsForResource } from "./events.js";
+import { getNotificationSettings, setNotificationSettings, notify } from "./notifications.js";
+import { runHealthCheck } from "./monitor.js";
 import * as dns from "./dns.js";
 import * as resources from "./resources.js";
 import * as volumes from "./volumes.js";
@@ -844,11 +848,87 @@ app.post(
   })
 );
 
+// --- activity events ---
+app.get(
+  "/api/events",
+  requireAuth,
+  h((req) =>
+    listEvents({
+      userId: req.user.role === "admin" ? null : req.user.id,
+      limit: Number(req.query.limit) || 100,
+    })
+  )
+);
+
+app.get(
+  "/api/services/:id/events",
+  requireAuth,
+  h((req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return listEventsForResource(req.params.id, { limit: 100 });
+  })
+);
+
+// --- notification settings ---
+app.get(
+  "/api/notifications",
+  requireAuth,
+  h((req) => getNotificationSettings(req.user.id))
+);
+
+app.put(
+  "/api/notifications",
+  requireAuth,
+  mutateGuard,
+  h((req) => {
+    const { webhookUrl, enabled } = req.body || {};
+    const saved = setNotificationSettings({ userId: req.user.id, webhookUrl, enabled });
+    record(req, "notification.update", { metadata: { enabled: !!enabled } });
+    return saved;
+  })
+);
+
 // --- error handler ---
 app.use((err, _req, res, _next) => {
   console.error(err.message, err.detail || "");
   res.status(err.status || 500).json({ error: err.message, detail: err.detail });
 });
+
+// --- health monitor: poll live services, audit + notify owners on transitions ---
+let healthSnapshot = {};
+if (!demoMode && process.env.NODE_ENV !== "test") {
+  const timer = setInterval(async () => {
+    try {
+      const { snapshot } = await runHealthCheck({
+        listServices: coolify.listServices,
+        prev: healthSnapshot,
+        onTransition: async (t) => {
+          // t = { uuid, name, from, to, down }
+          recordSystem(t.down ? "service.down" : "service.up", {
+            resourceType: "application",
+            resourceUuid: t.uuid,
+            metadata: { name: t.name, from: t.from, to: t.to },
+          });
+          const owner = db.prepare("SELECT user_id FROM resource_ownership WHERE coolify_uuid = ?").get(t.uuid);
+          if (owner?.user_id) {
+            await notify({
+              userId: owner.user_id,
+              event: {
+                type: t.down ? "service.down" : "service.up",
+                resource_uuid: t.uuid,
+                message: `${t.name}: ${t.from} → ${t.to}`,
+              },
+            });
+          }
+        },
+      });
+      healthSnapshot = snapshot;
+    } catch (err) {
+      console.error("health monitor:", err.message);
+    }
+  }, 60_000); // VERIFY LIVE: cadence
+  timer.unref?.();
+}
 
 const PORT = process.env.PORT || 8787;
 app.listen(PORT, () => {
