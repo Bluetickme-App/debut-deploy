@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing — DebutDeploy</title>
+<meta name="description" content="Deploy like Render, pay like Hetzner. Same power, a fraction of the price. 20 TB traffic included, no cold starts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  :root{
+    --paper:#F7F8FA;--card:#FFFFFF;--ink:#14181F;--ink-2:#586170;--ink-3:#8A94A0;
+    --line:#E5E9EE;--line-2:#D4DAE1;--track:#EDF1F5;--accent:#2563EB;--accent-hover:#1D4ED8;
+    --accent-soft:#EAF0FE;--accent-line:#C3D4F7;--accent-ink:#1D4ED8;--them:#9AA6B4;--ok:#16A34A;
+  }
+  body{background:var(--paper);color:var(--ink);font-family:'Geist',system-ui,sans-serif;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .mono{font-family:'Geist Mono',monospace}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  section{border-bottom:1px solid var(--line)}
+  h2{font-weight:700;letter-spacing:-.03em;font-size:clamp(27px,3.4vw,36px);line-height:1.05}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:32px;flex-wrap:wrap}
+  .sec-head p{color:var(--ink-2);max-width:46ch;font-size:15px}
+  .track{flex:1;height:11px;background:var(--track);border-radius:999px;overflow:hidden}
+  .fill{height:100%;width:0;border-radius:999px;transition:width 1s cubic-bezier(.16,1,.3,1)}
+  .btn{font-family:'Geist',sans-serif;font-weight:600;font-size:14px;padding:11px 22px;border-radius:9px;text-decoration:none;cursor:pointer;transition:.18s;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--accent);background:var(--accent);color:#fff}
+  .btn:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+  .btn-ghost{border:1px solid var(--line-2);background:var(--card);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--ink);background:var(--ink);color:#fff}
+  .chip{display:inline-block;font-family:'Geist Mono',monospace;font-size:11.5px;font-weight:500;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:3px 9px;border-radius:6px}
+  @keyframes dd-pulse{0%{transform:scale(.6);opacity:.6}70%,100%{transform:scale(1.5);opacity:0}}
+  @keyframes dd-spin{to{transform:rotate(360deg)}}
+  @keyframes dd-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .plan-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+  .bundle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .incl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .plan-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 20px 24px;display:flex;flex-direction:column;position:relative;transition:transform .22s,border-color .22s,box-shadow .22s}
+  .plan-card:hover{transform:translateY(-4px);border-color:var(--line-2);box-shadow:0 26px 44px -34px rgba(20,24,31,.4)}
+  .plan-card.feat{border-color:var(--accent-line);background:linear-gradient(180deg,var(--accent-soft),var(--card) 120px)}
+  .db-row,.db-head{display:grid;grid-template-columns:1.3fr 1.6fr 1fr 1.1fr auto;gap:18px;align-items:center;padding:17px 22px}
+  .db-row{border-top:1px solid var(--line)}
+  @media(max-width:960px){.plan-grid{grid-template-columns:repeat(2,1fr)}.bundle-grid,.incl-grid{grid-template-columns:repeat(2,1fr)}.ai-done{grid-template-columns:1fr!important}.db-scroll{overflow-x:auto}.db-row,.db-head{min-width:640px}}
+  @media(max-width:560px){.plan-grid,.bundle-grid,.incl-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header style="position:sticky;top:0;z-index:50;background:rgba(247,248,250,.82);backdrop-filter:saturate(150%) blur(10px);-webkit-backdrop-filter:saturate(150%) blur(10px);border-bottom:1px solid var(--line)">
+  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;height:64px">
+    <div style="display:flex;align-items:center;gap:11px;font-weight:700;font-size:19px;letter-spacing:-.02em">
+      <span style="position:relative;width:27px;height:27px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 7px -1px rgba(37,99,235,.5)">
+        <span style="color:#fff;font-weight:700;font-size:16px;line-height:1">D</span>
+        <span style="position:absolute;inset:-5px;border-radius:9px;border:1.5px solid var(--accent);opacity:.5;animation:dd-pulse 2.6s ease-out infinite"></span>
+      </span>
+      DebutDeploy<span class="mono" style="font-weight:400;font-size:11px;color:var(--ink-3);margin-left:1px">/ pricing</span>
+    </div>
+    <div style="display:flex;background:var(--track);border-radius:999px;padding:3px;border:1px solid var(--line)">
+      <button id="usdBtn" data-cur="usd" class="cur-btn mono">USD $</button>
+      <button id="gbpBtn" data-cur="gbp" class="cur-btn mono">GBP £</button>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section>
+  <div class="wrap" style="padding:74px 24px 60px">
+    <span class="mono" style="display:inline-flex;align-items:center;gap:9px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)"><span style="width:22px;height:1.5px;background:var(--accent)"></span>Deploy like Render · priced for builders</span>
+    <h1 style="font-weight:700;letter-spacing:-.035em;line-height:1.03;font-size:clamp(38px,6vw,64px);margin:20px 0 0;max-width:17ch">The same app costs <em style="font-style:normal;color:var(--accent)"><span data-price="85">$85</span></em> on Render. Here it's <em style="font-style:normal;color:var(--accent)"><span data-price="45">$45</span></em>.</h1>
+    <p style="font-size:clamp(16px,2vw,19px);color:var(--ink-2);max-width:54ch;margin-top:22px;line-height:1.55">Your apps run on fast European hardware through Coolify. Every plan matches — or beats — Render and Railway on CPU and memory, at a fraction of the price. 20 TB of traffic included. No egress fees. No cold starts.</p>
+    <div style="margin-top:42px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px 26px;max-width:680px;box-shadow:0 1px 0 rgba(20,24,31,.02),0 22px 40px -30px rgba(20,24,31,.28)">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px">
+        <span style="font-weight:600;font-size:15px;letter-spacing:-.01em">Pro Plus · 4 GB dedicated</span>
+        <span class="mono" style="font-size:12px;color:var(--ink-3)">vs Render Pro</span>
+      </div>
+      <div id="heroMetrics"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:16px;padding-top:15px">
+        <span class="mono" style="font-size:13px;color:var(--ink-2)">You pay <b style="color:var(--ink);font-weight:600"><span data-price="45">$45</span></b> /mo</span>
+        <span class="mono" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:5px 12px;border-radius:999px">Save 47% · <span data-price="40">$40</span>/mo</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPUTE -->
+<section>
+  <div class="wrap" style="padding:70px 24px">
+    <div class="sec-head"><h2>Compute</h2><p>One app per plan. Each pair of bars is what you pay against the same box on Render — same power, same memory, a fraction of the price.</p></div>
+    <div class="plan-grid" id="planGrid"></div>
+  </div>
+</section>
+
+<!-- AI BILL ANALYZER -->
+<section style="background:linear-gradient(180deg,var(--accent-soft),var(--paper) 220px)">
+  <div class="wrap" style="padding:70px 24px">
+    <div class="sec-head"><h2 style="max-width:16ch">Not sure what you'd pay? <span style="color:var(--accent)">Upload your bill.</span></h2><p style="max-width:44ch">Drop in your current hosting invoice — our AI reads the line items and estimates the same workload on DebutDeploy, Render and Railway.</p></div>
+    <div id="billIdle" style="max-width:720px;margin:0 auto">
+      <label id="drop" for="billInput" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:44px 30px;border-radius:16px;border:2px dashed var(--line-2);background:var(--card);cursor:pointer;transition:border-color .18s,background .18s">
+        <input id="billInput" type="file" accept=".pdf,.csv,.png,.jpg,.jpeg" style="display:none">
+        <span style="width:52px;height:52px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--accent-line);display:flex;align-items:center;justify-content:center;margin-bottom:16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span>
+        <div style="font-weight:600;font-size:17px">Drop your monthly bill here</div>
+        <div style="font-size:13.5px;color:var(--ink-2);margin-top:6px">PDF, CSV or a screenshot — Render, Railway, Fly, Heroku, DigitalOcean…</div>
+        <span class="btn" style="margin-top:18px">Browse files</span>
+        <div style="margin-top:12px"><span id="sample" class="mono" style="font-size:12.5px;color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px;cursor:pointer">or try a sample Render bill →</span></div>
+      </label>
+      <p class="mono" style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:11.5px;color:var(--ink-3);margin-top:14px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Read once to estimate your savings, then discarded. We never store your bill.</p>
+    </div>
+    <div id="billAnalyzing" style="display:none;max-width:720px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:34px 30px;box-shadow:0 22px 40px -30px rgba(20,24,31,.28);text-align:center">
+      <span style="display:inline-block;width:34px;height:34px;border-radius:50%;border:3px solid var(--accent-soft);border-top-color:var(--accent);animation:dd-spin .8s linear infinite"></span>
+      <div style="font-weight:600;font-size:16px;margin-top:16px">Analyzing <span class="mono" id="fileLabel" style="color:var(--accent-ink)">your bill</span> …</div>
+    </div>
+    <div id="billDone" class="ai-done" style="display:none;grid-template-columns:0.9fr 1.1fr;gap:16px;align-items:start;animation:dd-fade .4s ease both">
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px">
+        <span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">Detected from your bill</span>
+        <div style="display:flex;align-items:baseline;gap:9px;margin:8px 0 16px"><span class="mono" data-price="412" style="font-weight:600;font-size:30px;letter-spacing:-.02em">$412</span><span class="mono" style="font-size:12.5px;color:var(--ink-3)">/mo on Render today</span></div>
+        <div id="lineItems"></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:0 22px 40px -34px rgba(20,24,31,.3)">
+        <span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">Same workload, priced 3 ways</span>
+        <div id="aiPlatforms" style="display:flex;flex-direction:column;gap:15px;margin-top:18px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:18px;padding-top:16px">
+          <div><div style="font-weight:700;font-size:19px;letter-spacing:-.01em;color:var(--accent-ink)">Save <span data-price="224">$224</span>/mo</div><div class="mono" style="font-size:11.5px;color:var(--ink-3)">54% less than Render · <span data-price="2688">$2688</span>/yr</div></div>
+          <div style="display:flex;gap:9px"><button id="reset" class="btn btn-ghost" style="padding:10px 15px;font-size:13.5px">Analyze another</button><a href="https://app.debutdepoly.com" class="btn" style="padding:10px 16px;font-size:13.5px">Start migrating →</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- POSTGRES -->
+<section>
+  <div class="wrap" style="padding:70px 24px">
+    <div class="sec-head"><h2>Managed Postgres</h2><p style="max-width:44ch">Add a database to any app. Automated backups and volumes included — storage overage at $0.10/GB.</p></div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden" class="db-scroll">
+      <div class="db-head mono" style="background:var(--paper);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)"><span>Database</span><span>Spec</span><span>Price</span><span>Elsewhere</span><span></span></div>
+      <div id="dbRows"></div>
+    </div>
+  </div>
+</section>
+
+<!-- BUNDLES -->
+<section>
+  <div class="wrap" style="padding:70px 24px">
+    <div class="sec-head"><h2>Bundles</h2><p style="max-width:44ch">Common set-ups at a set price. Mix compute and Postgres however you like — bundles just do the maths for you.</p></div>
+    <div class="bundle-grid" id="bundleGrid"></div>
+  </div>
+</section>
+
+<!-- INCLUDED -->
+<section>
+  <div class="wrap" style="padding:70px 24px">
+    <div class="sec-head"><h2>In every plan</h2><p style="max-width:44ch">No metered surprises. The things other platforms bill you for after the fact are just part of the price here.</p></div>
+    <div class="incl-grid">
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.5 15.5 5v8L9 16.5 2.5 13V5L9 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>20 TB traffic</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">Included every month, on every plan. Render, Fly, Railway and DigitalOcean all bill egress by the gigabyte — we don't.</div></div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M9 5v4l2.5 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Always on</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">No sleeping services, no 30-second cold starts. Your app answers the first request as fast as the millionth.</div></div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2.5" y="2.5" width="13" height="13" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M6 9l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Isolated by Coolify</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">Every app runs in its own container with clean resource boundaries — shared boxes stay genuinely separate.</div></div>
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2v14M2 9h14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Locked GBP pricing</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">UK-based and billed in pounds if you want it. Toggle the currency up top — the rate is fixed on your invoice, not the day's FX.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap" style="padding:64px 24px 72px">
+    <div style="font-weight:700;letter-spacing:-.03em;font-size:clamp(26px,3.6vw,40px);line-height:1.08;max-width:20ch">Same app. <em style="font-style:normal;color:var(--accent)">Half the price.</em> Your call.</div>
+    <p style="color:var(--ink-2);margin-top:16px;max-width:50ch">Move a Render or Railway app across in an afternoon — import straight from your current provider and we'll match the setup.</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:42px;padding-top:26px;border-top:1px solid var(--line);flex-wrap:wrap;gap:16px">
+      <div>
+        <div class="mono" style="font-size:12.5px;color:var(--ink-3)">Powered by Hetzner · orchestrated with Coolify</div>
+        <div class="mono" style="font-size:11px;color:var(--ink-3);margin-top:8px;line-height:1.6">Prices per month, ex-VAT. GBP shown at a fixed £1 = $1.27. Competitor prices from published rates, July 2026. Bill estimates are indicative.</div>
+      </div>
+      <div style="display:flex;gap:10px"><a href="#" class="btn btn-ghost">See plans</a><a href="https://app.debutdepoly.com" class="btn">Start deploying</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var RATE=1.27, cur='usd';
+  function fmt(usd){ var v=cur==='gbp'?usd/RATE:usd; var sym=cur==='gbp'?'£':'$'; var s=Math.round(v*100)/100; return sym+(Number.isInteger(s)?s:s.toFixed(2)); }
+  function bar(pct,color){ return 'height:100%;width:'+pct+'%;background:'+color+';border-radius:999px;transition:width 1s cubic-bezier(.16,1,.3,1)'; }
+  var OURS='var(--accent)',THEM='var(--them)',CURRENT='var(--ink-2)';
+
+  // currency: re-render all data-price spans
+  function applyCurrency(){
+    document.querySelectorAll('[data-price]').forEach(function(el){ el.textContent=fmt(+el.getAttribute('data-price')); });
+    document.querySelectorAll('.cur-btn').forEach(function(b){
+      var on=b.getAttribute('data-cur')===cur;
+      b.style.cssText='font-size:13px;font-weight:500;border:0;padding:6px 14px;border-radius:999px;cursor:pointer;transition:.18s;'+(on?'background:var(--ink);color:#fff':'background:transparent;color:var(--ink-2)');
+    });
+    renderDynamic();
+  }
+  document.querySelectorAll('.cur-btn').forEach(function(b){ b.onclick=function(){ cur=b.getAttribute('data-cur'); applyCurrency(); }; });
+
+  // ---- data ----
+  var HERO=[
+    {name:'Server power',ours:'2 vCPU',them:'2 vCPU',op:100,tp:100,v:'Matched',save:false},
+    {name:'Memory',ours:'4 GB',them:'4 GB',op:100,tp:100,v:'Matched',save:false},
+    {name:'Price / mo',ourU:45,themU:85,op:45/85*100,tp:100,v:'Save 47%',save:true}
+  ];
+  var PLANS=[
+    {name:'Hobby',ram:'512 MB',cpu:'0.5 vCPU',host:'shared box',ours:5,comp:7,compName:'Render',compFull:'Render Starter'},
+    {name:'Starter',ram:'1 GB',cpu:'0.5 vCPU',host:'shared box',ours:9,comp:10,compName:'Market',compFull:'the going rate'},
+    {name:'Pro',ram:'2 GB',cpu:'1 vCPU',host:'shared box',ours:15,comp:25,compName:'Render',compFull:'Render Standard'},
+    {name:'Pro Plus',ram:'4 GB',cpu:'2 vCPU',host:'dedicated',ours:45,comp:85,compName:'Render',compFull:'Render Pro',feat:true},
+    {name:'Scale',ram:'8 GB',cpu:'4 vCPU',host:'dedicated',ours:85,comp:175,compName:'Render',compFull:'Render Pro Plus'}
+  ];
+  var DBS=[
+    {name:'DB Hobby',spec:'256 MB · 2 GB storage',ours:5,comp:6,save:'17%'},
+    {name:'DB Starter',spec:'1 GB · 10 GB storage',ours:12,comp:19,save:'37%'},
+    {name:'DB Pro',spec:'4 GB · 50 GB storage',ours:45,comp:75,save:'40%'},
+    {name:'DB Scale',spec:'8 GB · 100 GB storage',ours:90,comp:100,save:'up to 51%'}
+  ];
+  var BUNDLES=[
+    {name:'Indie',inc:['1 × Pro compute','DB Starter'],ours:27,render:45},
+    {name:'Growth',inc:['3 × Pro compute','DB Pro'],ours:90,render:170},
+    {name:'Team',inc:['5 × Pro Plus compute','DB Pro'],ours:270,render:520}
+  ];
+  var LINE=[{l:'3 × Web service · 4 GB',a:255},{l:'Managed Postgres · 4 GB / 50 GB',a:90},{l:'Redis · 1 GB',a:20},{l:'Bandwidth · 380 GB egress',a:47}];
+  var CURRENT_USD=412,DD_USD=188,RAIL_USD=330,AI_MAX=412;
+  var PLAT=[{name:'DebutDeploy',usd:DD_USD,ours:true,tag:'20 TB traffic included'},{name:'Railway',usd:RAIL_USD,ours:false,tag:'usage-based estimate'},{name:'Render',usd:CURRENT_USD,ours:false,tag:'your current setup'}];
+
+  var mounted=false, billFill=false;
+
+  function renderDynamic(){
+    // hero metrics
+    document.getElementById('heroMetrics').innerHTML=HERO.map(function(m,i){
+      var chip=m.save?'background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--accent-line)':'background:var(--track);color:var(--ink-2)';
+      var oursVal=m.ourU!=null?fmt(m.ourU):m.ours, themVal=m.themU!=null?fmt(m.themU):m.them;
+      return '<div style="padding:14px 0;'+(i===0?'':'border-top:1px solid var(--line)')+'">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">'+m.name+'</span><span class="mono" style="display:inline-flex;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;'+chip+'">'+m.v+'</span></div>'+
+        '<div style="display:flex;flex-direction:column;gap:8px">'+
+          '<div style="display:flex;align-items:center;gap:11px"><span class="mono" style="width:86px;flex:none;font-size:11.5px;font-weight:600;color:var(--accent-ink)">DebutDeploy</span><div class="track"><div class="fill" style="'+bar(mounted?m.op.toFixed(1):0,OURS)+'"></div></div><span class="mono" style="width:58px;flex:none;text-align:right;font-size:12.5px;font-weight:600;color:var(--ink)">'+oursVal+'</span></div>'+
+          '<div style="display:flex;align-items:center;gap:11px"><span class="mono" style="width:86px;flex:none;font-size:11.5px;color:var(--ink-3)">Render Pro</span><div class="track"><div class="fill" style="'+bar(mounted?m.tp.toFixed(1):0,THEM)+'"></div></div><span class="mono" style="width:58px;flex:none;text-align:right;font-size:12.5px;color:var(--ink-2)">'+themVal+'</span></div>'+
+        '</div></div>';
+    }).join('');
+
+    // plans
+    document.getElementById('planGrid').innerHTML=PLANS.map(function(p){
+      var save=Math.round((1-p.ours/p.comp)*100);
+      var cta=p.feat?'<a href="https://app.debutdepoly.com" class="btn" style="display:block;text-align:center;width:100%">Choose '+p.name+'</a>':'<a href="https://app.debutdepoly.com" class="btn btn-ghost" style="display:block;text-align:center;width:100%">Choose '+p.name+'</a>';
+      return '<div class="plan-card'+(p.feat?' feat':'')+'">'+
+        (p.feat?'<span style="position:absolute;top:-11px;left:20px;background:var(--accent);color:#fff;font-family:\'Geist Mono\',monospace;font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:6px">Most popular</span>':'')+
+        '<h3 style="font-weight:700;font-size:19px;letter-spacing:-.02em">'+p.name+'</h3>'+
+        '<div class="mono" style="font-size:12px;color:var(--ink-2);margin-top:6px;line-height:1.7">'+p.ram+' RAM · '+p.cpu+'<br><span style="color:var(--ink-3)">'+p.host+'</span></div>'+
+        '<div class="mono" style="font-weight:600;font-size:32px;letter-spacing:-.02em;margin-top:16px;line-height:1">'+fmt(p.ours)+' <span style="font-size:13px;color:var(--ink-3);font-weight:400">/mo</span></div>'+
+        '<span class="chip" style="margin-top:11px">Save '+save+'% vs '+p.compFull+'</span>'+
+        '<div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">'+
+          '<div style="display:flex;align-items:center;gap:9px"><span class="mono" style="width:42px;flex:none;font-size:10px;font-weight:600;color:var(--accent-ink)">You</span><div class="track" style="height:11px"><div class="fill" style="'+bar(mounted?(p.ours/p.comp*100).toFixed(1):0,OURS)+'"></div></div><span class="mono" style="width:44px;flex:none;text-align:right;font-size:11px;font-weight:600;color:var(--ink)">'+fmt(p.ours)+'</span></div>'+
+          '<div style="display:flex;align-items:center;gap:9px"><span class="mono" style="width:42px;flex:none;font-size:10px;color:var(--ink-3)">'+p.compName+'</span><div class="track" style="height:11px"><div class="fill" style="'+bar(mounted?100:0,THEM)+'"></div></div><span class="mono" style="width:44px;flex:none;text-align:right;font-size:11px;color:var(--ink-2)">'+fmt(p.comp)+'</span></div>'+
+        '</div><div style="margin-top:auto;padding-top:22px">'+cta+'</div></div>';
+    }).join('');
+
+    // dbs
+    document.getElementById('dbRows').innerHTML=DBS.map(function(d){
+      return '<div class="db-row"><span style="font-weight:600;font-size:15px">'+d.name+'</span><span class="mono" style="font-size:12.5px;color:var(--ink-2)">'+d.spec+'</span><span class="mono" style="font-weight:600;font-size:21px">'+fmt(d.ours)+' <span style="font-size:11px;color:var(--ink-3);font-weight:400">/mo</span></span><span class="mono" style="font-size:13px;color:var(--ink-3)">from <s>'+fmt(d.comp)+'</s></span><span class="mono chip" style="justify-self:end;white-space:nowrap">Save '+d.save+'</span></div>';
+    }).join('');
+
+    // bundles
+    document.getElementById('bundleGrid').innerHTML=BUNDLES.map(function(b){
+      var cut=Math.round((1-b.ours/b.render)*100);
+      return '<div class="plan-card" style="padding:24px 22px"><div style="font-weight:700;font-size:21px;letter-spacing:-.02em">'+b.name+'</div>'+
+        '<div class="mono" style="font-size:12.5px;color:var(--ink-2);margin-top:10px;line-height:1.8;display:flex;flex-direction:column">'+b.inc.map(function(i){return '<span>· '+i+'</span>';}).join('')+'</div>'+
+        '<div class="mono" style="font-weight:600;font-size:30px;margin-top:18px">'+fmt(b.ours)+' <span style="font-size:13px;color:var(--ink-3);font-weight:400">/mo</span></div>'+
+        '<div style="font-size:13px;color:var(--ink-2);margin-top:8px">Same stack on Render ≈ '+fmt(b.render)+' — <b style="color:var(--accent-ink);font-weight:600">'+cut+'% less</b></div></div>';
+    }).join('');
+
+    // ai line items + platforms (when done)
+    var li=document.getElementById('lineItems'); if(li) li.innerHTML=LINE.map(function(x){return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)"><span style="font-size:13px;color:var(--ink-2)">'+x.l+'</span><span class="mono" style="font-size:13px;font-weight:500;color:var(--ink)">'+fmt(x.a)+'</span></div>';}).join('');
+    var ap=document.getElementById('aiPlatforms'); if(ap) ap.innerHTML=PLAT.map(function(pl){
+      var col=pl.ours?OURS:(pl.usd===CURRENT_USD?CURRENT:THEM);
+      return '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px"><span style="font-weight:600;font-size:14px;color:'+(pl.ours?'var(--accent-ink)':'var(--ink)')+'">'+pl.name+'</span><span class="mono" style="font-size:11px;color:var(--ink-3)">'+pl.tag+'</span></div><div style="display:flex;align-items:center;gap:11px"><div style="flex:1;height:22px;background:var(--track);border-radius:7px;overflow:hidden"><div style="'+bar(billFill?(pl.usd/AI_MAX*100).toFixed(1):0,col)+';border-radius:7px"></div></div><span class="mono" style="width:66px;flex:none;text-align:right;font-size:15px;font-weight:600;color:var(--ink)">'+fmt(pl.usd)+'</span></div></div>';
+    }).join('');
+  }
+
+  // ---- AI bill analyzer state machine ----
+  var idle=document.getElementById('billIdle'),analy=document.getElementById('billAnalyzing'),done=document.getElementById('billDone'),drop=document.getElementById('drop');
+  function show(state){ idle.style.display=state==='idle'?'block':'none'; analy.style.display=state==='analyzing'?'block':'none'; done.style.display=state==='done'?'grid':'none'; }
+  function analyze(name){ document.getElementById('fileLabel').textContent=name||'your bill'; billFill=false; show('analyzing'); setTimeout(function(){ show('done'); renderDynamic(); setTimeout(function(){ billFill=true; renderDynamic(); },90); },1900); }
+  document.getElementById('billInput').onchange=function(e){ var f=e.target.files&&e.target.files[0]; analyze(f?f.name:''); };
+  document.getElementById('sample').onclick=function(){ analyze('sample-render-bill.pdf'); };
+  document.getElementById('reset').onclick=function(){ billFill=false; show('idle'); };
+  drop.addEventListener('dragover',function(e){ e.preventDefault(); drop.style.borderColor='var(--accent)'; drop.style.background='var(--accent-soft)'; });
+  drop.addEventListener('dragleave',function(e){ e.preventDefault(); drop.style.borderColor='var(--line-2)'; drop.style.background='var(--card)'; });
+  drop.addEventListener('drop',function(e){ e.preventDefault(); var f=e.dataTransfer.files&&e.dataTransfer.files[0]; analyze(f?f.name:''); });
+
+  applyCurrency();
+  requestAnimationFrame(function(){ setTimeout(function(){ mounted=true; renderDynamic(); },160); });
+})();
+</script>
+</body>
+</html>
