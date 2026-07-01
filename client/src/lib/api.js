@@ -64,6 +64,9 @@ export const api = {
   provisionStatus:    (id) => req(`/servers/${id}/provision-status`),
   // Customers (admin)
   customers: () => req("/customers"),
+  // Deploy-key service creation (admin)
+  prepareDeployKey: () => req("/git/prepare-key", { method: "POST" }),
+  createGitService: (body) => req("/git/create-service", { method: "POST", body }),
   // GitHub
   githubInstallations: () => req("/github/installations"),
   // Render importer (admin)

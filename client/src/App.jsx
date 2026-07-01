@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -18,6 +18,7 @@ import Servers from "./pages/Servers.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
 import Projects from "./pages/Projects.jsx";
 import Customers from "./pages/Customers.jsx";
+import NewServiceGit from "./pages/NewServiceGit.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
@@ -208,6 +209,7 @@ function Sidebar({ drawerOpen, onClose }) {
               <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
             <HoverNavLink to="/customers"><Users size={18} /><span>Customers</span></HoverNavLink>
+            <HoverNavLink to="/new-git"><GitBranch size={18} /><span>Deploy from Git</span></HoverNavLink>
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
             <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
             <HoverNavLink to="/import"><DownloadCloud size={18} /><span>Import from Render</span></HoverNavLink>
@@ -239,6 +241,7 @@ const CRUMB_MAP = {
   "/shared-vars": "Variable Groups",
   "/import": "Import from Render",
   "/customers": "Customers",
+  "/new-git": "Deploy from Git",
 };
 
 function Topbar({ onMenuClick }) {
@@ -463,6 +466,7 @@ function AppShell() {
             <Route path="/shared-vars" element={<SharedVars />} />
             <Route path="/servers" element={<Servers />} />
             <Route path="/customers" element={<Customers />} />
+            <Route path="/new-git" element={<NewServiceGit />} />
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
           </Routes>

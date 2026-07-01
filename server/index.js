@@ -42,6 +42,7 @@ import * as hetzner from "./hetzner.js";
 import { provisionServer } from "./provision.js";
 import { importFromRender } from "./migrate.js";
 import * as render from "./render.js";
+import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp } from "./deploykey.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -396,6 +397,43 @@ app.get(
       },
     }))
   )
+);
+
+// --- Deploy-key service creation (deploy ANY repo without the GitHub App) ---
+// Step 1: generate a keypair, register the private half in Coolify, return the
+// public key for the operator to add as a read-only deploy key on their repo.
+app.post(
+  "/api/git/prepare-key",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const { publicKey, privateKeyPem } = generateDeployKeypair();
+    const { uuid } = await registerDeployKey({ name: `dk-${Date.now().toString(36)}`, privateKeyPem });
+    record(req, "deploykey.prepare");
+    return { keyUuid: uuid, publicKey };
+  })
+);
+
+// Step 2: create the Coolify app from the repo using that key, set domain, deploy,
+// and assign ownership to the creator.
+app.post(
+  "/api/git/create-service",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const { keyUuid, repo, branch, name, buildPack, installCommand, buildCommand, startCommand, port, domain } = req.body || {};
+    if (!keyUuid || !repo || !name) {
+      throw Object.assign(new Error("keyUuid, repo and name are required"), { status: 400 });
+    }
+    const { uuid } = await createDeployKeyApp({ keyUuid, repo, branch, name, buildPack, installCommand, buildCommand, startCommand, port });
+    if (domain) await setAppDomain(uuid, /^https?:\/\//.test(domain) ? domain : `https://${domain}`);
+    assign(uuid, "application", req.user.id);
+    const deployment = await deployApp(uuid);
+    record(req, "app.create", { resourceType: "application", resourceUuid: uuid, metadata: { repo, via: "deploy-key" } });
+    return { appUuid: uuid, deployment };
+  })
 );
 
 app.post(
