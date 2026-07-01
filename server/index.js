@@ -43,6 +43,7 @@ import { provisionServer } from "./provision.js";
 import { importFromRender } from "./migrate.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp } from "./deploykey.js";
+import { computePlans, dbPlans } from "./plans.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -397,6 +398,18 @@ app.get(
       },
     }))
   )
+);
+
+// Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.
+app.get(
+  "/api/billing",
+  requireAuth,
+  requireAdmin,
+  h(async () => ({
+    infra: await hetzner.listServersWithCost(),
+    computePlans: computePlans(),
+    dbPlans: dbPlans(),
+  }))
 );
 
 // --- Deploy-key service creation (deploy ANY repo without the GitHub App) ---

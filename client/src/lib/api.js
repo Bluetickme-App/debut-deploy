@@ -62,8 +62,9 @@ export const api = {
   hetznerLocations:   () => req("/hetzner/locations"),
   provisionServer:    (body) => req("/servers/provision", { method: "POST", body }),
   provisionStatus:    (id) => req(`/servers/${id}/provision-status`),
-  // Customers (admin)
+  // Customers + billing (admin)
   customers: () => req("/customers"),
+  billing: () => req("/billing"),
   // Deploy-key service creation (admin)
   prepareDeployKey: () => req("/git/prepare-key", { method: "POST" }),
   createGitService: (body) => req("/git/create-service", { method: "POST", body }),

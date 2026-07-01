@@ -42,6 +42,30 @@ export async function listServerTypes() {
   return data.server_types.map(({ name, cores, memory, disk }) => ({ name, cores, memory, disk }));
 }
 
+// Live servers with their per-hour / per-month cost (for the Billing page).
+export async function listServersWithCost() {
+  if (isDemo()) {
+    const servers = [{ name: "hetzner-cx23", type: "cx23", location: "fsn1", status: "running", ip: "10.0.0.1", cores: 2, memory: 4, hourly: 0.0104, monthly: 6.49 }];
+    return { servers, totalHourly: 0.0104, totalMonthly: 6.49 };
+  }
+  const data = await hz("/servers");
+  const servers = (data.servers || []).map((s) => {
+    const loc = s.datacenter?.location?.name;
+    const price = (s.server_type?.prices || []).find((p) => p.location === loc) || s.server_type?.prices?.[0];
+    return {
+      name: s.name, type: s.server_type?.name, location: loc, status: s.status,
+      ip: s.public_net?.ipv4?.ip, cores: s.server_type?.cores, memory: s.server_type?.memory,
+      hourly: Number(price?.price_hourly?.gross || 0),
+      monthly: Number(price?.price_monthly?.gross || 0),
+    };
+  });
+  return {
+    servers,
+    totalHourly: +servers.reduce((a, s) => a + s.hourly, 0).toFixed(4),
+    totalMonthly: +servers.reduce((a, s) => a + s.monthly, 0).toFixed(2),
+  };
+}
+
 export async function listLocations() {
   if (isDemo()) {
     return [

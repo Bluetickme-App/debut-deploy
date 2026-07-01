@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -19,6 +19,7 @@ import ImportRender from "./pages/ImportRender.jsx";
 import Projects from "./pages/Projects.jsx";
 import Customers from "./pages/Customers.jsx";
 import NewServiceGit from "./pages/NewServiceGit.jsx";
+import Billing from "./pages/Billing.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
@@ -209,6 +210,7 @@ function Sidebar({ drawerOpen, onClose }) {
               <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
             <HoverNavLink to="/customers"><Users size={18} /><span>Customers</span></HoverNavLink>
+            <HoverNavLink to="/billing"><CreditCard size={18} /><span>Billing &amp; Plans</span></HoverNavLink>
             <HoverNavLink to="/new-git"><GitBranch size={18} /><span>Deploy from Git</span></HoverNavLink>
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
             <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
@@ -242,6 +244,7 @@ const CRUMB_MAP = {
   "/import": "Import from Render",
   "/customers": "Customers",
   "/new-git": "Deploy from Git",
+  "/billing": "Billing & Plans",
 };
 
 function Topbar({ onMenuClick }) {
@@ -467,6 +470,7 @@ function AppShell() {
             <Route path="/servers" element={<Servers />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/new-git" element={<NewServiceGit />} />
+            <Route path="/billing" element={<Billing />} />
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
           </Routes>
