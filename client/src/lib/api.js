@@ -62,6 +62,8 @@ export const api = {
   hetznerLocations:   () => req("/hetzner/locations"),
   provisionServer:    (body) => req("/servers/provision", { method: "POST", body }),
   provisionStatus:    (id) => req(`/servers/${id}/provision-status`),
+  // Customers (admin)
+  customers: () => req("/customers"),
   // GitHub
   githubInstallations: () => req("/github/installations"),
   // Render importer (admin)

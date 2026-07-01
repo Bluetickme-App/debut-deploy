@@ -377,6 +377,27 @@ app.get(
   h(() => listUsers())
 );
 
+// Customers/clients with a count of the resources each owns (admin view).
+app.get(
+  "/api/customers",
+  requireAuth,
+  requireAdmin,
+  h(() =>
+    listUsers().map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      avatar_url: u.avatar_url ?? null,
+      created_at: u.created_at ?? null,
+      owned: {
+        applications: ownedUuids(u.id, "application").length,
+        databases: ownedUuids(u.id, "database").length,
+      },
+    }))
+  )
+);
+
 app.post(
   "/api/admin/assign",
   requireAuth,

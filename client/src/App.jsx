@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -17,6 +17,7 @@ import SharedVars from "./pages/SharedVars.jsx";
 import Servers from "./pages/Servers.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
 import Projects from "./pages/Projects.jsx";
+import Customers from "./pages/Customers.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
@@ -202,6 +203,7 @@ function Sidebar() {
               <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.09em", color: "var(--text-muted)", textTransform: "uppercase" }}>Admin</span>
               <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
+            <HoverNavLink to="/customers"><Users size={18} /><span>Customers</span></HoverNavLink>
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
             <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
             <HoverNavLink to="/import"><DownloadCloud size={18} /><span>Import from Render</span></HoverNavLink>
@@ -232,6 +234,7 @@ const CRUMB_MAP = {
   "/servers": "Servers",
   "/shared-vars": "Variable Groups",
   "/import": "Import from Render",
+  "/customers": "Customers",
 };
 
 function Topbar() {
@@ -241,10 +244,19 @@ function Topbar() {
   const [mode, setMode] = useState(null);
   const [logoutHov, setLogoutHov] = useState(false);
   const [themeHov, setThemeHov] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     api.health().then((h) => setMode(h.mode)).catch(() => setMode("offline"));
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
 
   const crumb = CRUMB_MAP[location.pathname] ??
     (location.pathname.startsWith("/services/") ? "Service Detail" : "");
@@ -309,29 +321,65 @@ function Topbar() {
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        {/* User chip */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 9,
-          padding: "4px 8px 4px 5px", borderRadius: 9, cursor: "default",
-          border: "1px solid transparent",
-        }}>
-          <span style={{
-            width: 28, height: 28, borderRadius: "50%",
-            background: "linear-gradient(135deg,#6366f1,#2563eb)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontSize: 11.5, fontWeight: 600, letterSpacing: "0.02em",
-          }}>
-            {initials}
-          </span>
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
-              {user?.name || user?.email || "User"}
+        {/* User chip + account menu */}
+        <div ref={menuRef} style={{ position: "relative" }}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            style={{
+              display: "flex", alignItems: "center", gap: 9,
+              padding: "4px 8px 4px 5px", borderRadius: 9, cursor: "pointer",
+              border: "1px solid transparent", background: menuOpen ? "var(--surface-2)" : "transparent",
+              transition: "background .15s",
+            }}
+          >
+            <span style={{
+              width: 28, height: 28, borderRadius: "50%",
+              background: "linear-gradient(135deg,#6366f1,#2563eb)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: 11.5, fontWeight: 600, letterSpacing: "0.02em",
+            }}>
+              {initials}
             </span>
-            <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>
-              {user?.role || "member"}
-            </span>
-          </div>
-          <ChevronDown size={14} style={{ color: "var(--text-muted)", marginLeft: 1 }} />
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.25, textAlign: "left" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
+                {user?.name || user?.email || "User"}
+              </span>
+              <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>
+                {user?.role || "member"}
+              </span>
+            </div>
+            <ChevronDown size={14} style={{ color: "var(--text-muted)", marginLeft: 1 }} />
+          </button>
+
+          {menuOpen && (
+            <div style={{
+              position: "absolute", right: 0, top: "calc(100% + 8px)", width: 244, zIndex: 50,
+              background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11,
+              boxShadow: "var(--shadow-lg)", overflow: "hidden",
+            }}>
+              <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{user?.name || "Signed in"}</div>
+                <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                  <Mail size={12} /> {user?.email || "—"}
+                </div>
+                <span className={`pill ${user?.role === "admin" ? "pill-accent" : "pill-neutral"}`} style={{ marginTop: 8 }}>
+                  {user?.role || "customer"}
+                </span>
+              </div>
+              <button
+                onClick={() => { setMenuOpen(false); logout(); }}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 14px",
+                  background: "transparent", border: "none", cursor: "pointer", fontSize: 13,
+                  color: "var(--err-text)", fontFamily: "inherit",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--err-soft)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <LogOut size={15} /> Sign out
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Logout */}
@@ -376,6 +424,7 @@ function AppShell() {
             <Route path="/notifications" element={<NotificationSettings />} />
             <Route path="/shared-vars" element={<SharedVars />} />
             <Route path="/servers" element={<Servers />} />
+            <Route path="/customers" element={<Customers />} />
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
           </Routes>
