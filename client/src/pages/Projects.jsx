@@ -229,7 +229,7 @@ export default function Projects() {
   }
 
   return (
-    <div style={{ padding: "26px 30px 40px", maxWidth: 1000 }}>
+    <div style={{ maxWidth: 1000 }} className="px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
       <PageHeader
         title="Projects"
         subtitle="Group services, databases and servers into isolated environments."
@@ -241,7 +241,7 @@ export default function Projects() {
         }
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 6 }}>
+      <div className="projects-grid" style={{ marginTop: 6 }}>
         {projects.map((p) => <ProjectCard key={p.id} project={p} />)}
       </div>
 

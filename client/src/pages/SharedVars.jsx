@@ -288,9 +288,11 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
       {expanded && (
         <div style={{ padding: "0 18px 18px" }}>
           {/* var table */}
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", marginBottom: 16 }}>
           <div style={{
+            minWidth: 380,
             border: "1px solid var(--border)", borderRadius: 10,
-            overflow: "hidden", marginBottom: 16,
+            overflow: "hidden",
           }}>
             <div style={{
               display: "grid", gridTemplateColumns: "1fr 1.5fr 80px", gap: 12,
@@ -335,6 +337,7 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
                 </div>
               </div>
             ))}
+          </div>
           </div>
 
           {/* attached services */}
@@ -461,7 +464,7 @@ export default function SharedVars() {
   }
 
   return (
-    <div style={{ padding: "0 0 44px", maxWidth: 1000 }}>
+    <div style={{ maxWidth: 1000 }} className="px-4 pt-4 pb-11 sm:px-7 sm:pt-6">
       <PageHeader
         title="Variable Groups"
         subtitle="Reusable sets of environment variables you can attach to any service."

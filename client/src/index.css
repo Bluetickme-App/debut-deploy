@@ -205,3 +205,87 @@ body {
     border-radius: 8px;
   }
 }
+
+/* ── Mobile drawer ── */
+@media (max-width: 1024px) {
+  .sidebar-drawer {
+    position: fixed !important;
+    top: 0; left: 0; bottom: 0;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar-drawer.is-open {
+    transform: translateX(0);
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed; inset: 0;
+    z-index: 199;
+    background: rgba(0,0,0,0.45);
+    animation: dd-fade-in 0.2s ease;
+  }
+  @keyframes dd-fade-in { from { opacity: 0 } to { opacity: 1 } }
+  .topbar-menu-btn {
+    display: flex !important;
+  }
+}
+@media (min-width: 1025px) {
+  .sidebar-drawer {
+    position: relative !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  .sidebar-backdrop { display: none !important; }
+  .topbar-menu-btn { display: none !important; }
+}
+
+/* ── Topbar responsive ── */
+@media (max-width: 479px) {
+  .topbar-env-pill { display: none !important; }
+  .topbar-divider  { display: none !important; }
+}
+@media (max-width: 639px) {
+  .topbar-user-name { display: none !important; }
+}
+/* Minimum 40px hit targets for mobile */
+.topbar-menu-btn,
+.topbar-theme-btn,
+.topbar-logout-btn {
+  min-width: 40px !important;
+  min-height: 40px !important;
+}
+
+/* ── Responsive grids ── */
+.services-grid,
+.projects-grid {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 641px) {
+  .services-grid,
+  .projects-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1025px) {
+  .services-grid,
+  .projects-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── Tab bar (ServiceDetail) ── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+
+/* ── Login responsive ── */
+@media (max-width: 767px) {
+  .login-brand-panel { display: none !important; }
+  .login-form-panel  { width: 100% !important; min-height: 100vh; }
+}

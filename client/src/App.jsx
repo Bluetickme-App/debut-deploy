@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -133,7 +133,7 @@ function ProjectSwitcher() {
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
-function Sidebar() {
+function Sidebar({ drawerOpen, onClose }) {
   const { user } = useAuth();
 
   const navLink = ({ isActive }) => ({
@@ -152,6 +152,7 @@ function Sidebar() {
       <NavLink
         to={to}
         end={end}
+        onClick={onClose}
         style={({ isActive }) => ({
           ...navLink({ isActive }),
           ...(hov && !isActive ? { background: "var(--surface-2)", color: "var(--text)" } : {}),
@@ -165,11 +166,14 @@ function Sidebar() {
   }
 
   return (
-    <aside style={{
-      width: 240, flexShrink: 0, height: "100%",
-      display: "flex", flexDirection: "column",
-      background: "var(--surface)", borderRight: "1px solid var(--border)",
-    }}>
+    <aside
+      className={`sidebar-drawer${drawerOpen ? " is-open" : ""}`}
+      style={{
+        width: 240, flexShrink: 0, height: "100%",
+        display: "flex", flexDirection: "column",
+        background: "var(--surface)", borderRight: "1px solid var(--border)",
+      }}
+    >
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 18px 14px" }}>
         <div style={{
@@ -237,7 +241,7 @@ const CRUMB_MAP = {
   "/customers": "Customers",
 };
 
-function Topbar() {
+function Topbar({ onMenuClick }) {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const location = useLocation();
@@ -275,16 +279,33 @@ function Topbar() {
       display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: "0 18px 0 24px",
     }}>
-      {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--text-muted)", fontSize: 13 }}>
-        <span style={{ fontWeight: 500, color: "var(--text)" }}>{crumb}</span>
+      {/* Left: hamburger (mobile/tablet) + breadcrumb */}
+      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <button
+          className="topbar-menu-btn"
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          style={{
+            display: "none", /* overridden to flex by CSS on ≤1024px */
+            alignItems: "center", justifyContent: "center",
+            width: 40, height: 40, borderRadius: 8,
+            border: "none", background: "transparent",
+            cursor: "pointer", color: "var(--text-muted)",
+            marginLeft: -6, flexShrink: 0,
+          }}
+        >
+          <Menu size={20} />
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--text-muted)", fontSize: 13 }}>
+          <span style={{ fontWeight: 500, color: "var(--text)" }}>{crumb}</span>
+        </div>
       </div>
 
       {/* Right cluster */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {/* Env pill */}
         {envLabel && (
-          <div style={{
+          <div className="topbar-env-pill" style={{
             display: "inline-flex", alignItems: "center", gap: 7,
             padding: "5px 11px", borderRadius: 999,
             fontSize: 12, fontWeight: 600,
@@ -301,10 +322,11 @@ function Topbar() {
         )}
 
         {/* Divider */}
-        <span style={{ width: 1, height: 22, background: "var(--border)", margin: "0 2px" }} />
+        <span className="topbar-divider" style={{ width: 1, height: 22, background: "var(--border)", margin: "0 2px" }} />
 
         {/* Theme toggle */}
         <button
+          className="topbar-theme-btn"
           onClick={toggle}
           title="Toggle theme"
           onMouseEnter={() => setThemeHov(true)}
@@ -340,7 +362,7 @@ function Topbar() {
             }}>
               {initials}
             </span>
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.25, textAlign: "left" }}>
+            <div className="topbar-user-name" style={{ display: "flex", flexDirection: "column", lineHeight: 1.25, textAlign: "left" }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
                 {user?.name || user?.email || "User"}
               </span>
@@ -384,6 +406,7 @@ function Topbar() {
 
         {/* Logout */}
         <button
+          className="topbar-logout-btn"
           onClick={logout}
           title="Log out"
           onMouseEnter={() => setLogoutHov(true)}
@@ -408,11 +431,26 @@ function Topbar() {
 
 function AppShell() {
   const location = useLocation();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Close drawer on route change (nav link tapped on mobile)
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+
   return (
     <div style={{ display: "flex", height: "100%", background: "var(--bg)" }}>
-      <Sidebar />
+      {/* Backdrop — mobile/tablet only, shown when drawer open */}
+      {drawerOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <Sidebar drawerOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%" }}>
-        <Topbar />
+        <Topbar onMenuClick={() => setDrawerOpen((o) => !o)} />
         <main key={location.pathname} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--bg)" }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />

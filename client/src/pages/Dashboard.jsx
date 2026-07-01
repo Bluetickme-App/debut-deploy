@@ -39,7 +39,7 @@ function SkeletonGrid() {
     display: "block",
   };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 15 }}>
+    <div className="services-grid">
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <div
           key={i}
@@ -145,7 +145,9 @@ function GridCard({ s, onClick }) {
 
 function ListTable({ services, onRowClick }) {
   return (
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
     <div style={{
+      minWidth: 620,
       border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden",
       background: "var(--surface)", boxShadow: "var(--shadow)",
     }}>
@@ -168,6 +170,7 @@ function ListTable({ services, onRowClick }) {
       {services.map((s) => (
         <ListRow key={s.uuid} s={s} onClick={() => onRowClick(s.uuid)} />
       ))}
+    </div>
     </div>
   );
 }
@@ -301,7 +304,7 @@ export default function Dashboard() {
   });
 
   return (
-    <div style={{ padding: "26px 30px 40px", maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto" }} className="px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
       {/* ── Header ── */}
       <PageHeader
         title="Services"
@@ -408,7 +411,7 @@ export default function Dashboard() {
 
       {/* ── Grid view ── */}
       {services !== null && filtered.length > 0 && view === "grid" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 15 }}>
+        <div className="services-grid">
           {filtered.map((s) => (
             <GridCard key={s.uuid} s={s} onClick={() => nav(`/services/${s.uuid}`)} />
           ))}

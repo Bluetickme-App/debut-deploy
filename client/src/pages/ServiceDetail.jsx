@@ -70,7 +70,7 @@ export default function ServiceDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-7 pb-11 pt-6">
+    <div className="mx-auto max-w-5xl px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
       {/* back link */}
       <Link
         to="/"
@@ -111,7 +111,7 @@ export default function ServiceDetail() {
         </div>
 
         {/* action buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button variant="primary" onClick={() => action("deploy")} disabled={busy}>
             {busy ? <Spinner /> : <Rocket className="h-[15px] w-[15px]" />} Deploy
           </Button>
@@ -155,7 +155,7 @@ export default function ServiceDetail() {
       </div>
 
       {/* ── underline tab bar ── */}
-      <div className="mb-[22px] flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
+      <div className="tab-bar mb-[22px]">
         {TABS.map((t) => {
           const active = tab === t;
           return (

@@ -20,7 +20,7 @@ export default function Customers() {
     (u.name || u.email || "?").split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join("");
 
   return (
-    <div className="mx-auto max-w-5xl px-7 pb-11 pt-6">
+    <div className="mx-auto max-w-5xl px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
       <PageHeader title="Customers" subtitle="Everyone with access, and what each one owns." />
 
       {error && <p className="text-sm" style={{ color: "var(--err)" }}>Failed to load: {error.message}</p>}
@@ -32,7 +32,8 @@ export default function Customers() {
 
       {rows && rows.length > 0 && (
         <Card className="!p-0 overflow-hidden">
-          <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full text-sm" style={{ borderCollapse: "collapse", minWidth: 520 }}>
             <thead>
               <tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
                 <th className="px-4 py-3 font-semibold">Customer</th>
@@ -75,6 +76,7 @@ export default function Customers() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>
