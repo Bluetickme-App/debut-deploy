@@ -44,6 +44,7 @@ import { importFromRender } from "./migrate.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp } from "./deploykey.js";
 import { computePlans, dbPlans } from "./plans.js";
+import { repoKey, verifyWebhookSig } from "./webhook.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -62,7 +63,9 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+// Capture the raw body so the GitHub webhook can HMAC-verify the exact bytes
+// GitHub signed (re-stringifying the parsed JSON isn't byte-identical).
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 const { requireAuth, requireAdmin, demoUser } = setupAuth(app, { demoMode, clientOrigin });
 
@@ -561,6 +564,39 @@ app.get("/github/setup", requireAuth, async (req, res, next) => {
     res.redirect((process.env.CLIENT_ORIGIN || "http://localhost:5180") + "/new");
   } catch (err) {
     next(err);
+  }
+});
+
+// --- GitHub push webhook: auto-deploy on commit ------------------------------
+// GitHub App sends one webhook for every installation. We HMAC-verify it, then
+// deploy any Coolify app whose repo + branch match the push. No per-repo setup.
+app.post("/github/webhook", async (req, res) => {
+  if (!verifyWebhookSig(req.rawBody, req.get("x-hub-signature-256"), process.env.GITHUB_APP_WEBHOOK_SECRET)) {
+    return res.status(401).json({ error: "bad signature" });
+  }
+  const event = req.get("x-github-event");
+  if (event === "ping") return res.json({ ok: true, pong: true });
+  if (event !== "push") return res.json({ ok: true, ignored: event });
+
+  const repoFull = req.body?.repository?.full_name || "";
+  const branch = String(req.body?.ref || "").replace(/^refs\/heads\//, "");
+  // A branch delete sends a push with deleted:true — never deploy those.
+  if (!repoFull || !branch || req.body?.deleted) return res.json({ ok: true, ignored: "no-op push" });
+
+  // Respond immediately (GitHub times out at 10s); deploy in the background.
+  res.json({ ok: true, repo: repoFull, branch });
+
+  try {
+    const key = repoFull.toLowerCase();
+    const services = await coolify.listServices();
+    const matches = services.filter((s) => repoKey(s.repo) === key && (s.branch || "main") === branch);
+    for (const s of matches) {
+      await coolify.deployService(s.uuid);
+      recordSystem("github.push.deploy", { resourceType: "application", resourceUuid: s.uuid, metadata: { name: s.name, repo: repoFull, branch } });
+    }
+    if (!matches.length) recordSystem("github.push.nomatch", { metadata: { repo: repoFull, branch } });
+  } catch (err) {
+    recordSystem("github.push.error", { metadata: { repo: repoFull, branch, error: err.message } });
   }
 });
 
