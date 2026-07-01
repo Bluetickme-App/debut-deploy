@@ -30,13 +30,16 @@ test("mintJwt produces RS256 header and correct iss claim", () => {
 
 const INST_A = 1001;
 const INST_B = 1002;
+const INST_C = 1003;
 const TOKEN_A = "tok-A";
 const TOKEN_B = "tok-B";
+const TOKEN_C = "tok-C";
 
-// Mock repo data per installation token.
+// Mock repo data per installation token. C has 150 repos to exercise pagination.
 const REPOS = {
   [TOKEN_A]: [{ full_name: "alice/app", private: true, default_branch: "main" }],
   [TOKEN_B]: [{ full_name: "bob/thing", private: false, default_branch: "dev"  }],
+  [TOKEN_C]: Array.from({ length: 150 }, (_, i) => ({ full_name: `carol/repo${i}`, private: false, default_branch: "main" })),
 };
 
 const BRANCHES = {
@@ -59,15 +62,19 @@ function mockFetch(installationTokenMap) {
       return { ok: true, status: 200, json: async () => ({ token: tok }) };
     }
 
-    // GET /installation/repositories
-    if (url.endsWith("/installation/repositories")) {
-      const repos = REPOS[auth];
-      if (!repos) return { ok: false, status: 401, text: async () => "bad token" };
-      return { ok: true, status: 200, json: async () => ({ repositories: repos }) };
+    // GET /installation/repositories?per_page&page — paginated like the real API
+    if (url.includes("/installation/repositories")) {
+      const all = REPOS[auth];
+      if (!all) return { ok: false, status: 401, text: async () => "bad token" };
+      const q = new URL(url).searchParams;
+      const per = parseInt(q.get("per_page") || "30");
+      const page = parseInt(q.get("page") || "1");
+      const slice = all.slice((page - 1) * per, page * per);
+      return { ok: true, status: 200, json: async () => ({ total_count: all.length, repositories: slice }) };
     }
 
     // GET /repos/{owner}/{repo}/branches
-    const branchMatch = url.match(/\/repos\/[^/]+\/[^/]+\/branches$/);
+    const branchMatch = url.match(/\/repos\/[^/]+\/[^/]+\/branches(\?|$)/);
     if (branchMatch) {
       const branches = BRANCHES[auth];
       if (!branches) return { ok: false, status: 401, text: async () => "bad token" };
@@ -78,7 +85,7 @@ function mockFetch(installationTokenMap) {
   };
 }
 
-const tokenMap = { [INST_A]: TOKEN_A, [INST_B]: TOKEN_B };
+const tokenMap = { [INST_A]: TOKEN_A, [INST_B]: TOKEN_B, [INST_C]: TOKEN_C };
 const app = createGithubApp({ appId: TEST_APP_ID, pem: TEST_PEM, slug: "test-app", httpClient: mockFetch(tokenMap) });
 
 // --- isolation tests ---------------------------------------------------------
@@ -95,6 +102,13 @@ test("listRepos(B) returns only B's repos, not A's", async () => {
   const repos = await app.listRepos(INST_B);
   assert.equal(repos.length, 1);
   assert.equal(repos[0].full_name, "bob/thing");
+});
+
+test("listRepos pages through >100 repos (no silent truncation)", async () => {
+  const repos = await app.listRepos(INST_C);
+  assert.equal(repos.length, 150, "should aggregate both pages, not cap at 100");
+  assert.equal(repos[0].full_name, "carol/repo0");
+  assert.equal(repos[149].full_name, "carol/repo149");
 });
 
 test("listBranches(A) returns only A's branches", async () => {

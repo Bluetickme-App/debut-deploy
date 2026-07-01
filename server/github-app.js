@@ -60,13 +60,23 @@ export function createGithubApp({ appId = APP_ID, pem = PEM, slug = APP_SLUG, cl
 
   async function listRepos(installationId) {
     const token = await installationToken(installationId);
-    const data  = await gh("/installation/repositories", token);
-    return data.repositories.map(r => ({ full_name: r.full_name, private: r.private, default_branch: r.default_branch }));
+    // /installation/repositories paginates at 30/page by default — page through
+    // at 100 until we've collected total_count, so large accounts aren't silently
+    // truncated to the first page.
+    const repos = [];
+    for (let page = 1; ; page++) {
+      const data = await gh(`/installation/repositories?per_page=100&page=${page}`, token);
+      repos.push(...data.repositories);
+      if (repos.length >= data.total_count || data.repositories.length < 100) break;
+    }
+    return repos.map(r => ({ full_name: r.full_name, private: r.private, default_branch: r.default_branch }));
   }
 
   async function listBranches(installationId, owner, repo) {
     const token = await installationToken(installationId);
-    const data  = await gh(`/repos/${owner}/${repo}/branches`, token);
+    // ponytail: per_page=100 covers virtually every repo; add full pagination only
+    // if a repo ever exceeds 100 branches.
+    const data  = await gh(`/repos/${owner}/${repo}/branches?per_page=100`, token);
     return data.map(b => b.name);
   }
 
