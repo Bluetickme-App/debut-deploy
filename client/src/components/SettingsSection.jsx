@@ -1,31 +1,40 @@
-// Render-style settings section: left label/description column, right field/value.
-// Used by ServiceDetail's sectioned settings layout. Each section gets an id so
-// the sticky anchor nav can scrollIntoView to it.
+// Render-style settings section card + row. A section is a bordered card with a
+// 15px/600 Inter title, then a stack of rows. Each row is a 2-col grid
+// (label+desc on left, field on right) divided by 1px var(--border).
+// Each section gets an id so the sticky anchor nav can scrollIntoView to it.
 
-export function SettingsSection({ id, title, description, right }) {
+export function SettingsSection({ id, title, children }) {
   return (
     <section
       id={id}
-      className="scroll-mt-24 rounded-[13px] px-[22px] py-5"
+      className="scroll-mt-24 rounded-[13px] px-[22px] py-[18px]"
       style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}
     >
-      <div className="flex flex-col gap-5 sm:flex-row sm:gap-8">
-        <div className="sm:w-[210px] sm:shrink-0">
-          <h3
-            className="text-[15px] font-semibold"
-            style={{ fontFamily: "'Inter', sans-serif", color: "var(--text)" }}
-          >
-            {title}
-          </h3>
-          {description && (
-            <p className="mt-1 text-[12.5px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              {description}
-            </p>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">{right}</div>
-      </div>
+      <h3
+        className="mb-3 text-[15px] font-semibold"
+        style={{ fontFamily: "'Inter', sans-serif", color: "var(--text)" }}
+      >
+        {title}
+      </h3>
+      <div>{children}</div>
     </section>
+  );
+}
+
+// A single settings row: label + description on the left, field on the right.
+// 2-col grid minmax(0,.9fr) minmax(0,1.35fr), rows divided by a top border.
+export function SettingsRow({ label, desc, children }) {
+  return (
+    <div
+      className="grid gap-x-6 gap-y-2 py-[14px] first:pt-0"
+      style={{ gridTemplateColumns: "minmax(0,.9fr) minmax(0,1.35fr)", borderTop: "1px solid var(--border)" }}
+    >
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{label}</p>
+        {desc && <p className="mt-0.5 text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>{desc}</p>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
   );
 }
 
@@ -41,12 +50,10 @@ export function AnchorNav({ items, active, onJump }) {
             <button
               key={it.id}
               onClick={() => onJump(it.id)}
-              className="rounded-[7px] px-3 py-[7px] text-left text-[13px] font-medium transition-colors"
-              style={
-                on
-                  ? { background: "var(--accent-soft)", color: "var(--accent-text)" }
-                  : { background: "transparent", color: "var(--text-muted)" }
-              }
+              className="rounded-[7px] px-3 py-[7px] text-left text-[12.5px] font-medium transition-colors"
+              style={on
+                ? { background: "var(--accent-soft)", color: "var(--accent-text)" }
+                : { background: "transparent", color: "var(--text-muted)" }}
               onMouseEnter={(e) => { if (!on) e.currentTarget.style.color = "var(--text)"; }}
               onMouseLeave={(e) => { if (!on) e.currentTarget.style.color = "var(--text-muted)"; }}
             >

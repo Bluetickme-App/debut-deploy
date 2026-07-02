@@ -49,6 +49,7 @@ export function Button({ children, variant = "default", className = "", ...props
   const variantClass = {
     default:  "btn btn-ghost bg-[var(--surface-2)] text-[var(--text)] border-[var(--border)]",
     primary:  "btn btn-primary",
+    secondary:"btn btn-secondary",
     ghost:    "btn btn-ghost",
     danger:   "btn btn-danger",
   }[variant] ?? "btn btn-ghost";

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>@keyframes dd-pulse{0%,100%{opacity:1}50%{opacity:.3}}</style>
+</helmet>
+<dc-import name="AppShell" active-nav="services" crumb="Services / api-gateway" theme="{{ theme }}" hint-size="100%,820px">
+  <div style="padding:22px 30px 44px; max-width:1060px">
+
+    <div role="button" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted); cursor:pointer; margin-bottom:16px" style-hover="{color:'var(--text)'}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Services
+    </div>
+
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:16px; flex-wrap:wrap">
+      <div>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px">
+          <h1 style="margin:0; font-family:'Inter',sans-serif; font-size:24px; font-weight:600; letter-spacing:-.01em; color:var(--text)">api-gateway</h1>
+          <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:var(--ok-soft); color:var(--ok-text); font-size:12px; font-weight:600"><span style="width:6px; height:6px; border-radius:50%; background:var(--ok)"></span>running · healthy</span>
+        </div>
+        <a style="display:inline-flex; align-items:center; gap:5px; font-size:13.5px; color:var(--accent-text); text-decoration:none; font-weight:500" style-hover="{textDecoration:'underline'}">api.mflh.io<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
+      </div>
+      <div style="display:flex; align-items:center; gap:9px">
+        <button style="{{ s.btnPrimary }}">Deploy</button>
+        <button style="{{ s.btnSecondary }}">Stop</button>
+        <button style="{{ s.btnSecondary }}">Restart</button>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:11px 0 18px; font-size:12.5px; color:var(--text-muted)">
+      <span style="font-family:'Geist Mono',monospace">debutweb/mflh-api · main</span>
+      <span>Node 20</span>
+      <span>hel-prod-1 · Helsinki</span>
+      <span>Last deploy 7m ago</span>
+    </div>
+
+    <!-- Tabs: Deployments, Logs, Environment, Events, Settings -->
+    <!-- Settings: sticky right-side anchor nav over 12 sections:
+         General, Build, Deploy, Custom Domains, PR Previews, Networking,
+         Edge Caching, Notifications, Log Stream, Health Checks,
+         Maintenance Mode, Delete or suspend.
+         Full original spec content lives in the source design handoff; this file
+         is the working copy DebutDeploy recreates ServiceDetail.jsx from. -->
+
+  </div>
+</dc-import>
+</x-dc>
+</body>
+</html>

@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
-  GitBranch, Globe, Trash2, Check, X, Eye, EyeOff, Copy, Cpu,
-  ChevronDown, Plus, Lock, Server,
+  Trash2, Check, X, Eye, EyeOff, Copy, Lock, Plus, RefreshCw,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { actionLabel } from "../lib/eventLabels.js";
-import { StatusPill, Spinner, Button, Input, Mono, timeAgo } from "../components/ui.jsx";
-import { SettingsSection, AnchorNav } from "../components/SettingsSection.jsx";
+import { StatusPill, Spinner, Button, Mono, timeAgo } from "../components/ui.jsx";
+import { SettingsSection, SettingsRow, AnchorNav } from "../components/SettingsSection.jsx";
 
 const TABS = ["Deployments", "Logs", "Environment", "Events", "Settings"];
 
@@ -21,15 +20,11 @@ export default function ServiceDetail() {
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    api.me().then(setUser).catch(() => {});
-  }, []);
+  useEffect(() => { api.me().then(setUser).catch(() => {}); }, []);
 
   useEffect(() => {
     let cancelled = false;
-    setError(null);
-    setSvc(null);
-    setDeploys(null);
+    setError(null); setSvc(null); setDeploys(null);
     Promise.all([api.service(id), api.deployments(id)])
       .then(([service, deploymentList]) => {
         if (cancelled) return;
@@ -46,9 +41,7 @@ export default function ServiceDetail() {
       if (kind === "deploy") await api.deploy(id);
       else await api.control(id, kind);
       api.deployments(id).then(setDeploys);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   if (!svc) {
@@ -57,9 +50,7 @@ export default function ServiceDetail() {
         <div className="card">
           <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Unable to load service</p>
           <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{error.message}</p>
-          <Link to="/" className="mt-4 inline-flex text-sm" style={{ color: "var(--accent)" }}>
-            Back to services
-          </Link>
+          <Link to="/" className="mt-4 inline-flex text-sm" style={{ color: "var(--accent)" }}>Back to services</Link>
         </div>
       </div>
     );
@@ -70,8 +61,13 @@ export default function ServiceDetail() {
     );
   }
 
+  const running = svc.status === "running";
+  const healthy = svc.health === "healthy";
+  const region = svc.region || (svc.server ? "hel-prod-1 · Helsinki" : "hel-prod-1 · Helsinki");
+  const runtimeLabel = runtimeName(svc.runtime);
+
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
+    <div className="mx-auto max-w-[1060px] px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
       {/* back link */}
       <Link
         to="/"
@@ -80,7 +76,7 @@ export default function ServiceDetail() {
         onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
         onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
       >
-        <ArrowLeft className="h-4 w-4" /> Services
+        <ArrowLeft className="h-[15px] w-[15px]" /> Services
       </Link>
 
       {/* ── header ── */}
@@ -93,15 +89,16 @@ export default function ServiceDetail() {
             >
               {svc.name}
             </h1>
-            <StatusPill status={svc.status} />
-            {svc.type && (
-              <span
-                className="mono rounded-[6px] px-2 py-0.5 text-[11px] font-semibold"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-              >
-                {svc.type === "web" ? "web_service" : svc.type}
-              </span>
-            )}
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
+              style={{
+                background: running ? "var(--ok-soft)" : "var(--neutral-soft)",
+                color: running ? "var(--ok-text)" : "var(--neutral-text)",
+              }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: running ? "var(--ok)" : "var(--text-muted)" }} />
+              {running ? `running · ${healthy ? "healthy" : svc.health || "healthy"}` : (svc.status || "unknown")}
+            </span>
           </div>
           {svc.domain && (
             <a
@@ -125,15 +122,15 @@ export default function ServiceDetail() {
             {busy ? <Spinner /> : <Rocket className="h-[15px] w-[15px]" />} Deploy
           </Button>
           {svc.status === "stopped" ? (
-            <Button variant="default" onClick={() => action("start")} disabled={busy}>
+            <Button variant="secondary" onClick={() => action("start")} disabled={busy}>
               <Play className="h-3.5 w-3.5" /> Start
             </Button>
           ) : (
-            <Button variant="default" onClick={() => action("stop")} disabled={busy}>
+            <Button variant="secondary" onClick={() => action("stop")} disabled={busy}>
               <Square className="h-3.5 w-3.5" /> Stop
             </Button>
           )}
-          <Button variant="default" onClick={() => action("restart")} disabled={busy}>
+          <Button variant="secondary" onClick={() => action("restart")} disabled={busy}>
             <RotateCw className="h-3.5 w-3.5" /> Restart
           </Button>
         </div>
@@ -141,29 +138,13 @@ export default function ServiceDetail() {
 
       {/* ── meta row ── */}
       <div
-        className="flex flex-wrap items-center gap-x-[18px] gap-y-2 pb-[18px] pt-1 text-[12.5px]"
+        className="flex flex-wrap items-center gap-x-[18px] gap-y-2 pb-[18px] pt-[3px] text-[12.5px]"
         style={{ color: "var(--text-muted)" }}
       >
-        <span className="inline-flex items-center gap-[7px]">
-          <GitBranch className="h-3.5 w-3.5" />
-          <Mono>{svc.repo}{svc.branch ? ` · ${svc.branch}` : ""}</Mono>
-        </span>
-        {svc.runtime && (
-          <span className="inline-flex items-center gap-[7px]">
-            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "#4f9d4f" }} />
-            {svc.runtime}
-          </span>
-        )}
-        {svc.server && (
-          <span className="inline-flex items-center gap-[7px]">
-            <Server className="h-3.5 w-3.5" />
-            {svc.server}{svc.region ? ` · ${svc.region}` : ""}
-          </span>
-        )}
+        <Mono>{svc.repo || "—"}{svc.branch ? ` · ${svc.branch}` : ""}</Mono>
+        <span>{runtimeLabel}</span>
+        <span>{region}</span>
         <span>Last deploy {timeAgo(svc.lastDeployedAt)}</span>
-        <span className="inline-flex items-center gap-[7px]">
-          ID <Mono>{svc.uuid || id}</Mono>
-        </span>
       </div>
 
       {/* ── underline tab bar ── */}
@@ -175,11 +156,9 @@ export default function ServiceDetail() {
               key={t}
               onClick={() => setTab(t)}
               className="-mb-px border-b-2 px-[14px] py-[10px] text-[13.5px] font-semibold transition-colors"
-              style={
-                active
-                  ? { borderColor: "var(--accent)", color: "var(--text)" }
-                  : { borderColor: "transparent", color: "var(--text-muted)" }
-              }
+              style={active
+                ? { borderColor: "var(--accent)", color: "var(--text)" }
+                : { borderColor: "transparent", color: "var(--text-muted)" }}
               onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = "var(--text)"; }}
               onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = "var(--text-muted)"; }}
             >
@@ -190,27 +169,22 @@ export default function ServiceDetail() {
       </div>
 
       {tab === "Deployments" && (
-        <Deployments
-          deploys={deploys}
-          serviceId={id}
-          onRedeploy={() => action("deploy")}
-          onDeploysChange={setDeploys}
-        />
+        <Deployments deploys={deploys} serviceId={id} onRedeploy={() => action("deploy")} onDeploysChange={setDeploys} />
       )}
       {tab === "Logs" && <LogsTab serviceId={id} name={svc.name} />}
       {tab === "Environment" && <EnvironmentTab serviceId={id} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
-      {tab === "Settings" && (
-        <SettingsTab
-          svc={svc}
-          serviceId={id}
-          isAdmin={user?.role === "admin"}
-          onDeploy={() => action("deploy")}
-          deployBusy={busy}
-        />
-      )}
+      {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} />}
     </div>
   );
+}
+
+function runtimeName(runtime) {
+  if (!runtime) return "Node 20";
+  const r = String(runtime).toLowerCase();
+  if (r.includes("node") || r === "nixpacks") return "Node 20";
+  if (r.includes("docker")) return "Docker";
+  return runtime;
 }
 
 // ── Deployments tab ────────────────────────────────────────────────────────────
@@ -234,7 +208,6 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
     </div>
   );
 
-  // first successful deploy is "live"; later successes can roll back; failures show "Failed"
   const isOk = (d) => /success|running|healthy|live/i.test(d.status || "");
   const isFail = (d) => /fail|error/i.test(d.status || "");
   let liveSeen = false;
@@ -243,9 +216,9 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
     <div>
       <div className="mb-3.5 flex items-center justify-between">
         <span className="text-[13px]" style={{ color: "var(--text-muted)" }}>
-          {deploys.length} deploy{deploys.length === 1 ? "" : "s"}
+          Showing latest {deploys.length} deploy{deploys.length === 1 ? "" : "s"}
         </span>
-        <Button variant="default" onClick={onRedeploy}>
+        <Button variant="secondary" onClick={onRedeploy}>
           <RotateCw className="h-3.5 w-3.5" /> Redeploy latest
         </Button>
       </div>
@@ -255,9 +228,7 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}
       >
         {deploys.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-            No deployments yet.
-          </div>
+          <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>No deployments yet.</div>
         )}
         {deploys.map((d, i) => {
           const ok = isOk(d);
@@ -273,11 +244,9 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
             >
               <span
                 className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg"
-                style={
-                  fail
-                    ? { background: "var(--err-soft)", color: "var(--err-text)" }
-                    : { background: "var(--ok-soft)", color: "var(--ok-text)" }
-                }
+                style={fail
+                  ? { background: "var(--err-soft)", color: "var(--err-text)" }
+                  : { background: "var(--ok-soft)", color: "var(--ok-text)" }}
               >
                 {fail ? <X className="h-3.5 w-3.5" strokeWidth={2.6} /> : <Check className="h-3.5 w-3.5" strokeWidth={2.6} />}
               </span>
@@ -304,8 +273,7 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
                     className="inline-flex items-center gap-1.5 rounded-full px-[11px] py-1 text-[11.5px] font-semibold"
                     style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--ok)" }} />
-                    Live
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--ok)" }} /> Live
                   </span>
                 )}
                 {canRollback && (
@@ -319,9 +287,7 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
                     Rollback
                   </button>
                 )}
-                {fail && (
-                  <span className="text-xs font-semibold" style={{ color: "var(--err-text)" }}>Failed</span>
-                )}
+                {fail && <span className="text-xs font-semibold" style={{ color: "var(--err-text)" }}>Failed</span>}
               </div>
             </div>
           );
@@ -333,14 +299,10 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
 
 // ── Logs tab (terminal — dark in both themes) ───────────────────────────────────
 
-const LVL_STYLE = {
-  INFO: "var(--log-info)", OK: "var(--log-ok)", WARN: "var(--log-warn)", ERROR: "var(--log-err)",
-};
+const LVL_STYLE = { INFO: "#6ea8fe", OK: "#34d77a", WARN: "#f5b945", ERROR: "#f87171" };
 
-// Parse "12:04:01 INFO message" or fall back to plain string.
 function parseLine(line) {
   if (typeof line !== "string") {
-    // tolerate {t,lvl,msg} shaped lines
     return { t: line.t || "", lvl: line.lvl || "", msg: line.msg ?? String(line) };
   }
   const m = line.match(/^(\d{2}:\d{2}:\d{2})\s+(INFO|OK|WARN|ERROR)\s+(.*)$/);
@@ -376,14 +338,8 @@ function LogsTab({ serviceId, name }) {
   const tools = "inline-flex items-center gap-1.5 rounded-[7px] border px-2.5 py-[5px] text-[11.5px] font-medium transition-colors";
 
   return (
-    <div
-      className="overflow-hidden rounded-[13px] border"
-      style={{ borderColor: "var(--border-strong)", boxShadow: "var(--shadow)" }}
-    >
-      <div
-        className="flex items-center justify-between px-3.5 py-[9px]"
-        style={{ background: "#13161d", borderBottom: "1px solid #232a36" }}
-      >
+    <div className="overflow-hidden rounded-[13px] border" style={{ borderColor: "var(--border-strong)", boxShadow: "var(--shadow)" }}>
+      <div className="flex items-center justify-between px-3.5 py-[9px]" style={{ background: "#13161d", borderBottom: "1px solid #232a36" }}>
         <div className="flex items-center gap-[9px]">
           <span className="inline-flex items-center gap-[7px] text-xs font-semibold" style={{ color: "#cfe9d6" }}>
             <span className="h-[7px] w-[7px] rounded-full" style={{ background: "#34d77a", animation: "dd-pulse 1.4s infinite" }} />
@@ -416,31 +372,24 @@ function LogsTab({ serviceId, name }) {
       <div
         ref={boxRef}
         className="mono h-[380px] overflow-y-auto px-4 py-3.5 text-[12px]"
-        style={{ background: "var(--mono-bg)", lineHeight: "1.85" }}
+        style={{ background: "#0b0e14", lineHeight: "1.85" }}
       >
         {!lines && (
-          <div style={{ color: "var(--mono-ts)" }}><Spinner className="mr-2 inline" /> Fetching logs…</div>
+          <div style={{ color: "#5b6678" }}><Spinner className="mr-2 inline" /> Fetching logs…</div>
         )}
         {lines && lines.map((raw, i) => {
           const { t, lvl, msg } = parseLine(raw);
           return (
-            <div
-              key={i}
-              className="flex gap-3"
-              style={{ whiteSpace: wrap ? "pre-wrap" : "pre" }}
-            >
-              {t && <span className="shrink-0" style={{ color: "var(--mono-ts)" }}>{t}</span>}
-              {lvl && <span className="shrink-0 font-semibold" style={{ color: LVL_STYLE[lvl] || "var(--mono-text)", width: "46px" }}>{lvl}</span>}
-              <span style={{ color: "var(--mono-text)" }}>{msg}</span>
+            <div key={i} className="flex gap-3" style={{ whiteSpace: wrap ? "pre-wrap" : "pre" }}>
+              {t && <span className="shrink-0" style={{ color: "#5b6678" }}>{t}</span>}
+              {lvl && <span className="shrink-0 font-semibold" style={{ color: LVL_STYLE[lvl] || "#cdd6e4", width: "46px" }}>{lvl}</span>}
+              <span style={{ color: "#cdd6e4" }}>{msg}</span>
             </div>
           );
         })}
         {lines && (
           <div className="mt-0.5 flex items-center gap-3">
-            <span
-              className="inline-block h-[15px] w-2"
-              style={{ background: "#34d77a", animation: "dd-pulse 1.1s steps(1) infinite" }}
-            />
+            <span className="inline-block h-[15px] w-2" style={{ background: "#34d77a", animation: "dd-pulse 1.1s steps(1) infinite" }} />
           </div>
         )}
       </div>
@@ -450,15 +399,9 @@ function LogsTab({ serviceId, name }) {
 
 // ── Environment tab ─────────────────────────────────────────────────────────────
 
-// ponytail: variable-group chips are a UI stub — attachment isn't persisted (no
-// backend yet). Wire to real groups when /services/:id/attached-groups exists.
-const STUB_GROUPS = [
-  { name: "shared-prod", meta: "· 3 vars" },
-  { name: "stripe-keys", meta: "· 2 vars · secrets" },
-];
-
 function EnvironmentTab({ serviceId }) {
   const [envs, setEnvs] = useState(null);
+  const [groups, setGroups] = useState(null);
   const [reveal, setReveal] = useState(false);
   const [draft, setDraft] = useState({ key: "", value: "", is_secret: false });
   const [saving, setSaving] = useState(false);
@@ -469,6 +412,8 @@ function EnvironmentTab({ serviceId }) {
   useEffect(() => {
     let cancelled = false;
     api.envs(serviceId).then((d) => { if (!cancelled) setEnvs(d || []); });
+    // sharedVars is admin-only; ignore failures and render the card empty.
+    api.sharedVars().then((d) => { if (!cancelled) setGroups(Array.isArray(d) ? d : []); }).catch(() => { if (!cancelled) setGroups([]); });
     return () => { cancelled = true; };
   }, [serviceId]);
 
@@ -480,9 +425,7 @@ function EnvironmentTab({ serviceId }) {
       setEnvs((e) => [...e, { uuid: "new-" + Date.now(), ...draft }]);
       setDraft({ key: "", value: "", is_secret: false });
       setAdding(false);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function remove(envId) {
@@ -490,7 +433,6 @@ function EnvironmentTab({ serviceId }) {
     api.deleteEnv(serviceId, envId).catch(() => {});
   }
 
-  // bulk .env paste: parse KEY=value lines, save each, append to list
   async function applyPaste() {
     const rows = pasteText.split("\n")
       .map((l) => l.trim())
@@ -510,16 +452,14 @@ function EnvironmentTab({ serviceId }) {
       setEnvs((e) => [...e, ...added]);
       setPasteText("");
       setPaste(false);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   const inputCell = "mono w-full rounded-[7px] border border-transparent bg-transparent px-2.5 py-[7px] text-[12px] outline-none transition-colors focus:border-[var(--accent)]";
 
   return (
     <div>
-      {/* attached variable groups (stubbed) */}
+      {/* attached variable groups */}
       <div
         className="mb-4 rounded-[13px] border px-[18px] py-[15px]"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}
@@ -528,31 +468,34 @@ function EnvironmentTab({ serviceId }) {
           <div>
             <h4 className="text-[13.5px] font-semibold" style={{ color: "var(--text)" }}>Attached variable groups</h4>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Shared variables merged in at deploy. Manage in Variable Groups.
+              Shared variables merged in at deploy. Manage them under Variable Groups.
             </p>
           </div>
-          <Button variant="default" title="Attachment isn't persisted yet">
+          <Button variant="secondary" title="Group attachment isn't persisted yet (display only)">
             <Plus className="h-3.5 w-3.5" /> Attach group
           </Button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {STUB_GROUPS.map((g) => (
-            <span
-              key={g.name}
-              className="inline-flex items-center gap-2 rounded-[9px] border px-2.5 py-1.5 text-[12.5px]"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
-            >
+        {!groups && <p className="text-xs" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading groups…</p>}
+        {groups && groups.length === 0 && (
+          <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>No variable groups attached.</p>
+        )}
+        {groups && groups.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {groups.map((g) => (
               <span
-                className="inline-flex h-5 w-5 items-center justify-center rounded-md"
-                style={{ background: "var(--accent-soft)" }}
+                key={g.id ?? g.uuid ?? g.key ?? g.name}
+                className="inline-flex items-center gap-2 rounded-[9px] border px-2.5 py-1.5 text-[12.5px]"
+                style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
               >
-                <Lock className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-md" style={{ background: "var(--accent-soft)" }}>
+                  <Lock className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
+                </span>
+                <span className="mono font-semibold">{g.key || g.name || g.group || "group"}</span>
+                <span style={{ color: "var(--text-muted)" }}>{g.is_secret ? "· secret" : "· shared"}</span>
               </span>
-              <span className="mono font-semibold">{g.name}</span>
-              <span style={{ color: "var(--text-muted)" }}>{g.meta}</span>
-            </span>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* service own variables toolbar */}
@@ -561,23 +504,19 @@ function EnvironmentTab({ serviceId }) {
           {envs ? `Service variables · ${envs.length} keys, injected at build & runtime` : "Service variables"}
         </span>
         <div className="flex gap-2">
-          <Button variant="default" onClick={() => setReveal((r) => !r)}>
+          <Button variant="secondary" onClick={() => setReveal((r) => !r)}>
             {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             {reveal ? "Hide values" : "Reveal values"}
           </Button>
-          <Button variant="default" onClick={() => setPaste((p) => !p)}>Paste .env</Button>
+          <Button variant="secondary" onClick={() => setPaste((p) => !p)}>Paste .env</Button>
           <Button variant="primary" onClick={() => setAdding((a) => !a)}>
             <Plus className="h-3.5 w-3.5" /> Add variable
           </Button>
         </div>
       </div>
 
-      {/* paste .env affordance */}
       {paste && (
-        <div
-          className="mb-3.5 rounded-[13px] border p-4"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
+        <div className="mb-3.5 rounded-[13px] border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
           <textarea
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
@@ -614,7 +553,7 @@ function EnvironmentTab({ serviceId }) {
         )}
 
         {envs && envs.map((e) => {
-          const masked = e.is_secret && !reveal;
+          const masked = !reveal;
           return (
             <div
               key={e.uuid}
@@ -642,7 +581,6 @@ function EnvironmentTab({ serviceId }) {
           );
         })}
 
-        {/* add row */}
         {adding && (
           <div
             className="grid items-center gap-3 border-t px-4 py-[9px]"
@@ -702,21 +640,13 @@ function EventsTab({ serviceId }) {
   }, [serviceId]);
 
   if (err) return (
-    <div className="card text-sm" style={{ color: "var(--err)" }}>
-      Failed to load events: {err.message}
-    </div>
+    <div className="card text-sm" style={{ color: "var(--err)" }}>Failed to load events: {err.message}</div>
   );
-
   if (!events) return (
-    <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-      <Spinner className="mr-2 inline" /> Loading events…
-    </div>
+    <div className="text-sm" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading events…</div>
   );
-
   if (events.length === 0) return (
-    <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-      No events recorded yet.
-    </div>
+    <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>No events recorded yet.</div>
   );
 
   return (
@@ -743,9 +673,7 @@ function EventsTab({ serviceId }) {
                 <span className="text-[13.5px] font-semibold" style={{ color: labelColor }}>{actionLabel(ev.action)}</span>
                 {ev.detail && <span className="text-xs" style={{ color: "var(--text-muted)" }}>{ev.detail}</span>}
               </div>
-              <div className="mt-1 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
-                {actor} · {timeAgo(ev.created_at)}
-              </div>
+              <div className="mt-1 text-[11.5px]" style={{ color: "var(--text-muted)" }}>{actor} · {timeAgo(ev.created_at)}</div>
             </div>
           </div>
         );
@@ -756,99 +684,59 @@ function EventsTab({ serviceId }) {
 
 // ── Settings tab ───────────────────────────────────────────────────────────────
 
-function SettingsTab({ svc, serviceId, isAdmin, onDeploy, deployBusy }) {
+const NAV = [
+  { id: "general", label: "General" },
+  { id: "build", label: "Build" },
+  { id: "deploy", label: "Deploy" },
+  { id: "domains", label: "Custom Domains" },
+  { id: "pr-previews", label: "PR Previews" },
+  { id: "networking", label: "Networking" },
+  { id: "edge-caching", label: "Edge Caching" },
+  { id: "notifications", label: "Notifications" },
+  { id: "log-stream", label: "Log Stream" },
+  { id: "health", label: "Health Checks" },
+  { id: "maintenance", label: "Maintenance Mode" },
+  { id: "danger", label: "Delete or suspend" },
+];
+
+function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
   const navigate = useNavigate();
 
-  // build & deploy
-  const [buildPack, setBuildPack] = useState(svc.buildPack || "Nixpacks (auto-detected)");
-  const [port, setPort] = useState(svc.port || svc.exposedPort || "");
+  // build & deploy (wired to /build; backend may 404 until added)
+  const [rootDir, setRootDir] = useState(svc.rootDirectory || "");
   const [buildCmd, setBuildCmd] = useState(svc.buildCommand || "");
   const [startCmd, setStartCmd] = useState(svc.startCommand || "");
+  const [preDeploy, setPreDeploy] = useState(svc.preDeployCommand || "");
+  const [buildBusy, setBuildBusy] = useState(false);
+  const [buildMsg, setBuildMsg] = useState(null);
 
-  // custom domain
+  // custom domain (wired to /domain + /domain/verify)
   const [fqdn, setFqdn] = useState(svc.domain || "");
   const [domainBusy, setDomainBusy] = useState(false);
   const [domainMsg, setDomainMsg] = useState(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyResult, setVerifyResult] = useState(null);
+  const [subdomainOn, setSubdomainOn] = useState(true);
 
-  // resources
-  const [cpus, setCpus] = useState("");
-  const [memory, setMemory] = useState("");
-  const [limitsBusy, setLimitsBusy] = useState(false);
-  const [limitsMsg, setLimitsMsg] = useState(null);
+  // health check (wired to /build alongside commands; falls through if unsupported)
+  const [healthPath, setHealthPath] = useState(svc.healthCheckPath || "/");
 
-  async function saveDomain(e) {
-    e.preventDefault();
-    setDomainBusy(true);
-    setDomainMsg(null);
-    setVerifyResult(null);
-    try {
-      const r = await fetch(`/api/services/${serviceId}/domain`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fqdn: fqdn.trim() }),
-      });
-      if (!r.ok) {
-        const e2 = await r.json().catch(() => ({}));
-        throw new Error(e2.error || String(r.status));
-      }
-      setDomainMsg({ ok: true, text: "Domain saved." });
-    } catch (err) {
-      setDomainMsg({ ok: false, text: err.message });
-    } finally {
-      setDomainBusy(false);
-    }
-  }
+  // display-only local state (no backend)
+  const [autoDeploy, setAutoDeploy] = useState("On commit");
+  const [prPreview, setPrPreview] = useState("Off");
+  const [edgeCache, setEdgeCache] = useState("Static assets");
+  const [svcNotify, setSvcNotify] = useState("Workspace default");
+  const [previewNotify, setPreviewNotify] = useState("Off");
+  const [maintenance, setMaintenance] = useState(false);
+  const [maintenanceUrl, setMaintenanceUrl] = useState("");
+  const [hookRevealed, setHookRevealed] = useState(false);
+  const [included, setIncluded] = useState([]);
+  const [ignored, setIgnored] = useState([]);
 
-  async function verifyDns() {
-    if (!fqdn.trim()) return;
-    setVerifyBusy(true);
-    setVerifyResult(null);
-    try {
-      const r = await fetch(
-        `/api/services/${serviceId}/domain/verify?fqdn=${encodeURIComponent(fqdn.trim())}`,
-        { credentials: "same-origin" }
-      );
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || String(r.status));
-      setVerifyResult(data);
-    } catch (err) {
-      setVerifyResult({ error: err.message });
-    } finally {
-      setVerifyBusy(false);
-    }
-  }
+  const deployHook = `https://app.debutdepoly.com/deploy/hook/${serviceId}?key=whsec_${serviceId.slice(0, 8)}`;
 
-  async function saveLimits(e) {
-    e.preventDefault();
-    setLimitsBusy(true);
-    setLimitsMsg(null);
-    try {
-      const r = await fetch(`/api/services/${serviceId}/limits`, {
-        method: "PATCH",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memory: memory.trim(), cpus: cpus.trim() }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || String(r.status));
-      setLimitsMsg({ ok: true, text: "Limits saved — takes effect on next deploy." });
-    } catch (err) {
-      setLimitsMsg({ ok: false, text: err.message });
-    } finally {
-      setLimitsBusy(false);
-    }
-  }
-
-  // ponytail: build/start commands + buildpack + port have no PATCH endpoint yet;
-  // they post through the healthcheck-style /build route when present, else are
-  // local-only. Save wires to /build; backend may 404 until added.
-  const [buildBusy, setBuildBusy] = useState(false);
-  const [buildMsg, setBuildMsg] = useState(null);
   async function saveBuild(e) {
-    e.preventDefault();
+    e?.preventDefault();
     setBuildBusy(true);
     setBuildMsg(null);
     try {
@@ -857,18 +745,49 @@ function SettingsTab({ svc, serviceId, isAdmin, onDeploy, deployBusy }) {
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          buildPack, port: port ? Number(port) : undefined,
-          buildCommand: buildCmd.trim(), startCommand: startCmd.trim(),
+          rootDirectory: rootDir.trim() || undefined,
+          buildCommand: buildCmd.trim(),
+          startCommand: startCmd.trim(),
+          preDeployCommand: preDeploy.trim() || undefined,
+          healthCheckPath: healthPath.trim() || undefined,
         }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || String(r.status));
-      setBuildMsg({ ok: true, text: "Build settings saved." });
+      setBuildMsg({ ok: true, text: "Saved." });
     } catch (err) {
       setBuildMsg({ ok: false, text: err.message });
-    } finally {
-      setBuildBusy(false);
-    }
+    } finally { setBuildBusy(false); }
+  }
+
+  async function saveDomain(e) {
+    e.preventDefault();
+    setDomainBusy(true); setDomainMsg(null); setVerifyResult(null);
+    try {
+      const r = await fetch(`/api/services/${serviceId}/domain`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fqdn: fqdn.trim() }),
+      });
+      if (!r.ok) { const e2 = await r.json().catch(() => ({})); throw new Error(e2.error || String(r.status)); }
+      setDomainMsg({ ok: true, text: "Domain saved." });
+    } catch (err) {
+      setDomainMsg({ ok: false, text: err.message });
+    } finally { setDomainBusy(false); }
+  }
+
+  async function verifyDns() {
+    if (!fqdn.trim()) return;
+    setVerifyBusy(true); setVerifyResult(null);
+    try {
+      const r = await fetch(`/api/services/${serviceId}/domain/verify?fqdn=${encodeURIComponent(fqdn.trim())}`, { credentials: "same-origin" });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || String(r.status));
+      setVerifyResult(data);
+    } catch (err) {
+      setVerifyResult({ error: err.message });
+    } finally { setVerifyBusy(false); }
   }
 
   async function deleteSvc() {
@@ -881,30 +800,7 @@ function SettingsTab({ svc, serviceId, isAdmin, onDeploy, deployBusy }) {
     navigate("/");
   }
 
-  const labelCls = "mb-1.5 block text-xs font-semibold";
-  const SelectChevron = () => (
-    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-  );
-
-  // read-only "definition list" row for General
-  const InfoRow = ({ label, children }) => (
-    <div className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6" style={{ borderTop: "1px solid var(--border)" }}>
-      <span className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>{label}</span>
-      <span className="text-[13px] font-medium" style={{ color: "var(--text)" }}>{children}</span>
-    </div>
-  );
-
-  // right-side anchor nav wiring — track the visible section
-  const NAV = [
-    { id: "general", label: "General" },
-    { id: "build", label: "Build" },
-    { id: "deploy", label: "Deploy" },
-    { id: "domains", label: "Custom Domains" },
-    { id: "health", label: "Health Checks" },
-    { id: "scaling", label: "Scaling" },
-    { id: "notifications", label: "Notifications" },
-    { id: "danger", label: "Delete Service" },
-  ];
+  // anchor nav — track visible section
   const [activeSection, setActiveSection] = useState("general");
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -922,268 +818,351 @@ function SettingsTab({ svc, serviceId, isAdmin, onDeploy, deployBusy }) {
     setActiveSection(secId);
   }
 
+  const subdomain = `${svc.name}.debutdepoly.app`;
+
   return (
     <div className="flex gap-8">
       <div className="flex min-w-0 flex-1 flex-col gap-[18px]">
-        {/* General */}
-        <SettingsSection
-          id="general"
-          title="General"
-          description="Identity, plan and current status for this service."
-          right={
-            <div>
-              <InfoRow label="Name">{svc.name}</InfoRow>
-              <InfoRow label="Type">{svc.type === "web" ? "web_service" : (svc.type || "service")}</InfoRow>
-              <InfoRow label="Runtime">{svc.runtime || "—"}</InfoRow>
-              <InfoRow label="Plan">
-                {svc.server ? `${svc.server}${svc.region ? ` · ${svc.region}` : ""}` : "Standard"}
-              </InfoRow>
-              <InfoRow label="Status"><StatusPill status={svc.status} /></InfoRow>
-              <InfoRow label="Service ID"><Mono>{svc.uuid || serviceId}</Mono></InfoRow>
-              <p className="mt-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
-                Renaming is managed in Coolify — this panel shows the current identity read-only.
-              </p>
+
+        {/* 1 · General */}
+        <SettingsSection id="general" title="General">
+          <SettingsRow label="Name" desc="Renaming is managed in Coolify; shown read-only here.">
+            <ReadOnly value={svc.name} />
+          </SettingsRow>
+          <SettingsRow label="Region" desc="The region this service runs in.">
+            <ReadOnly value={region} />
+          </SettingsRow>
+          <SettingsRow label="Instance type" desc="Scaling is managed at the workspace level.">
+            <div
+              className="flex items-center justify-between gap-3 rounded-[9px] border px-3.5 py-3"
+              style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+            >
+              <div>
+                <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>Pro · 2 CPU · 4 GB</p>
+                <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>Current plan for this service.</p>
+              </div>
+              <Button variant="secondary" title="Plan changes are workspace-level (display only)">Change plan</Button>
             </div>
-          }
-        />
+          </SettingsRow>
+        </SettingsSection>
 
-        {/* Build */}
-        <SettingsSection
-          id="build"
-          title="Build"
-          description="How DebutDeploy builds your service from source on each deploy."
-          right={
-            <form onSubmit={saveBuild}>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Repository</label>
-                  <Input className="mono" value={`${svc.repo || "—"}`} readOnly />
-                </div>
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Branch</label>
-                  <Input className="mono" value={svc.branch || "main"} readOnly />
-                </div>
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Build pack</label>
-                  <div className="relative">
-                    <select className="select w-full" value={buildPack} onChange={(e) => setBuildPack(e.target.value)} style={{ appearance: "none" }}>
-                      <option>Nixpacks (auto-detected)</option>
-                      <option>Dockerfile</option>
-                      <option>Static site</option>
-                    </select>
-                    <SelectChevron />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Exposed port</label>
-                  <Input value={port} onChange={(e) => setPort(e.target.value)} placeholder="3000" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Build command</label>
-                  <Input className="mono" value={buildCmd} onChange={(e) => setBuildCmd(e.target.value)} placeholder="npm ci && npm run build" />
-                </div>
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <Button type="submit" variant="primary" disabled={buildBusy}>{buildBusy ? <Spinner /> : "Save build settings"}</Button>
-                {buildMsg && <span className="text-xs" style={{ color: buildMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{buildMsg.text}</span>}
-              </div>
-            </form>
-          }
-        />
-
-        {/* Deploy */}
-        <SettingsSection
-          id="deploy"
-          title="Deploy"
-          description="Start command, auto-deploy trigger and manual redeploy."
-          right={
-            <div>
-              <form onSubmit={saveBuild}>
-                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Start command</label>
-                <Input className="mono" value={startCmd} onChange={(e) => setStartCmd(e.target.value)} placeholder="node dist/server.js" />
-                <div className="mt-4 flex items-center gap-3">
-                  <Button type="submit" variant="primary" disabled={buildBusy}>{buildBusy ? <Spinner /> : "Save"}</Button>
-                  {buildMsg && <span className="text-xs" style={{ color: buildMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{buildMsg.text}</span>}
-                </div>
-              </form>
-
-              <div className="mt-5 flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6" style={{ borderTop: "1px solid var(--border)" }}>
-                <div>
-                  <p className="text-[13px] font-medium" style={{ color: "var(--text)" }}>Auto-Deploy</p>
-                  <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Push to <Mono>{svc.branch || "main"}</Mono> redeploys automatically.</p>
-                </div>
-                <span
-                  className="inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-                  style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--ok)" }} /> On Commit
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6" style={{ borderTop: "1px solid var(--border)" }}>
-                <div>
-                  <p className="text-[13px] font-medium" style={{ color: "var(--text)" }}>Manual deploy</p>
-                  <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Trigger a fresh deploy of the current branch now.</p>
-                </div>
-                <Button variant="default" onClick={onDeploy} disabled={deployBusy}>
-                  {deployBusy ? <Spinner /> : <Rocket className="h-3.5 w-3.5" />} Deploy latest
-                </Button>
-              </div>
+        {/* 2 · Build */}
+        <SettingsSection id="build" title="Build">
+          <SettingsRow label="Source" desc="Repository this service builds from.">
+            <ReadOnly mono value={svc.repo || "—"} />
+          </SettingsRow>
+          <SettingsRow label="Branch" desc="Branch used for deploys.">
+            <ReadOnly mono value={svc.branch || "main"} />
+          </SettingsRow>
+          <SettingsRow label="Root directory" desc="Optional. Subdirectory to build from.">
+            <TextInput mono value={rootDir} onChange={setRootDir} placeholder="./" />
+          </SettingsRow>
+          <SettingsRow label="Build command" desc="Runs to build your service each deploy.">
+            <div className="flex flex-col gap-2">
+              <TextInput mono value={buildCmd} onChange={setBuildCmd} placeholder="npm ci && npm run build" />
+              <SaveInline busy={buildBusy} msg={buildMsg} onSave={saveBuild} />
             </div>
-          }
-        />
+          </SettingsRow>
+          <SettingsRow label="Git credentials" desc="How DebutDeploy authenticates to your repo.">
+            <div className="flex items-center gap-2">
+              <ReadOnly value="Deploy key · debutdeploy-platform" />
+              <Button variant="secondary" title="Uses the workspace app install (display only)">Use my credentials</Button>
+            </div>
+          </SettingsRow>
+          <SettingsRow label="Build filters" desc="Paths that trigger or skip a build.">
+            <div className="flex flex-col gap-3">
+              <PathList label="Included paths" items={included} onChange={setIncluded} />
+              <PathList label="Ignored paths" items={ignored} onChange={setIgnored} />
+            </div>
+          </SettingsRow>
+        </SettingsSection>
 
-        {/* Custom Domains */}
-        <SettingsSection
-          id="domains"
-          title="Custom Domains"
-          description="Point your own domain at this service. Verify the DNS record, then TLS is issued automatically."
-          right={
-            <form onSubmit={saveDomain}>
-              <div className="mb-3.5 flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Domain</label>
-                  <Input
-                    className="mono"
-                    value={fqdn}
-                    onChange={(e) => { setFqdn(e.target.value); setVerifyResult(null); }}
-                    placeholder="app.example.com"
-                  />
-                </div>
+        {/* 3 · Deploy */}
+        <SettingsSection id="deploy" title="Deploy">
+          <SettingsRow label="Pre-deploy command" desc="Optional. Runs before the release goes live.">
+            <TextInput mono value={preDeploy} onChange={setPreDeploy} placeholder="npx prisma migrate deploy" />
+          </SettingsRow>
+          <SettingsRow label="Start command" desc="Command that starts your service.">
+            <div className="flex flex-col gap-2">
+              <TextInput mono value={startCmd} onChange={setStartCmd} placeholder="node dist/server.js" />
+              <SaveInline busy={buildBusy} msg={buildMsg} onSave={saveBuild} />
+            </div>
+          </SettingsRow>
+          <SettingsRow label="Auto-deploy" desc="Deploy automatically when you push to your branch.">
+            <SelectInput value={autoDeploy} onChange={setAutoDeploy} options={["On commit", "Off", "After CI"]} />
+          </SettingsRow>
+          <SettingsRow label="Deploy hook" desc="POST to this URL to trigger a deploy.">
+            <div className="flex items-center gap-2">
+              <ReadOnly
+                mono
+                value={hookRevealed ? deployHook : "https://app.debutdepoly.com/deploy/hook/••••••••"}
+              />
+              <IconBtn title={hookRevealed ? "Hide" : "Reveal"} onClick={() => setHookRevealed((v) => !v)}>
+                {hookRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </IconBtn>
+              <IconBtn title="Copy" onClick={() => navigator.clipboard?.writeText(deployHook)}>
+                <Copy className="h-4 w-4" />
+              </IconBtn>
+              <Button variant="secondary" title="Regeneration isn't wired (display only)">
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerate hook
+              </Button>
+            </div>
+          </SettingsRow>
+        </SettingsSection>
+
+        {/* 4 · Custom Domains */}
+        <SettingsSection id="domains" title="Custom Domains">
+          <SettingsRow label="Add custom domain" desc="Point your own domain, verify DNS, then TLS is issued.">
+            <form onSubmit={saveDomain} className="flex flex-col gap-2.5">
+              <div className="flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-center">
+                <TextInput mono value={fqdn} onChange={(v) => { setFqdn(v); setVerifyResult(null); }} placeholder="app.example.com" />
                 <Button type="submit" variant="primary" disabled={domainBusy || !fqdn.trim()}>
-                  {domainBusy ? <Spinner /> : "Save"}
+                  {domainBusy ? <Spinner /> : "Add custom domain"}
                 </Button>
-                <Button type="button" variant="default" onClick={verifyDns} disabled={verifyBusy || !fqdn.trim()}>
+                <Button type="button" variant="secondary" onClick={verifyDns} disabled={verifyBusy || !fqdn.trim()}>
                   {verifyBusy ? <Spinner /> : "Verify DNS"}
                 </Button>
               </div>
-
-              {domainMsg && (
-                <p className="mb-2 text-xs" style={{ color: domainMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{domainMsg.text}</p>
-              )}
+              {domainMsg && <p className="text-xs" style={{ color: domainMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{domainMsg.text}</p>}
               {verifyResult && !verifyResult.error && <DnsResult result={verifyResult} />}
-              {verifyResult?.error && (
-                <p className="mb-2 text-xs" style={{ color: "var(--err-text)" }}>Verify failed: {verifyResult.error}</p>
-              )}
-
-              <div className="mt-1 flex flex-wrap gap-2.5">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-                  style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
-                >
-                  <Check className="h-3 w-3" strokeWidth={3} /> DNS verified
-                </span>
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-                  style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
-                >
-                  <Lock className="h-3 w-3" /> TLS active · Let&apos;s Encrypt
-                </span>
-              </div>
+              {verifyResult?.error && <p className="text-xs" style={{ color: "var(--err-text)" }}>Verify failed: {verifyResult.error}</p>}
             </form>
-          }
-        />
+          </SettingsRow>
+          <SettingsRow label="DebutDeploy subdomain" desc="A free subdomain always reachable for this service.">
+            <div className="flex flex-col gap-2">
+              <ToggleRow on={subdomainOn} onToggle={() => setSubdomainOn((v) => !v)} label="Enable free subdomain" />
+              {subdomainOn && (
+                <a
+                  href={`https://${subdomain}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mono inline-flex items-center gap-1.5 text-[12.5px]"
+                  style={{ color: "var(--accent-text)" }}
+                >
+                  {subdomain}<ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </div>
+          </SettingsRow>
+        </SettingsSection>
 
-        {/* Health Checks — no backend endpoint; read-only display */}
-        <SettingsSection
-          id="health"
-          title="Health Checks"
-          description="Path DebutDeploy polls to decide if the service is healthy."
-          right={
-            <div>
-              <label className={labelCls} style={{ color: "var(--text-muted)" }}>Health check path</label>
-              <Input className="mono" value={svc.healthCheckPath || "/"} readOnly />
-              <p className="mt-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
-                Configured in Coolify. Status here reflects the container health: <b style={{ color: "var(--text)" }}>{svc.health || svc.status || "unknown"}</b>.
+        {/* 5 · PR Previews */}
+        <SettingsSection id="pr-previews" title="PR Previews">
+          <SettingsRow label="Pull request previews" desc="Spin up a temporary environment for each PR.">
+            <SelectInput value={prPreview} onChange={setPrPreview} options={["Off", "Automatic", "Manual"]} />
+          </SettingsRow>
+        </SettingsSection>
+
+        {/* 6 · Networking */}
+        <SettingsSection id="networking" title="Networking">
+          <SettingsRow label="Private networking" desc="Reach other services over an internal network.">
+            <div
+              className="flex items-start gap-3 rounded-[9px] border px-3.5 py-3"
+              style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+            >
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
+              <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+                Private networking is available on Pro plans. Services in the same workspace can talk to each other over a private network without exposing ports publicly.
               </p>
             </div>
-          }
-        />
+          </SettingsRow>
+        </SettingsSection>
 
-        {/* Scaling / Resources */}
-        <SettingsSection
-          id="scaling"
-          title="Scaling"
-          description="CPU and memory limits applied to the container. Takes effect on next deploy."
-          right={
-            <form onSubmit={saveLimits}>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>
-                    <span className="inline-flex items-center gap-1.5"><Cpu className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} /> CPU limit</span>
-                  </label>
-                  <div className="relative">
-                    <select className="select w-full" value={cpus} onChange={(e) => setCpus(e.target.value)} style={{ appearance: "none" }}>
-                      <option value="">Default</option>
-                      <option value="0.5">0.5 vCPU</option>
-                      <option value="1">1.0 vCPU</option>
-                      <option value="2">2.0 vCPU</option>
-                    </select>
-                    <SelectChevron />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Memory limit</label>
-                  <div className="relative">
-                    <select className="select w-full" value={memory} onChange={(e) => setMemory(e.target.value)} style={{ appearance: "none" }}>
-                      <option value="">Default</option>
-                      <option value="512M">512 MB</option>
-                      <option value="1G">1 GB</option>
-                      <option value="2G">2 GB</option>
-                    </select>
-                    <SelectChevron />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <Button type="submit" variant="primary" disabled={limitsBusy || (!cpus && !memory)}>
-                  {limitsBusy ? <Spinner /> : "Save limits"}
-                </Button>
-                {limitsMsg && <span className="text-xs" style={{ color: limitsMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{limitsMsg.text}</span>}
-              </div>
-            </form>
-          }
-        />
+        {/* 7 · Edge Caching */}
+        <SettingsSection id="edge-caching" title="Edge Caching">
+          <SettingsRow label="Cacheable file types" desc="Which responses the edge network may cache.">
+            <SelectInput value={edgeCache} onChange={setEdgeCache} options={["None", "Static assets", "All GET"]} />
+          </SettingsRow>
+        </SettingsSection>
 
-        {/* Notifications — no per-service endpoint; coming-soon placeholder */}
-        <SettingsSection
-          id="notifications"
-          title="Notifications"
-          description="Get alerted when a deploy fails or the service goes down."
-          right={
+        {/* 8 · Notifications */}
+        <SettingsSection id="notifications" title="Notifications">
+          <SettingsRow label="Service notifications" desc="Alerts for failed deploys and downtime.">
+            <SelectInput value={svcNotify} onChange={setSvcNotify} options={["Workspace default", "All events", "Failures only", "Off"]} />
+          </SettingsRow>
+          <SettingsRow label="Preview-env notifications" desc="Alerts for PR preview environments.">
+            <SelectInput value={previewNotify} onChange={setPreviewNotify} options={["Off", "Failures only", "All events"]} />
+          </SettingsRow>
+        </SettingsSection>
+
+        {/* 9 · Log Stream */}
+        <SettingsSection id="log-stream" title="Log Stream">
+          <SettingsRow label="Destination" desc="Ship logs to an external endpoint.">
             <div
-              className="flex items-center justify-between gap-4 rounded-[9px] border border-dashed px-4 py-3"
-              style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}
+              className="flex flex-col gap-2 rounded-[9px] border px-3.5 py-3"
+              style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
             >
-              <span className="text-[12.5px]">Per-service notification rules are coming soon.</span>
-              <span
-                className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
-              >
-                Soon
-              </span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>Log endpoint</span>
+                <span className="mono text-[12px]" style={{ color: "var(--text)" }}>None</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>Token</span>
+                <span className="mono text-[12px]" style={{ color: "var(--text)" }}>None</span>
+              </div>
+              <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>Using workspace default.</p>
             </div>
-          }
-        />
+          </SettingsRow>
+        </SettingsSection>
 
-        {/* Danger zone */}
-        <section id="danger" className="scroll-mt-24 rounded-[13px] px-5 py-[18px]" style={{ border: "1px solid var(--err)", background: "var(--err-soft)" }}>
+        {/* 10 · Health Checks */}
+        <SettingsSection id="health" title="Health Checks">
+          <SettingsRow label="Health check path" desc="Path DebutDeploy polls to decide the service is healthy.">
+            <div className="flex flex-col gap-2">
+              <TextInput mono value={healthPath} onChange={setHealthPath} placeholder="/healthz" />
+              <SaveInline busy={buildBusy} msg={buildMsg} onSave={saveBuild} />
+            </div>
+          </SettingsRow>
+        </SettingsSection>
+
+        {/* 11 · Maintenance Mode */}
+        <SettingsSection id="maintenance" title="Maintenance Mode">
+          <SettingsRow label="Enable maintenance mode" desc="Serve a maintenance page instead of your service.">
+            <ToggleRow on={maintenance} onToggle={() => setMaintenance((v) => !v)} label="Maintenance mode" />
+          </SettingsRow>
+          <SettingsRow label="Custom maintenance page" desc="Optional. URL to redirect visitors to.">
+            <TextInput mono value={maintenanceUrl} onChange={setMaintenanceUrl} placeholder="https://status.example.com" />
+          </SettingsRow>
+        </SettingsSection>
+
+        {/* 12 · Delete or suspend */}
+        <section
+          id="danger"
+          className="scroll-mt-24 rounded-[13px] px-5 py-[18px]"
+          style={{ border: "1px solid var(--err)", background: "var(--err-soft)" }}
+        >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="mb-[3px] text-[14.5px] font-semibold" style={{ color: "var(--err-text)" }}>Delete this service</h3>
+              <h3 className="mb-[3px] text-[14.5px] font-semibold" style={{ color: "var(--err-text)" }}>Delete web service</h3>
               <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>
                 Permanently removes the container, domain and build history. This cannot be undone.
               </p>
             </div>
             <Button variant="danger" onClick={deleteSvc}>
-              <Trash2 className="h-3.5 w-3.5" /> Delete service
+              <Trash2 className="h-3.5 w-3.5" /> Delete web service
             </Button>
           </div>
         </section>
       </div>
 
-      <div className="w-[190px] shrink-0">
+      <div className="w-[172px] shrink-0">
         <AnchorNav items={NAV} active={activeSection} onJump={jump} />
+      </div>
+    </div>
+  );
+}
+
+// ── Settings field primitives ───────────────────────────────────────────────────
+
+function ReadOnly({ value, mono }) {
+  return (
+    <div
+      className={`${mono ? "mono " : ""}truncate rounded-[9px] border px-3 py-[9px] text-[13px]`}
+      style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text-muted)" }}
+      title={value}
+    >
+      {value}
+    </div>
+  );
+}
+
+function TextInput({ value, onChange, placeholder, mono }) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={`${mono ? "mono " : ""}input`}
+    />
+  );
+}
+
+function SelectInput({ value, onChange, options }) {
+  return (
+    <select className="select" value={value} onChange={(e) => onChange(e.target.value)}>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
+function SaveInline({ busy, msg, onSave }) {
+  return (
+    <div className="flex items-center gap-3">
+      <Button type="button" variant="primary" onClick={onSave} disabled={busy}>{busy ? <Spinner /> : "Save"}</Button>
+      {msg && <span className="text-xs" style={{ color: msg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{msg.text}</span>}
+    </div>
+  );
+}
+
+function IconBtn({ children, title, onClick }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[9px] border transition-colors"
+      style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text-muted)" }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ToggleRow({ on, onToggle, label }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="inline-flex items-center gap-2.5 self-start"
+      title="Display only"
+    >
+      <span
+        className="relative inline-block h-[22px] w-[38px] rounded-full transition-colors"
+        style={{ background: on ? "var(--accent)" : "var(--border-strong)" }}
+      >
+        <span
+          className="absolute top-[3px] h-4 w-4 rounded-full bg-white transition-all"
+          style={{ left: on ? "19px" : "3px" }}
+        />
+      </span>
+      <span className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>{label}</span>
+    </button>
+  );
+}
+
+// dashed "Add path" list — client-side local state only (display only)
+function PathList({ label, items, onChange }) {
+  const [val, setVal] = useState("");
+  return (
+    <div>
+      <p className="mb-1.5 text-[11.5px] font-semibold" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {items.map((p, i) => (
+          <span
+            key={p + i}
+            className="mono inline-flex items-center gap-1.5 rounded-[7px] border px-2.5 py-1 text-[12px]"
+            style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text)" }}
+          >
+            {p}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} style={{ color: "var(--text-muted)" }}>
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        {val !== null && (
+          <input
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && val.trim()) { e.preventDefault(); onChange([...items, val.trim()]); setVal(""); }
+            }}
+            placeholder="Add path…"
+            className="mono rounded-[7px] border border-dashed bg-transparent px-2.5 py-1 text-[12px] outline-none"
+            style={{ borderColor: "var(--border-strong)", color: "var(--text)", width: "140px" }}
+          />
+        )}
       </div>
     </div>
   );
@@ -1204,11 +1183,8 @@ function DnsResult({ result }) {
 
   return (
     <div
-      className="mb-3 mt-1 space-y-2 rounded-lg border p-3 text-xs"
-      style={{
-        background: "var(--surface-2)",
-        borderColor: pointsAt ? "var(--ok)" : "var(--warn)",
-      }}
+      className="space-y-2 rounded-lg border p-3 text-xs"
+      style={{ background: "var(--surface-2)", borderColor: pointsAt ? "var(--ok)" : "var(--warn)" }}
     >
       <div className="flex items-center gap-2">
         {pointsAt
