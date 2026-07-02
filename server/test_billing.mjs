@@ -102,3 +102,49 @@ test("zero charge (no priced resources) inserts nothing", () => {
   assert.equal(res.charged, 0);
   assert.equal(db.db.prepare("SELECT COUNT(*) c FROM credit_ledger WHERE org_id=?").get(org).c, 0);
 });
+
+test("getOrCreateStripeCustomer creates once, then reuses cus_ from the row", async () => {
+  const now = new Date().toISOString();
+  const org = db.db.prepare("INSERT INTO organizations (name,slug,created_at) VALUES (?,?,?)")
+    .run("Cust Co", "cust-co", now).lastInsertRowid;
+  const u = db.createUser({ email: "owner@cust.co", name: "Owner", role: "customer" });
+  db.db.prepare("INSERT INTO memberships (user_id,org_id,role,created_at) VALUES (?,?,?,?)")
+    .run(u.id, org, "owner", now);
+
+  let createCalls = 0;
+  billing.setStripeForTests({
+    customers: { create: async () => { createCalls += 1; return { id: "cus_stub_1" }; } },
+  });
+  const c1 = await billing.getOrCreateStripeCustomer(org);
+  const c2 = await billing.getOrCreateStripeCustomer(org);
+  assert.equal(c1, "cus_stub_1");
+  assert.equal(c2, "cus_stub_1");
+  assert.equal(createCalls, 1); // second call reuses the stored id
+});
+
+test("webhook credits a paid topup session once, idempotently", () => {
+  const now = new Date().toISOString();
+  const org = db.db.prepare("INSERT INTO organizations (name,slug,created_at) VALUES (?,?,?)")
+    .run("Hook Co", "hook-co", now).lastInsertRowid;
+  const event = {
+    type: "checkout.session.completed",
+    data: { object: { id: "cs_hook_1", mode: "payment", payment_status: "paid",
+      metadata: { org_id: String(org), amount_pence: "5000" } } },
+  };
+  const r1 = billing.handleWebhookEvent(event);
+  const r2 = billing.handleWebhookEvent(event); // replay
+  assert.equal(r1.credited, true);
+  assert.equal(r2.credited, false); // idempotent: INSERT OR IGNORE no-op
+  assert.equal(billing.walletBalance(org), 5000);
+});
+
+test("webhook ignores unpaid / non-payment sessions", () => {
+  const now = new Date().toISOString();
+  const org = db.db.prepare("INSERT INTO organizations (name,slug,created_at) VALUES (?,?,?)")
+    .run("Ign Co", "ign-co", now).lastInsertRowid;
+  billing.handleWebhookEvent({ type: "checkout.session.completed",
+    data: { object: { id: "cs_unpaid", mode: "payment", payment_status: "unpaid",
+      metadata: { org_id: String(org), amount_pence: "999" } } } });
+  billing.handleWebhookEvent({ type: "payment_intent.created", data: { object: {} } });
+  assert.equal(billing.walletBalance(org), 0);
+});
