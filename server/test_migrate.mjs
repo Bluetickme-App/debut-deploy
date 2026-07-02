@@ -115,6 +115,26 @@ test("(d) dbTarget existing → migrate-db runs, resolves target, wires DATABASE
   assert.equal(dbUrlSet, "postgres://cool:pw@db-cool-db-1.internal:5432/app", "DATABASE_URL must point at the Coolify target, never the Render source");
 });
 
+test("(f) dbTarget shared → provisions a fresh logical DB as the target", async () => {
+  let created = false, dbUrlSet = null, migrated = null;
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "shared", dbTarget: { mode: "shared", source: "dpg-x" } },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      getConnectionInfo: async () => "postgres://render:pw@ext:5432/app",
+      createProjectDatabase: async () => ({ url: "postgresql://premium_u:pw@shared:5432/premium" }),
+      migratePostgres: async ({ source, target }) => { created = true; migrated = { source, target }; return { ok: true }; },
+      upsertEnv: async (_u, { key, value }) => { if (key === "DATABASE_URL") dbUrlSet = value; },
+    },
+  });
+  assert.equal(result.steps.find((s) => s.step === "migrate-db").status, "ok");
+  assert.ok(created, "migratePostgres ran into the provisioned target");
+  assert.equal(migrated.target, "postgresql://premium_u:pw@shared:5432/premium");
+  assert.equal(dbUrlSet, "postgresql://premium_u:pw@shared:5432/premium", "DATABASE_URL points at the fresh shared-cluster DB");
+});
+
 test("(e) dbTarget none → migrate-db skipped even when a datastore exists", async () => {
   const result = await importFromRender({
     renderServiceId: "srv-demo1",

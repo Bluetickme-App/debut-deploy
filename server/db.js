@@ -130,6 +130,16 @@ const MIGRATIONS = [
       );
     `);
   },
+  // -> user_version 9: encrypted key/value app settings (e.g. shared DB cluster URL)
+  (d) => {
+    d.exec(`
+      CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -189,6 +199,18 @@ export function getRenderCredential(userId, id) {
 }
 export function deleteRenderCredential(userId, id) {
   return db.prepare("DELETE FROM render_credentials WHERE user_id = ? AND id = ?").run(userId, id).changes;
+}
+
+// --- key/value app settings (store encrypted values like the shared cluster URL) --
+export function getSetting(key) {
+  return db.prepare("SELECT value FROM app_settings WHERE key = ?").get(key)?.value ?? null;
+}
+export function setSetting(key, value) {
+  db.prepare(
+    "INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?) " +
+    "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+  ).run(key, value, new Date().toISOString());
+  return value;
 }
 
 // Idempotent: returns the existing user for this email, or creates one.

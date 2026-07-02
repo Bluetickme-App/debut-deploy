@@ -12,6 +12,7 @@ import {
   upsertEnv,
   deployService,
 } from "./coolify.js";
+import { createProjectDatabase } from "./sharedcluster.js";
 import { assign } from "./ownership.js";
 
 const execFileP = promisify(execFile);
@@ -65,6 +66,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     createDeployKeyApp,
     getDefaultDestination,
     resolveDbUrl,
+    createProjectDatabase,
     upsertEnv,
     deployService,
     assign,
@@ -86,6 +88,12 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     steps.push({ step: "read-render", status: "error", detail: err.message });
     return { ok: false, appUuid: null, steps };
   }
+
+  // Port the app listens on: Render injects PORT (default 10000) and apps read it,
+  // so the migrated app must expose that same port or Traefik 502s. Use the user's
+  // PORT env if set, else Render's default.
+  const portEnv = envVars.find((e) => (e.key || "").toUpperCase() === "PORT")?.value;
+  const port = portEnv && /^\d+$/.test(portEnv) ? portEnv : "10000";
 
   // Step 2 — resolve server
   let serverUuid;
@@ -124,7 +132,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       repo: d.toSshUrl(service.repo),
       branch: service.branch,
       name: service.name,
-      port: "3000",
+      port,
       buildCommand: service.buildCommand,
       startCommand: service.startCommand,
       ...(dedicated ? { serverUuid, destinationUuid: await d.getDefaultDestination(serverUuid) } : {}),
@@ -141,14 +149,16 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   // migrate FROM; dbTarget.uuid = the Coolify Postgres to migrate INTO.
   const dbTarget = target.dbTarget || { mode: "none" };
   const sourceDatastoreId = dbTarget.source || service.datastoreId || target.datastoreId;
-  if (sourceDatastoreId && dbTarget.mode === "existing") {
+  if (sourceDatastoreId && (dbTarget.mode === "shared" || dbTarget.mode === "existing")) {
     try {
       const source = await d.getConnectionInfo(sourceDatastoreId, apiKey);
       let targetUrl;
-      if (dbTarget.mode === "existing") {
-        targetUrl = await d.resolveDbUrl(dbTarget.uuid);
+      if (dbTarget.mode === "shared") {
+        // Fresh, credential-safe logical DB on the shared cluster (the recommended
+        // target — never overwrites an existing DB, and we control its creds).
+        ({ url: targetUrl } = await d.createProjectDatabase(service.name));
       } else {
-        throw Object.assign(new Error(`Unsupported dbTarget mode "${dbTarget.mode}" — pick an existing Coolify database`), { status: 400 });
+        targetUrl = await d.resolveDbUrl(dbTarget.uuid);
       }
       if (!targetUrl) throw Object.assign(new Error("Could not resolve the target database connection URL"), { status: 404 });
       await d.migratePostgres({ source, target: targetUrl });
@@ -165,6 +175,10 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
 
   // Step 6 — push env vars
   try {
+    // Carry the listen port so the app binds where Traefik routes (avoids 502).
+    if (!envVars.some((e) => (e.key || "").toUpperCase() === "PORT")) {
+      await d.upsertEnv(appUuid, { key: "PORT", value: port });
+    }
     for (const { key, value } of envVars) {
       // ponytail: never log key or value — security boundary
       // Default-secret: Render's API doesn't reliably flag secrets, and its env

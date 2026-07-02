@@ -4,6 +4,7 @@
 // Coolify API reference: https://coolify.io/docs/api-reference  (base: <instance>/api/v1)
 
 import * as fx from "./fixtures.js";
+import { randomBytes } from "node:crypto";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
@@ -203,6 +204,25 @@ function mapDbDetail(d) {
 export async function getDatabase(uuid) {
   if (isDemo()) return fx.databases.find((d) => d.uuid === uuid) || null;
   return mapDbDetail(await cf(`/databases/${encodeURIComponent(uuid)}`));
+}
+
+// Provision a fresh Coolify Postgres and return its credential-safe connection URL.
+// Verified live: the create response includes internal_db_url WITH the password we
+// set — so unlike an EXISTING db (whose password Coolify won't return), a db we
+// provision is credential-safe. Used to stand up the shared cluster.
+const DB_PROJECT = process.env.COOLIFY_DB_PROJECT_UUID || "qxm8dk7s33dk057p0g2x66ia";
+const DB_SERVER = process.env.COOLIFY_SERVER_UUID || "odtl07eovoo6f40gqwztsyhq";
+export async function provisionDatabase({ name, superUser = "dd_super" }) {
+  if (isDemo()) return { uuid: `demo-db-${name}`, url: `postgresql://${superUser}:demo@demo-db-${name}:5432/postgres` };
+  const password = randomBytes(18).toString("base64url");
+  const r = await cf(`/databases/postgresql`, {
+    method: "POST",
+    body: {
+      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: DB_SERVER,
+      postgres_user: superUser, postgres_password: password, postgres_db: "postgres", instant_deploy: true,
+    },
+  });
+  return { uuid: r.uuid, url: r.internal_db_url || `postgresql://${superUser}:${password}@${r.uuid}:5432/postgres` };
 }
 
 // Rename (Render-style editable Name). Coolify PATCH accepts { name } — verified live.

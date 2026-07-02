@@ -32,10 +32,8 @@ export default function ImportRender() {
 
   // Database migration mapping
   const [renderDbs, setRenderDbs] = useState([]); // Render Postgres (source)
-  const [databases, setDatabases] = useState([]); // Coolify DBs (target, may be empty)
   const [migrateDb, setMigrateDb] = useState(false);
   const [srcDbId, setSrcDbId] = useState(""); // Render Postgres id
-  const [dbUuid, setDbUuid] = useState(""); // Coolify DB uuid
 
   // Active credential: saved key selected → { savedKeyId }, else pasted → { apiKey }.
   const creds = selectedKeyId ? { savedKeyId: selectedKeyId } : { apiKey };
@@ -101,13 +99,10 @@ export default function ImportRender() {
     try {
       const data = await api.renderServices(creds);
       setServices(Array.isArray(data) ? data : []);
-      // Load Render source DBs + Coolify target DBs alongside; tolerate failure.
+      // Load Render source DBs alongside; tolerate failure.
       api.renderDatabases(creds)
         .then((dbs) => setRenderDbs(Array.isArray(dbs) ? dbs : []))
         .catch(() => setRenderDbs([]));
-      api.databases()
-        .then((dbs) => setDatabases(Array.isArray(dbs) ? dbs : []))
-        .catch(() => setDatabases([]));
     } catch (err) {
       setListError(err.message || "Failed to list services");
     } finally {
@@ -120,8 +115,8 @@ export default function ImportRender() {
     setMigrateError("");
     setResults(null);
     try {
-      const dbTarget = migrateDb && srcDbId && dbUuid
-        ? { mode: "existing", source: srcDbId, uuid: dbUuid }
+      const dbTarget = migrateDb && srcDbId
+        ? { mode: "shared", source: srcDbId }
         : { mode: "none" };
       const target = { mode, dbTarget };
       if (mode === "dedicated") {
@@ -341,28 +336,15 @@ export default function ImportRender() {
                       </select>
                     </div>
                     <div>
-                      <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Target (Coolify)</div>
-                      <select
-                        value={dbUuid}
-                        onChange={(e) => setDbUuid(e.target.value)}
-                        className="w-full rounded-lg px-3 py-2 text-sm"
-                        style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
-                      >
-                        <option value="">Select…</option>
-                        {[...databases]
-                          // ponytail: prefer postgres when a type field exists; others still listed after.
-                          .sort((a, b) => (b.type === "postgresql" || b.type === "postgres" ? 1 : 0) - (a.type === "postgresql" || a.type === "postgres" ? 1 : 0))
-                          .map((db) => (
-                            <option key={db.uuid} value={db.uuid}>
-                              {db.name}{db.type ? ` (${db.type})` : ""}
-                            </option>
-                          ))}
-                      </select>
+                      <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Target</div>
+                      <p className="rounded-lg px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-muted)" }}>
+                        A new isolated database on the shared cluster (provisioned automatically).
+                      </p>
                     </div>
                   </div>
                 )}
                 <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                  Restores via pg_dump into the selected Coolify Postgres.
+                  A fresh, isolated Postgres is created on the shared cluster and your data is restored into it via pg_dump — your existing databases are never touched.
                 </p>
               </Field>
 
