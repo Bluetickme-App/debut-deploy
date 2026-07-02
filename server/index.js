@@ -45,6 +45,8 @@ import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import { computePlans, dbPlans } from "./plans.js";
 import { repoKey, verifyWebhookSig } from "./webhook.js";
+import { createRenderCredential, listRenderCredentials, getRenderCredential, deleteRenderCredential } from "./db.js";
+import { encryptSecret, decryptSecret } from "./secretbox.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -996,13 +998,59 @@ app.get(
   h((req) => hetzner.getServer(req.params.id))
 );
 
+// --- Saved (named, encrypted) Render API keys ---
+// Resolve the Render key for an importer request: a raw apiKey in the body, OR a
+// savedKeyId → decrypt the caller's OWN stored key (scoped by user_id).
+function resolveRenderKey(req) {
+  const { apiKey, savedKeyId } = req.body || {};
+  if (savedKeyId != null && savedKeyId !== "") {
+    const row = getRenderCredential(req.user.id, Number(savedKeyId));
+    if (!row) throw Object.assign(new Error("Saved Render key not found"), { status: 404 });
+    return decryptSecret(row.key_ciphertext);
+  }
+  return apiKey;
+}
+
+app.get("/api/render/keys", requireAuth, h((req) => listRenderCredentials(req.user.id)));
+
+app.post(
+  "/api/render/keys",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    const { name, apiKey } = req.body || {};
+    if (!name || !String(name).trim()) throw Object.assign(new Error("name is required"), { status: 400 });
+    if (!apiKey || !String(apiKey).trim()) throw Object.assign(new Error("apiKey is required"), { status: 400 });
+    // Validate the key against Render before storing (rejects a typo'd/dead key).
+    await render.listServices(apiKey.trim());
+    const saved = createRenderCredential({ userId: req.user.id, name: String(name).trim(), keyCiphertext: encryptSecret(apiKey.trim()) });
+    record(req, "render.key.save", { metadata: { name: saved.name } }); // never the key
+    return saved; // { id, name } — never echoes the key
+  })
+);
+
+app.delete("/api/render/keys/:id", requireAuth, mutateGuard, h((req) => {
+  const changes = deleteRenderCredential(req.user.id, Number(req.params.id));
+  if (!changes) throw Object.assign(new Error("Saved Render key not found"), { status: 404 });
+  record(req, "render.key.delete", { metadata: { id: req.params.id } });
+  return { ok: true };
+}));
+
 // --- Render importer ---
 app.post(
   "/api/import/render/services",
   requireAuth,
   mutateGuard,
   // POST (not GET) because the API key travels in the body; never logged.
-  h((req) => render.listServices(req.body?.apiKey))
+  h((req) => render.listServices(resolveRenderKey(req)))
+);
+
+// Render Postgres instances — the migration SOURCE picker.
+app.post(
+  "/api/import/render/databases",
+  requireAuth,
+  mutateGuard,
+  h((req) => render.listDatabases(resolveRenderKey(req)))
 );
 
 app.post(
@@ -1010,7 +1058,8 @@ app.post(
   requireAuth,
   mutateGuard,
   h(async (req) => {
-    const { renderServiceId, target, apiKey } = req.body || {};
+    const { renderServiceId, target } = req.body || {};
+    const apiKey = resolveRenderKey(req);
     // Provisioning dedicated infra (real, billed Hetzner servers) is admin-only,
     // matching the /api/hetzner/* + /api/servers/provision routes. Non-admins may
     // only import onto existing shared infra. Fail closed when mode is unclear.
@@ -1039,7 +1088,8 @@ app.post(
   requireAuth,
   mutateGuard,
   h(async (req) => {
-    const { services, target, apiKey } = req.body || {};
+    const { services, target } = req.body || {};
+    const apiKey = resolveRenderKey(req);
     if (!Array.isArray(services) || services.length === 0) {
       throw Object.assign(new Error("services (array of Render service ids) is required"), { status: 400 });
     }

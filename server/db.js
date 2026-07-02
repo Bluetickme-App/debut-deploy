@@ -118,6 +118,18 @@ const MIGRATIONS = [
   (d) => {
     d.exec(`ALTER TABLE notification_settings ADD COLUMN events TEXT`);
   },
+  // -> user_version 8: saved (named, encrypted) Render API keys for re-use
+  (d) => {
+    d.exec(`
+      CREATE TABLE render_credentials (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name TEXT NOT NULL,
+        key_ciphertext TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -158,6 +170,25 @@ export function createUser({ email, name = null, avatar_url = null, role = "cust
     .prepare("INSERT INTO users (email, name, avatar_url, role, created_at) VALUES (?,?,?,?,?)")
     .run(email, name, avatar_url, role, new Date().toISOString());
   return getUserById(info.lastInsertRowid);
+}
+
+// --- saved Render API keys (encrypted at rest; scoped to the owning user) -----
+export function createRenderCredential({ userId, name, keyCiphertext }) {
+  const info = db
+    .prepare("INSERT INTO render_credentials (user_id, name, key_ciphertext, created_at) VALUES (?,?,?,?)")
+    .run(userId, name, keyCiphertext, new Date().toISOString());
+  return { id: info.lastInsertRowid, name };
+}
+// List NEVER returns the ciphertext — only id/name/created_at.
+export function listRenderCredentials(userId) {
+  return db.prepare("SELECT id, name, created_at FROM render_credentials WHERE user_id = ? ORDER BY created_at DESC").all(userId);
+}
+// Scoped to userId → no cross-tenant read of another user's key.
+export function getRenderCredential(userId, id) {
+  return db.prepare("SELECT * FROM render_credentials WHERE user_id = ? AND id = ?").get(userId, id);
+}
+export function deleteRenderCredential(userId, id) {
+  return db.prepare("DELETE FROM render_credentials WHERE user_id = ? AND id = ?").run(userId, id).changes;
 }
 
 // Idempotent: returns the existing user for this email, or creates one.

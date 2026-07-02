@@ -137,12 +137,13 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   }
 
 
-  // Step 5 — migrate database (optional). dbTarget picks/reuses the Coolify target.
+  // Step 5 — migrate database (optional). dbTarget.source = the Render Postgres to
+  // migrate FROM; dbTarget.uuid = the Coolify Postgres to migrate INTO.
   const dbTarget = target.dbTarget || { mode: "none" };
-  const datastoreId = service.datastoreId || target.datastoreId;
-  if (datastoreId && dbTarget.mode && dbTarget.mode !== "none") {
+  const sourceDatastoreId = dbTarget.source || service.datastoreId || target.datastoreId;
+  if (sourceDatastoreId && dbTarget.mode === "existing") {
     try {
-      const source = await d.getConnectionInfo(datastoreId, apiKey);
+      const source = await d.getConnectionInfo(sourceDatastoreId, apiKey);
       let targetUrl;
       if (dbTarget.mode === "existing") {
         targetUrl = await d.resolveDbUrl(dbTarget.uuid);
