@@ -42,3 +42,13 @@ test("countOrgOwners + setMemberRole track the owner count", () => {
   db.setMemberRole(b.id, "owner");
   assert.equal(db.countOrgOwners(orgId), 2);
 });
+
+test("assign stamps both user_id and the resolved org_id", async () => {
+  const { assign } = await import("./ownership.js");
+  const u = db.createUser({ email: "assignorg@x.com", role: "customer" });
+  const orgId = db.ensureUserOrg(u.id);
+  assign("app-assign", "application", u.id);
+  const row = db.db.prepare("SELECT user_id, org_id FROM resource_ownership WHERE coolify_uuid='app-assign'").get();
+  assert.equal(row.user_id, u.id);
+  assert.equal(row.org_id, orgId);
+});
