@@ -105,8 +105,17 @@ test("mid-period plan change bills each segment at its own frozen rate", () => {
   // Two lines: one per plan_id, each at its own frozen rate — proves no retroactive reprice.
   const byPlan = Object.fromEntries(lines.map((l) => [l.plan_id, l]));
   assert.ok(byPlan.pro && byPlan.scale);
-  // 0.6h each; pro pence = 0.6*2=1.2, scale pence = 0.6*12=7.2 → summary rounds later.
-  assert.ok(byPlan.scale.pence > byPlan.pro.pence);
+  // 36 ticks × 60s = 0.6h each.
+  // pro:   planRatePencePerHour = round(round(15*0.79*100)/730.5) = round(1185/730.5) = 2 p/hr → 0.6*2 = 1.2p
+  // scale: planRatePencePerHour = round(round(85*0.79*100)/730.5) = round(6715/730.5) = 9 p/hr → 0.6*9 = 5.4p
+  // SQL returns raw floats (SUM(interval_sec/3600.0 * price_pence_per_hour)); Math.round only at usageSummary boundary.
+  assert.ok(Math.abs(byPlan.pro.pence - 1.2) < 0.01);   // frozen rate=2, 36×(60/3600×2)=1.2p
+  assert.ok(Math.abs(byPlan.scale.pence - 5.4) < 0.01); // frozen rate=9, 36×(60/3600×9)=5.4p
+  // Frozen rate implied by pence/compute_hours: pro→2p/hr, scale→9p/hr
+  assert.ok(Math.abs(byPlan.pro.pence / byPlan.pro.compute_hours - 2) < 0.01);
+  assert.ok(Math.abs(byPlan.scale.pence / byPlan.scale.compute_hours - 9) < 0.01);
+  assert.ok(Math.round(byPlan.pro.compute_hours * 10) === 6);   // 0.6h
+  assert.ok(Math.round(byPlan.scale.compute_hours * 10) === 6); // 0.6h
 });
 
 test("zero-usage org yields a £0 summary, not an error", () => {
