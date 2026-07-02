@@ -56,7 +56,7 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   const n = Math.min(50, Math.max(1, Number(limit) || 20));
   const raw = await runSql(
     `SELECT deployment_uuid||'|'||status||'|'||coalesce(commit,'')||'|'||replace(split_part(coalesce(commit_message,''),chr(10),1),'|','/')||'|'||coalesce(is_webhook::text,'f')||'|'||created_at||'|'||coalesce(updated_at,'') ` +
-    `FROM application_deployment_queues WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT ${n}`
+    `FROM application_deployment_queues WHERE application_id=(SELECT id::text FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT ${n}`
   );
   return String(raw || "").trim().split("\n").filter(Boolean).map((line) => {
     const [uuid, status, commit, message, webhook, created, updated] = line.split("|");
@@ -82,7 +82,7 @@ export async function getBuildLogs(appUuid, { limit = 600 } = {}) {
   const u = String(appUuid).replace(/[^a-z0-9]/gi, "");
   if (!u) return [];
   const raw = await runSql(
-    `SELECT logs FROM application_deployment_queues WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT 1`
+    `SELECT logs FROM application_deployment_queues WHERE application_id=(SELECT id::text FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT 1`
   );
   const text = String(raw || "").trim();
   if (!text) return [];
