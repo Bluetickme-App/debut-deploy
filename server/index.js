@@ -51,6 +51,7 @@ import * as dns from "./dns.js";
 import * as resources from "./resources.js";
 import * as volumes from "./volumes.js";
 import * as envstore from "./envstore.js";
+import * as coolifydb from "./coolifydb.js";
 import * as sharedvars from "./sharedvars.js";
 import * as backups from "./backups.js";
 import * as hetzner from "./hetzner.js";
@@ -338,6 +339,22 @@ app.get(
     const raw = await coolify.getLogLines(req.params.id).catch(() => []);
     const arr = Array.isArray(raw) ? raw : String(raw || "").split("\n").filter(Boolean);
     return { lines: arr.map((l) => (typeof l === "string" ? { time: null, level: "LOG", message: l } : l)) };
+  })
+);
+
+// Build/deploy logs for the LATEST deployment. Coolify's REST API never returns
+// these, so read them from Coolify's own DB over the SSH channel — this is how you
+// see WHY a build failed (the app-logs route only tails a running container).
+app.get(
+  "/api/services/:id/build-logs",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    try {
+      return { lines: await coolifydb.getBuildLogs(req.params.id) };
+    } catch (e) {
+      return { lines: [], error: e.message };
+    }
   })
 );
 

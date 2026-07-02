@@ -39,6 +39,7 @@ export const api = {
   // Returns the array of {time, level, message} lines; falls back if the shape is older (raw array/string).
   logs: (id) => req(`/services/${id}/logs`).then((d) => (Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : [])),
   metrics: (id) => req(`/services/${id}/metrics`),
+  buildLogs: (id) => req(`/services/${id}/build-logs`), // { lines: [{time,type,message}], error? }
   envs: (id) => req(`/services/${id}/envs`),
   revealEnv: (id, key) => req(`/services/${id}/envs/reveal?key=${encodeURIComponent(key)}`),
   saveEnv: (id, body) => req(`/services/${id}/envs`, { method: "POST", body }),
