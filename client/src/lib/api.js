@@ -113,4 +113,8 @@ export const api = {
   billingPortal: () => req("/billing/portal", { method: "POST" }),
   setServicePlan: (id, planId) => req(`/services/${id}/plan`, { method: "PATCH", body: { planId } }),
   setDatabasePlan: (id, planId) => req(`/databases/${id}/plan`, { method: "PATCH", body: { planId } }),
+  // Usage metering
+  usage: (period) => req(`/org/usage${period ? `?period=${period}` : ""}`),
+  usageCurrent: () => req("/org/usage/current"),
+  adminOrgUsage: (id, period) => req(`/admin/orgs/${id}/usage${period ? `?period=${period}` : ""}`),
 };
