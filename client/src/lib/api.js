@@ -93,4 +93,16 @@ export const api = {
   serviceEvents:    (id) => req(`/services/${id}/events`),
   getNotifications: () => req("/notifications"),
   saveNotifications:(body) => req("/notifications", { method: "PUT", body }),
+  // Org + team
+  org: () => req("/org"),
+  orgMembers: () => req("/org/members"),
+  createInvite: (body) => req("/org/invites", { method: "POST", body }),
+  orgInvites: () => req("/org/invites"),
+  revokeInvite: (id) => req(`/org/invites/${id}`, { method: "DELETE" }),
+  acceptInvite: (token) => req("/org/invites/accept", { method: "POST", body: { token } }),
+  setMemberRole: (userId, role) => req(`/org/members/${userId}`, { method: "PATCH", body: { role } }),
+  removeMember: (userId) => req(`/org/members/${userId}`, { method: "DELETE" }),
+  // Master Admin orgs
+  adminOrgs: () => req("/admin/orgs"),
+  adminOrg: (id) => req(`/admin/orgs/${id}`),
 };
