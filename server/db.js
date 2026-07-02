@@ -235,6 +235,24 @@ const MIGRATIONS = [
     const bad = d.prepare("SELECT COUNT(*) c FROM organizations WHERE billing_status NOT IN ('ok','arrears')").get().c;
     if (bad) throw new Error(`migration 11: ${bad} orgs with invalid billing_status`);
   },
+  // -> user_version 12: usage_events (compute metering by uptime; denormalised rate)
+  (d) => {
+    d.exec(`
+      CREATE TABLE usage_events (
+        id                   INTEGER PRIMARY KEY,
+        org_id               INTEGER NOT NULL REFERENCES organizations(id),
+        coolify_uuid         TEXT NOT NULL,
+        type                 TEXT NOT NULL CHECK(type IN ('application','database','service')),
+        plan_id              TEXT NOT NULL,
+        price_pence_per_hour INTEGER NOT NULL,   -- GBP rate frozen at write time (mid-period plan change bills each segment correctly)
+        sampled_at           TEXT NOT NULL,
+        interval_sec         INTEGER NOT NULL DEFAULT 60
+      );
+      CREATE INDEX idx_usage_events_org_period ON usage_events(org_id, sampled_at);
+    `);
+    // No backfill: there is no historical usage. No UNIQUE — the tick's reentrancy
+    // guard is the duplicate-suppression, not the schema.
+  },
 ];
 
 function resolveDbFile() {
