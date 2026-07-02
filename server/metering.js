@@ -50,7 +50,9 @@ export function insertUsageEvent({ orgId, uuid, type, planId, sampledAt, interva
 export function meterResources(resources, sampledAt, intervalSec = 60) {
   let inserted = 0;
   for (const r of resources) {
-    if (r.status !== "running") continue;          // stopped ⇒ £0 compute
+    // Defensive: Coolify status is compound ("running:healthy"); normalise at our
+    // own boundary so a raw-status caller can't silently under-bill running resources.
+    if ((r.status || "").split(":")[0] !== "running") continue;  // stopped ⇒ £0 compute
     const owned = ownedPlan(r.uuid);
     if (!owned) continue;                           // orphan or no plan ⇒ skip
     insertUsageEvent({
