@@ -36,7 +36,15 @@ export function decideOnboarding({ hasMembership, invite }) {
 // Apply the decision for a freshly-authenticated user. Consumes the session invite token.
 function applyOnboarding(req, user) {
   const rawToken = req.session?.inviteToken || null;
-  const invite = rawToken ? getValidInvite(rawToken) : null;
+  let invite = rawToken ? getValidInvite(rawToken) : null;
+  // Email-binding: an email-targeted invite is only usable by that exact address.
+  // MUST mirror the POST /api/org/invites/accept check — otherwise a forwarded
+  // link lets the wrong person consume it via the OAuth-login path. On mismatch,
+  // drop the invite (treated as no invite → they create their own org; the invite
+  // stays open for the intended recipient).
+  if (invite?.email && invite.email.toLowerCase() !== (user.email || "").toLowerCase()) {
+    invite = null;
+  }
   const decision = decideOnboarding({ hasMembership: !!getMembership(user.id), invite });
   if (decision.action === "join") {
     addMembership(user.id, invite.org_id, invite.role);
