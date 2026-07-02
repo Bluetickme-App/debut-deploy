@@ -225,7 +225,22 @@ One test file, in-memory DB, `assert`-based, matching `server/test_orgs.mjs` / `
 9. **Env** — `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` into `server/.env.example`; document the Stripe CLI test-mode flow.
 10. **Tests green** — `test_billing.mjs` plus existing suites; manual Stripe-CLI top-up round-trip in test mode.
 
-## Decisions needed from you
+## Decisions resolved (2026-07-02) — these OVERRIDE the open items below
+
+1. **Migration ordering:** C = `user_version` 11, B = 12/13. Decided.
+2. **Currency = USD→GBP FX conversion via a configurable rate.** `plans.js` numbers stay USD; convert with `app_settings` key `usd_gbp_rate` (default `0.79`, `// ponytail:` constant, operator-editable). `computeMonthlyCharge` returns `Math.round(sum_usd * rate * 100)` pence. **Same rate source as subsystem B.**
+3. **Plan assignment = free until assigned.** `resource_ownership.plan_id` nullable; `computeMonthlyCharge` sums only resources that have a plan (`NULL` → £0). Plan set via a `PATCH …/plan` route + create-flow selector (authored in B, shared).
+4. **Prepaid-only + advisory — DROP the off-session/card machinery.** Removed from this spec's MVP: the **save-card flow**, `POST /api/billing/save-card`, off-session `PaymentIntent` shortfall charging, the `organizations.stripe_default_pm` column, and all SCA/3DS/`requires_action` handling. **No Stripe charge is ever made without the owner present at Checkout.** The monthly hardware charge simply **debits the wallet** (`type='hardware_charge'`); if it drives the balance negative, that is tracked arrears — `billing_status ∈ ('ok','arrears')` (CHECK updated), an **advisory banner** asks the owner to top up, and **nothing is suspended**. `payment_intent.succeeded` off-session webhook handling is removed.
+
+   **Kept:** top-up via Stripe Checkout + idempotent webhook credit; the `credit_ledger` (balance = SUM, may go negative = arrears); `getOrCreateStripeCustomer`; `computeMonthlyCharge`; the monthly-charge trigger (in-process `setInterval` **and** an admin cron endpoint); `POST /api/billing/portal` (view Stripe-side history) is optional.
+
+   **Schema deltas vs the draft above:** drop `organizations.stripe_default_pm`; `billing_status CHECK(billing_status IN ('ok','arrears'))`. Everything else in the Data model stands.
+
+5. **Top-up UX:** preset amounts (£10/£25/£50/£100) + a custom field. **VAT invoices:** deferred (non-goal for MVP).
+
+**Deferred modeling seam (with B):** whether B's metered usage replaces or supplements C's flat monthly plan charge (utility-vs-fixed) is decided when the drawdown seam is wired. For MVP: C debits the monthly plan cost; B is the transparency meter.
+
+## Decisions needed from you (superseded above; retained for context)
 
 1. **Migration ordering.** Confirm C ships before B so C = `user_version` 11 and B = 12. If B is first, renumber this migration to 12. (Nothing in C depends on B.)
 2. **Currency basis.** Confirm `plans.js` `priceMo` (e.g. `pro: 15`) is charged as **£15.00**, i.e. treat the number as GBP and `*100` to pence — vs a USD→GBP FX conversion or a separate GBP price catalog. This changes what `computeMonthlyCharge` returns.

@@ -224,7 +224,18 @@ Matching existing patterns (`server/test_isolation.mjs`, `test_orgs.mjs`, in-mem
 
 Steps 1-6 are the independently shippable compute-only slice (migration 11 alone). Steps 7-8 (migration 12) add storage; 3+ can ship without them.
 
-## Decisions needed from you
+## Decisions resolved (2026-07-02) — these OVERRIDE the open items below
+
+1. **Currency = USD→GBP FX conversion via a configurable rate.** `plans.js` numbers stay USD; convert with a rate stored in `app_settings` (key `usd_gbp_rate`, default `0.79` as a `// ponytail:` constant, operator-editable). All money math: `gbp_pence = Math.round(priceMo_usd * rate * 100)`, rate read once per rollup. **Shared with C — one rate, one source.**
+2. **Free until assigned.** No `resource_ownership.plan_id` → £0, no `usage_events` rows written. Owner/manager assigns via `PATCH …/plan`. Existing resources stay free until set.
+3. **Allocated disk, NOT sampled.** Disk is billed as the plan's storage figure (`plans.js` `disk`/`storage`) — a deterministic value, computed at rollup as `plan_storage_gb × resource_hours_in_period × disk_rate`, where `resource_hours` derives from `resource_ownership.created_at`. **The host-SSH disk sampler, the `usage_samples` table, and migration 13 are DROPPED.** B ships as **migration 12 (`usage_events`) only**; the disk line and the bandwidth allowance line are computed plan-derived values, no sampling.
+4. **Bandwidth = flat per-plan allowance** (unchanged): a £0 informational line.
+
+**Net effect:** B = one migration (12: `usage_events`), compute metered by actual uptime (a stopped resource accrues £0 compute — the utility part), disk+bandwidth as plan-derived computed lines. No `usage_samples`, no SSH disk path, no migration 13. The `du`/`pg_database_size` mechanism from the storage research is not built.
+
+**Deferred modeling seam (decide when drawdown is wired, not now):** whether B's metered usage *replaces* C's flat monthly plan charge (pure utility) or *supplements* it (baseline + usage). For the MVP, C charges the monthly plan cost and B is the transparency meter; the utility-vs-fixed choice lands when the drawdown seam is wired.
+
+## Decisions needed from you (superseded above; retained for context)
 
 1. **USD → GBP.** `plans.js` prices are USD (`priceMo`). Billing output is specified in GBP. Fixed conversion constant, a configurable rate in `app_settings`, or re-author `plans.js` prices in GBP? All rate math (`priceMo/730.5`) and `price_pence_per_hour` depend on this. **Blocking for step 2.**
 2. **Default plan on resource creation.** When a resource is created without an explicit plan: is there a **free tier** (no `service_plans` row → no metering → £0), or does every resource accrue from creation on a default plan (e.g. `hobby`)? This decides whether "no plan row" means "free" or "misconfigured".
