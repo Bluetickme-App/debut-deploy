@@ -32,6 +32,16 @@ export async function ensureSharedCluster({ _provision = coolify.provisionDataba
   return url;
 }
 
+// A brand-new DEDICATED Postgres instance (its own container) for a project —
+// used when the deployment target is Dedicated. Credential-safe (create returns
+// the URL) and waited-until-ready so the pg_dump restore can connect.
+export async function provisionDedicatedDatabase(name, { _provision = coolify.provisionDatabase } = {}) {
+  if (DEMO) return { url: `postgresql://ded:demo@demo-dedicated:5432/postgres` };
+  const { uuid, url } = await _provision({ name: pgIdent(name) + "-db" });
+  await waitForPg(url);
+  return { uuid, url };
+}
+
 // Poll a freshly-provisioned cluster until Postgres accepts connections (~2 min max).
 async function waitForPg(url) {
   if (DEMO) return;

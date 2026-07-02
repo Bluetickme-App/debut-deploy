@@ -71,6 +71,24 @@ export async function getContainerStats(uuid) {
   });
 }
 
+// Real runtime logs via `docker logs` on the host — Coolify's log API is thin.
+// Returns structured lines [{ time, level, message }] (newest last).
+export async function getServiceLogs(uuid, { tail = 300 } = {}) {
+  if (DEMO) return [{ time: new Date().toISOString(), level: "INFO", message: "demo log line" }];
+  const u = String(uuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) return [];
+  const n = Math.min(Math.max(Number(tail) || 300, 1), 2000);
+  const out = await runOnHost(`CID=$(docker ps -q --filter name=${u} | head -1); if [ -n "$CID" ]; then docker logs --tail ${n} --timestamps $CID 2>&1; fi`);
+  return String(out).split("\n").filter((l) => l.length).map((line) => {
+    const m = line.match(/^(\S+?Z)\s?(.*)$/); // docker --timestamps prefix
+    const time = m ? m[1] : null;
+    const message = m ? m[2] : line;
+    const level = /\b(error|exception|fatal|fail(ed|ure)?|panic)\b/i.test(message)
+      ? "ERROR" : /\bwarn(ing)?\b/i.test(message) ? "WARN" : /\binfo\b/i.test(message) ? "INFO" : "LOG";
+    return { time, level, message };
+  });
+}
+
 // Run a `docker run postgres:18` command on the host. Secret values (connection
 // URLs, SQL) pass as base64 env — only [A-Za-z0-9+/=], safe to interpolate — and
 // are decoded INSIDE the container, so no secret ever appears in the shell command.

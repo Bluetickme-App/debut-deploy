@@ -286,7 +286,14 @@ app.get(
   requireAuth,
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    return coolify.getLogLines(req.params.id);
+    // Prefer real runtime logs (docker logs via host); fall back to Coolify's.
+    try {
+      const lines = await getServiceLogs(req.params.id, { tail: 400 });
+      if (lines.length) return { lines };
+    } catch { /* host not configured / container down → fall through */ }
+    const raw = await coolify.getLogLines(req.params.id).catch(() => []);
+    const arr = Array.isArray(raw) ? raw : String(raw || "").split("\n").filter(Boolean);
+    return { lines: arr.map((l) => (typeof l === "string" ? { time: null, level: "LOG", message: l } : l)) };
   })
 );
 

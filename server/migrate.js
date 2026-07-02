@@ -11,7 +11,7 @@ import {
   upsertEnv,
   deployService,
 } from "./coolify.js";
-import { createProjectDatabase } from "./sharedcluster.js";
+import { createProjectDatabase, provisionDedicatedDatabase } from "./sharedcluster.js";
 import { assign } from "./ownership.js";
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
@@ -52,6 +52,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     getDefaultDestination,
     resolveDbUrl,
     createProjectDatabase,
+    provisionDedicatedDatabase,
     upsertEnv,
     deployService,
     assign,
@@ -134,14 +135,17 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   // migrate FROM; dbTarget.uuid = the Coolify Postgres to migrate INTO.
   const dbTarget = target.dbTarget || { mode: "none" };
   const sourceDatastoreId = dbTarget.source || service.datastoreId || target.datastoreId;
-  if (sourceDatastoreId && (dbTarget.mode === "shared" || dbTarget.mode === "existing")) {
+  if (sourceDatastoreId && ["shared", "dedicated", "existing"].includes(dbTarget.mode)) {
     try {
       const source = await d.getConnectionInfo(sourceDatastoreId, apiKey);
       let targetUrl;
       if (dbTarget.mode === "shared") {
-        // Fresh, credential-safe logical DB on the shared cluster (the recommended
-        // target — never overwrites an existing DB, and we control its creds).
+        // Fresh, credential-safe logical DB on the shared cluster (never overwrites
+        // an existing DB, and we control its creds).
         ({ url: targetUrl } = await d.createProjectDatabase(service.name));
+      } else if (dbTarget.mode === "dedicated") {
+        // A brand-new dedicated Postgres instance (its own container).
+        ({ url: targetUrl } = await d.provisionDedicatedDatabase(service.name));
       } else {
         targetUrl = await d.resolveDbUrl(dbTarget.uuid);
       }
