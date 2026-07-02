@@ -174,7 +174,7 @@ export default function ServiceDetail() {
       {tab === "Logs" && <LogsTab serviceId={id} name={svc.name} />}
       {tab === "Environment" && <EnvironmentTab serviceId={id} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
-      {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} />}
+      {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} onRename={(name) => setSvc((s) => ({ ...s, name }))} />}
     </div>
   );
 }
@@ -699,7 +699,7 @@ const NAV = [
   { id: "danger", label: "Delete or suspend" },
 ];
 
-function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
+function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename }) {
   const navigate = useNavigate();
 
   // build & deploy (wired to /build; backend may 404 until added)
@@ -826,8 +826,11 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
 
         {/* 1 · General */}
         <SettingsSection id="general" title="General">
-          <SettingsRow label="Name" desc="Renaming is managed in Coolify; shown read-only here.">
-            <ReadOnly value={svc.name} />
+          <SettingsRow label="Name" desc="A friendly name for this service.">
+            <EditableName
+              value={svc.name}
+              onSave={(name) => api.renameService(serviceId, name).then(() => onRename(name))}
+            />
           </SettingsRow>
           <SettingsRow label="Region" desc="The region this service runs in.">
             <ReadOnly value={region} />
@@ -1062,6 +1065,54 @@ function ReadOnly({ value, mono }) {
       title={value}
     >
       {value}
+    </div>
+  );
+}
+
+// Inline-editable name field (Render-style): read-only + Edit → input + Save/Cancel.
+function EditableName({ value, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  function start() { setDraft(value); setErr(null); setEditing(true); }
+
+  async function save() {
+    const name = draft.trim();
+    if (!name || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      await onSave(name);
+      setEditing(false);
+    } catch (e) {
+      setErr(e.message || "Rename failed");
+    } finally { setBusy(false); }
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <ReadOnly value={value} />
+        <Button variant="secondary" onClick={start}>Edit</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <input
+          className="input"
+          value={draft}
+          autoFocus
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+        />
+        <Button variant="primary" onClick={save} disabled={busy || !draft.trim()}>{busy ? <Spinner /> : "Save"}</Button>
+        <Button variant="ghost" onClick={() => setEditing(false)} disabled={busy}>Cancel</Button>
+      </div>
+      {err && <span className="text-xs" style={{ color: "var(--err-text)" }}>{err}</span>}
     </div>
   );
 }

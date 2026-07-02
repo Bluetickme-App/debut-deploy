@@ -109,8 +109,11 @@ export default function DatabaseDetail() {
       <div className="flex flex-col gap-[18px]">
         {/* 1 · General */}
         <SettingsSection id="general" title="General">
-          <SettingsRow label="Name" desc="Renaming is managed in Coolify; shown read-only here.">
-            <ReadOnly value={db.name} />
+          <SettingsRow label="Name" desc="A friendly name for this database.">
+            <EditableName
+              value={db.name}
+              onSave={(name) => api.renameDatabase(uuid, name).then(() => setDb((d) => ({ ...d, name })))}
+            />
           </SettingsRow>
           <SettingsRow label="Created" desc="When this database was provisioned.">
             <ReadOnly value={db.createdAt ? new Date(db.createdAt).toLocaleString() : "—"} />
@@ -253,6 +256,54 @@ function RevealField({ value }) {
       <IconBtn title={copied ? "Copied" : "Copy"} onClick={copy}>
         <Copy className="h-4 w-4" style={copied ? { color: "var(--ok-text)" } : undefined} />
       </IconBtn>
+    </div>
+  );
+}
+
+// Inline-editable name field (Render-style): read-only + Edit → input + Save/Cancel.
+function EditableName({ value, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  function start() { setDraft(value); setErr(null); setEditing(true); }
+
+  async function save() {
+    const name = draft.trim();
+    if (!name || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      await onSave(name);
+      setEditing(false);
+    } catch (e) {
+      setErr(e.message || "Rename failed");
+    } finally { setBusy(false); }
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <ReadOnly value={value} />
+        <Button variant="secondary" onClick={start}>Edit</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <input
+          className="input"
+          value={draft}
+          autoFocus
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+        />
+        <Button variant="primary" onClick={save} disabled={busy || !draft.trim()}>{busy ? <Spinner /> : "Save"}</Button>
+        <Button variant="ghost" onClick={() => setEditing(false)} disabled={busy}>Cancel</Button>
+      </div>
+      {err && <span className="text-xs" style={{ color: "var(--err-text)" }}>{err}</span>}
     </div>
   );
 }

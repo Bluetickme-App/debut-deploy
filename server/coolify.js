@@ -203,6 +203,18 @@ export async function getDatabase(uuid) {
   return mapDbDetail(await cf(`/databases/${encodeURIComponent(uuid)}`));
 }
 
+// Rename (Render-style editable Name). Coolify PATCH accepts { name } — verified live.
+export async function renameService(uuid, name) {
+  if (isDemo()) return { ok: true, uuid, name };
+  await cf(`/applications/${uuid}`, { method: "PATCH", body: { name } });
+  return { ok: true, uuid, name };
+}
+export async function renameDatabase(uuid, name) {
+  if (isDemo()) return { ok: true, uuid, name };
+  await cf(`/databases/${uuid}`, { method: "PATCH", body: { name } });
+  return { ok: true, uuid, name };
+}
+
 export async function listServers() {
   if (isDemo()) return fx.servers;
   const servers = await cf("/servers");

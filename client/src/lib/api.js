@@ -32,6 +32,7 @@ export const api = {
     }),
   services: () => req("/services"),
   service: (id) => req(`/services/${id}`),
+  renameService: (id, name) => req(`/services/${id}/rename`, { method: "PATCH", body: { name } }),
   deploy: (id) => req(`/services/${id}/deploy`, { method: "POST" }),
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),
@@ -41,6 +42,7 @@ export const api = {
   deleteEnv: (id, envId) => req(`/services/${id}/envs/${envId}`, { method: "DELETE" }),
   databases: () => req("/databases"),
   database: (uuid) => req(`/databases/${uuid}`),
+  renameDatabase: (uuid, name) => req(`/databases/${uuid}/rename`, { method: "PATCH", body: { name } }),
   deleteDatabase: (uuid) => req(`/databases/${uuid}`, { method: "DELETE" }),
   servers: () => req("/servers"),
   getRepos: () =>

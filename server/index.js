@@ -241,6 +241,20 @@ app.post(
   })
 );
 
+// Rename a service (Render-style editable Name). Owner-scoped.
+app.patch(
+  "/api/services/:id/rename",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) throw Object.assign(new Error("name is required"), { status: 400 });
+    record(req, "service.rename", { resourceType: "application", resourceUuid: req.params.id, metadata: { name } });
+    return coolify.renameService(req.params.id, name);
+  })
+);
+
 // --- deployments & logs ---
 app.get(
   "/api/services/:id/deployments",
@@ -313,6 +327,20 @@ app.get(
   h(async (req) => {
     assertOwns(req.user, "database", req.params.uuid);
     return coolify.getDatabase(req.params.uuid);
+  })
+);
+
+// Rename a database (Render-style editable Name). Owner-scoped.
+app.patch(
+  "/api/databases/:uuid/rename",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.uuid);
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) throw Object.assign(new Error("name is required"), { status: 400 });
+    record(req, "database.rename", { resourceType: "database", resourceUuid: req.params.uuid, metadata: { name } });
+    return coolify.renameDatabase(req.params.uuid, name);
   })
 );
 
