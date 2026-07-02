@@ -131,10 +131,13 @@ export async function getLogLines(uuid) {
 export async function listEnvs(uuid) {
   if (isDemo()) return fx.getEnvs(uuid);
   const envs = await cf(`/applications/${uuid}/envs`);
+  // Coolify mirrors EVERY var into a hidden is_preview:true copy (for preview
+  // deployments), so /envs returns each key twice. The panel manages production
+  // config only — drop the preview copies, else every key looks duplicated.
   // Return the real value (masking is client-side, revealable) — the route is
   // owner-scoped, so this matches Render's "reveal secret" behaviour. Previously
   // secrets were masked here, which made the reveal toggle impossible.
-  return (Array.isArray(envs) ? envs : []).map((e) => ({
+  return (Array.isArray(envs) ? envs : []).filter((e) => !e.is_preview).map((e) => ({
     uuid: e.uuid,
     key: e.key,
     value: e.value,
