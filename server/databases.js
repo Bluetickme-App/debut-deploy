@@ -28,6 +28,11 @@ async function cf(path, { method = "GET", body } = {}) {
 
 const VALID_TYPES = new Set(["postgresql", "redis", "mysql", "mariadb", "mongodb"]);
 
+// Verified-good defaults (same project/server the deploy-key + provision paths use)
+// so a missing COOLIFY_SERVER_UUID / stale customer project can't 404 the create.
+const DB_PROJECT = process.env.COOLIFY_DB_PROJECT_UUID || "qxm8dk7s33dk057p0g2x66ia";
+const DB_SERVER = process.env.COOLIFY_SERVER_UUID || "odtl07eovoo6f40gqwztsyhq";
+
 export async function createDatabase({ type, name, projectUuid, environmentName, serverUuid }) {
   if (!VALID_TYPES.has(type)) {
     throw Object.assign(new Error(`Invalid database type: ${type}`), { status: 400 });
@@ -35,7 +40,13 @@ export async function createDatabase({ type, name, projectUuid, environmentName,
   if (isDemo()) return { uuid: `demo-db-${name}` };
   const r = await cf(`/databases/${type}`, {
     method: "POST",
-    body: { name, project_uuid: projectUuid, environment_name: environmentName, server_uuid: serverUuid, instant_deploy: true },
+    body: {
+      name,
+      project_uuid: projectUuid || DB_PROJECT,
+      environment_name: environmentName || "production",
+      server_uuid: serverUuid || DB_SERVER,
+      instant_deploy: true,
+    },
   });
   return { uuid: r.uuid };
 }

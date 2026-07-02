@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import * as coolify from "./coolify.js";
 import { getSetting, setSetting } from "./db.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
-import { dockerPg } from "./hostexec.js";
+import { dockerPg, runOnHost } from "./hostexec.js";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
@@ -27,8 +27,24 @@ export async function ensureSharedCluster({ _provision = coolify.provisionDataba
   const stored = getSetting("shared_cluster_url");
   if (stored) return decryptSecret(stored);
   const { url } = await _provision({ name: "debutdeploy-shared-db" });
+  await waitForPg(url); // the container starts async — wait until it accepts connections
   setSetting("shared_cluster_url", encryptSecret(url));
   return url;
+}
+
+// Poll a freshly-provisioned cluster until Postgres accepts connections (~2 min max).
+async function waitForPg(url) {
+  if (DEMO) return;
+  const host = new URL(url).hostname;
+  const net = process.env.PG_MIGRATE_DOCKER_NETWORK || "coolify";
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let i = 0; i < 24; i++) {
+    try {
+      await runOnHost(`docker run --rm --network ${net} postgres:18 pg_isready -h ${host} -p 5432 -t 5`);
+      return;
+    } catch { await sleep(5000); }
+  }
+  throw Object.assign(new Error("shared cluster did not become ready in time"), { status: 504 });
 }
 
 // Run SQL against the cluster in a pinned postgres:18 container on the host. URL +

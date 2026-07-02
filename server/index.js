@@ -352,21 +352,9 @@ app.post(
     const userId = req.user.id;
     const { type, name } = req.body || {};
     if (!type || !name) throw Object.assign(new Error("type and name are required"), { status: 400 });
-    let proj = getCustomerProject(userId);
-    let projectUuid, environmentName;
-    if (proj) {
-      projectUuid = proj.project_uuid;
-      environmentName = proj.environment_name;
-    } else {
-      const created = await coolify.createProject("deploy-" + userId);
-      projectUuid = created.uuid;
-      environmentName = "production";
-      setCustomerProject({ userId, projectUuid, environmentName });
-    }
-    const { uuid } = await databases.createDatabase({
-      type, name, projectUuid, environmentName,
-      serverUuid: process.env.COOLIFY_SERVER_UUID,
-    });
+    // Use createDatabase's verified-good project/server defaults (the per-customer
+    // project could be stale in Coolify and 404 the create). Ownership via assign().
+    const { uuid } = await databases.createDatabase({ type, name });
     assign(uuid, "database", userId);
     record(req, "db.create", { resourceType: "database", resourceUuid: uuid });
     return { uuid };
