@@ -27,3 +27,11 @@ const withMargin = (p) => ({
 
 export const computePlans = () => COMPUTE_PLANS.map(withMargin);
 export const dbPlans = () => DB_PLANS.map(withMargin);
+
+// USD/mo customer price for a plan id, across both catalogs. Unknown/null → 0
+// (a resource with no plan contributes £0 to the monthly charge — free until assigned).
+export function planPriceUsd(planId) {
+  if (!planId) return 0;
+  const p = [...COMPUTE_PLANS, ...DB_PLANS].find((x) => x.id === planId);
+  return p ? p.priceMo : 0;
+}
