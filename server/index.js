@@ -39,6 +39,8 @@ import {
   markInviteAccepted,
   listPendingInvites,
   deleteInvite,
+  listOrgsWithCounts,
+  getOrgDetail,
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
@@ -522,26 +524,17 @@ app.get(
   h(() => listUsers())
 );
 
-// Customers/clients with a count of the resources each owns (admin view).
-app.get(
-  "/api/customers",
-  requireAuth,
-  requireAdmin,
-  h(() =>
-    listUsers().map((u) => ({
-      id: u.id,
-      email: u.email,
-      name: u.name,
-      role: u.role,
-      avatar_url: u.avatar_url ?? null,
-      created_at: u.created_at ?? null,
-      owned: {
-        applications: ownedUuids(u.id, "application").length,
-        databases: ownedUuids(u.id, "database").length,
-      },
-    }))
-  )
-);
+// Master Admin: all client orgs with counts.
+app.get("/api/admin/orgs", requireAuth, requireAdmin, h(() => listOrgsWithCounts()));
+
+app.get("/api/admin/orgs/:id", requireAuth, requireAdmin, h((req) => {
+  const detail = getOrgDetail(Number(req.params.id));
+  if (!detail) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  return detail;
+}));
+
+// ponytail: legacy alias — Clients page will call /api/admin/orgs; keep one release.
+app.get("/api/customers", requireAuth, requireAdmin, h(() => listOrgsWithCounts()));
 
 // Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.
 app.get(
