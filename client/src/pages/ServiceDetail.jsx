@@ -10,7 +10,7 @@ import { actionLabel } from "../lib/eventLabels.js";
 import { StatusPill, Spinner, Button, Mono, timeAgo } from "../components/ui.jsx";
 import { SettingsSection, SettingsRow, AnchorNav } from "../components/SettingsSection.jsx";
 
-const TABS = ["Deployments", "Logs", "Environment", "Events", "Settings"];
+const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
 
 export default function ServiceDetail() {
   const { id } = useParams();
@@ -173,6 +173,7 @@ export default function ServiceDetail() {
         <Deployments deploys={deploys} serviceId={id} onRedeploy={() => action("deploy")} onDeploysChange={setDeploys} />
       )}
       {tab === "Logs" && <LogsTab serviceId={id} name={svc.name} />}
+      {tab === "Metrics" && <MetricsTab serviceId={id} />}
       {tab === "Environment" && <EnvironmentTab serviceId={id} onDeploy={() => action("deploy")} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
       {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} onRename={(name) => setSvc((s) => ({ ...s, name }))} />}
@@ -394,6 +395,85 @@ function LogsTab({ serviceId, name }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Metrics tab (live, point-in-time CPU + memory) ──────────────────────────────
+
+// Strip "%"/whitespace → number, NaN → 0, clamp 0–100.
+function pct(str) {
+  const n = parseFloat(String(str ?? "").replace("%", "").trim());
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+}
+
+function Bar({ value, color }) {
+  return (
+    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
+      <div className="h-full rounded-full transition-all" style={{ width: `${value}%`, background: color }} />
+    </div>
+  );
+}
+
+function MetricCard({ label, big, sub, value, color }) {
+  return (
+    <div className="rounded-lg border px-[18px] py-4" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}>
+      <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</div>
+      <div className="mt-1.5 text-[26px] font-semibold" style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{big}</div>
+      {sub && <div className="mt-0.5 mono text-[12px]" style={{ color: "var(--text-muted)" }}>{sub}</div>}
+      <Bar value={value} color={color} />
+    </div>
+  );
+}
+
+function MetricsTab({ serviceId }) {
+  const [data, setData] = useState(null);   // null = loading; else { containers, error? }
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      api.metrics(serviceId)
+        .then((d) => { if (!cancelled) setData(d || { containers: [] }); })
+        .catch((e) => { if (!cancelled) setData({ containers: [], error: e.message }); });
+    load();
+    const t = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [serviceId]);
+
+  if (!data) return (
+    <div className="text-sm" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading metrics…</div>
+  );
+
+  const containers = data.containers || [];
+  const unavailable = data.error || containers.length === 0;
+
+  return (
+    <div>
+      <div className="mb-3.5 flex items-center justify-between">
+        <h4 className="text-[13.5px] font-semibold" style={{ color: "var(--text)" }}>Application Metrics</h4>
+        <span className="inline-flex items-center gap-[7px] text-[11.5px] font-semibold" style={{ color: "var(--ok-text)" }}>
+          <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--ok)", animation: "dd-pulse 1.4s infinite" }} />
+          Live
+        </span>
+      </div>
+
+      {unavailable ? (
+        <div className="rounded-lg border px-4 py-10 text-center text-[13px]" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text-muted)", boxShadow: "var(--shadow)" }}>
+          Live metrics unavailable — the service isn't running or the metrics host isn't configured yet.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {containers.map((c, i) => (
+            <div key={c.name || i}>
+              <div className="mb-2 mono text-[12px]" style={{ color: "var(--text-muted)" }}>{c.name || "container"}</div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MetricCard label="CPU" big={c.cpu ?? "—"} value={pct(c.cpu)} color="var(--accent)" />
+                <MetricCard label="Memory" big={c.memPerc ?? "—"} sub={c.mem} value={pct(c.memPerc)} color="var(--ok)" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

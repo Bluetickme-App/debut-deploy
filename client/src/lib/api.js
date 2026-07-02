@@ -37,6 +37,7 @@ export const api = {
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),
   logs: (id) => req(`/services/${id}/logs`),
+  metrics: (id) => req(`/services/${id}/metrics`),
   envs: (id) => req(`/services/${id}/envs`),
   saveEnv: (id, body) => req(`/services/${id}/envs`, { method: "POST", body }),
   deleteEnv: (id, envId) => req(`/services/${id}/envs/${envId}`, { method: "DELETE" }),
