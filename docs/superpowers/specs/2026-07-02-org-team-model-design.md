@@ -52,7 +52,10 @@ org → resources line to bill against.
 - Any billing-related columns on `organizations` (added in spec C).
 - Create-flow orphan handling (Coolify-created-but-DB-insert-failed) — a
   pre-existing robustness gap in the current `assign()` path, not introduced by
-  this spec; addressed separately.
+  this spec; addressed separately. **Forward-pointer:** once usage metering (B)
+  lands, an orphaned Coolify resource can burn capacity with no owning org, so a
+  post-RBAC follow-up should add orphan reconciliation (Coolify resources absent
+  from `resource_ownership`). Tracked for subsystem B, not built here.
 
 ## Data model
 
@@ -199,7 +202,10 @@ An invite is **valid** iff: `accepted_at IS NULL` AND `expires_at > now` AND the
   short-circuits (org-agnostic).
 - **Org-scope ownership** (`server/ownership.js`): `ownedUuids` and `assertOwns`
   filter by `org_id` (from `req.org.id`) instead of `user_id`; Master Admin
-  bypass stays. **`org_id` is the sole authorization field** after migration —
+  bypass stays. `assertOwns` always queries with **both `type` and
+  `coolify_uuid`** (then checks `org_id`), so the existing `(type, coolify_uuid)`
+  primary key is a covering prefix — no extra `(coolify_uuid, org_id)` index is
+  needed. **`org_id` is the sole authorization field** after migration —
   `user_id` is legacy/audit metadata and must not drive access control. Cross-org
   access returns **404** (non-disclosure — same as today's not-owned case).
   *Future migration:* drop/rename `resource_ownership.user_id` once all routes
@@ -247,6 +253,13 @@ This invariant is covered by route-level tests (below).
   acceptable; access history lives in `audit_events`.
 - A removed user can rejoin only via a fresh invite.
 
+### Auditing
+Invite and membership mutations are logged through the **existing** `record()`
+helper (`server/audit.js`, already used for `login`/`logout`) — no new columns.
+Actions: `invite.create`, `invite.accept`, `invite.revoke`, `member.role_change`,
+`member.remove`. This preserves an audit trail even though invites are
+hard-deleted on revoke.
+
 ## UI
 
 - **Master Admin — Clients** (`client/src/pages/Customers.jsx` evolves, likely
@@ -255,7 +268,9 @@ This invariant is covered by route-level tests (below).
 - **Client Admin — Team** (new `client/src/pages/Team.jsx`): member list with
   roles. **Visible to `owner` and `manager`; only `owner` sees the invite /
   change-role / remove controls** (aligns the page with the read/mutate API
-  split).
+  split). Inviting or promoting to `owner` shows a deliberate warning —
+  *"Owners can invite users, change roles, remove members, and access billing
+  controls."* — so co-ownership is never granted by accident.
 - **Nav** (`client/src/…` layout): "Clients" shown to Master Admin; "Team" shown
   to `owner` and `manager`. `viewer`/`deployer` see resources per capability but
   not the Team page.
