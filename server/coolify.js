@@ -140,10 +140,12 @@ export async function listEnvs(uuid) {
 
 export async function upsertEnv(uuid, { key, value, is_secret }) {
   if (isDemo()) return { uuid: "demo-" + key, key, value, is_secret: !!is_secret };
-  // Coolify uses POST to create, PATCH to update by key
+  // Coolify's env POST rejects is_secret ("This field is not allowed", 422) — omit
+  // it (verified live). Values are stored regardless; the flag is Coolify-side only.
+  void is_secret;
   return cf(`/applications/${uuid}/envs`, {
     method: "POST",
-    body: { key, value, is_preview: false, is_secret: !!is_secret },
+    body: { key, value, is_preview: false },
   });
 }
 
