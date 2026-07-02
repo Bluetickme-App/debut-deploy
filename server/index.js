@@ -44,6 +44,10 @@ import {
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
+import {
+  walletBalance, recentLedger, createTopupSession, handleWebhookEvent, stripeClient,
+} from "./billing.js";
+import { planPriceUsd } from "./plans.js";
 import { listEvents, listEventsForResource } from "./events.js";
 import { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } from "./notifications.js";
 import { runHealthCheck } from "./monitor.js";
@@ -461,6 +465,11 @@ app.post(
     // project could be stale in Coolify and 404 the create). Ownership via assign().
     const { uuid } = await databases.createDatabase({ type, name });
     assign(uuid, "database", userId);
+    const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
+    if (planId && planPriceUsd(planId) > 0) {
+      db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?")
+        .run(planId, "database", uuid);
+    }
     record(req, "db.create", { resourceType: "database", resourceUuid: uuid });
     return { uuid };
   })
@@ -777,6 +786,31 @@ app.post("/github/webhook", async (req, res) => {
   }
 });
 
+// --- Stripe webhook: inbound Stripe call, no session/cookie ------------------
+// Outside requireAuth + mutateGuard, same as /github/webhook.
+// Signature-verified against the exact raw bytes (req.rawBody captured at the
+// express.json verify callback above). Without this check, forged webhooks
+// could credit wallets.
+app.post("/api/stripe/webhook", (req, res) => {
+  const stripe = stripeClient();
+  if (!stripe) return res.status(503).json({ error: "Stripe not configured" });
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody, req.get("stripe-signature"), process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    recordSystem("billing.webhook_bad_signature", { metadata: { error: err.message } });
+    return res.status(400).json({ error: "bad signature" });
+  }
+  try {
+    handleWebhookEvent(event); // idempotent credit
+  } catch (err) {
+    console.error("stripe webhook:", err.message);
+  }
+  res.json({ received: true }); // respond 200 quickly
+});
+
 // --- GitHub API routes -------------------------------------------------------
 
 // Resolve the user's GitHub App installation. If we haven't recorded one,
@@ -880,6 +914,11 @@ app.post("/api/apps", requireAuth, mutateGuard, attachOrgContext, requireCapabil
 
   // 3. Assign ownership + audit (only after a successful create).
   assign(uuid, "application", userId);
+  const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
+  if (planId && planPriceUsd(planId) > 0) {
+    db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?")
+      .run(planId, "application", uuid);
+  }
   record(req, "app.create", { resourceType: "application", resourceUuid: uuid });
 
   // 4. Auto-assign <name>.debutdepoly.com — wildcard DNS + on-demand Traefik cert.
@@ -1395,6 +1434,76 @@ app.delete("/api/org/members/:userId", requireAuth, mutateGuard, attachOrgContex
     return { ok: true };
   })
 );
+
+// --- billing (prepaid wallet) ---
+app.get("/api/billing/wallet", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => {
+    const org = db.prepare("SELECT billing_status FROM organizations WHERE id = ?").get(req.org.id);
+    return {
+      balance_pence: walletBalance(req.org.id),
+      billing_status: org?.billing_status || "ok",
+      recent_ledger: recentLedger(req.org.id),
+    };
+  })
+);
+
+app.post("/api/billing/topup", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h(async (req) => {
+    const amountPence = Number(req.body?.amount_pence);
+    if (!Number.isInteger(amountPence) || amountPence < 100) {
+      throw Object.assign(new Error("amount_pence must be an integer >= 100"), { status: 400 });
+    }
+    record(req, "billing.topup_initiated", { metadata: { org_id: req.org.id, amount_pence: amountPence } });
+    return createTopupSession({
+      orgId: req.org.id, amountPence,
+      successUrl: `${clientOrigin}/billing?topup=success`,
+      cancelUrl: `${clientOrigin}/billing?topup=cancel`,
+    });
+  })
+);
+
+app.post("/api/billing/portal", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h(async (req) => {
+    const stripe = stripeClient();
+    if (!stripe) throw Object.assign(new Error("Stripe is not configured"), { status: 503 });
+    const { getOrCreateStripeCustomer } = await import("./billing.js");
+    const customer = await getOrCreateStripeCustomer(req.org.id);
+    const session = await stripe.billingPortal.sessions.create({ customer, return_url: `${clientOrigin}/billing` });
+    return { url: session.url };
+  })
+);
+
+// Plan assignment — manage-gated. Sets resource_ownership.plan_id (drives monthly charge).
+function setResourcePlan(req, type) {
+  const uuid = req.params.id;
+  assertOwns(req.user, type, uuid); // org-scoped 404 on cross-org
+  const planId = req.body?.plan_id === null ? null : String(req.body?.plan_id || "");
+  if (planId && planPriceUsd(planId) === 0) {
+    throw Object.assign(new Error("Unknown plan_id"), { status: 400 });
+  }
+  const changes = db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?")
+    .run(planId || null, type, uuid).changes;
+  if (!changes) throw Object.assign(new Error("Resource not found"), { status: 404 });
+  record(req, "billing.plan_assigned", { resourceType: type, resourceUuid: uuid, metadata: { plan_id: planId || null } });
+  return { ok: true, plan_id: planId || null };
+}
+
+app.patch("/api/services/:id/plan", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h((req) => setResourcePlan(req, "application")));
+
+app.patch("/api/databases/:id/plan", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h((req) => setResourcePlan(req, "database")));
+
+// Master-Admin external-cron entry point for the monthly charge. Idempotent per (org, period).
+app.post("/api/admin/billing/run-monthly", requireAuth, requireAdmin, h(async () => {
+  const { chargeMonthlyHardware, currentPeriod } = await import("./billing.js");
+  const period = currentPeriod();
+  const orgs = db.prepare("SELECT id FROM organizations").all();
+  let charged = 0;
+  for (const o of orgs) { if (chargeMonthlyHardware(o.id, period).charged > 0) charged += 1; }
+  recordSystem("billing.run_monthly", { metadata: { period, orgs: orgs.length, charged } });
+  return { period, orgs: orgs.length, charged };
+}));
 
 // --- serve the built client (single-process hosting) ---
 // When client/dist exists (prod build), serve it + SPA fallback so client-side
