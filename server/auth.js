@@ -315,9 +315,9 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
     });
   });
 
-  app.get("/api/me", requireAuth, (req, res) => {
-    res.json(userPayload(req.user));
-  });
+  // NOTE: /api/me is defined in index.js, AFTER the Bearer-token middleware — so API
+  // tokens authenticate it. Defining it here (inside setupAuth, before that
+  // middleware) shadowed it and made token auth 401 on /api/me only.
 
   return { requireAuth, requireAdmin, demoMode, demoUser, userPayload };
 }
