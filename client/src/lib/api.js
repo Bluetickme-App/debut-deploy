@@ -71,7 +71,11 @@ export const api = {
   // GitHub
   githubInstallations: () => req("/github/installations"),
   // Render importer (admin)
-  renderServices: (apiKey) => req("/import/render/services", { method: "POST", body: { apiKey } }),
+  renderKeys:       () => req("/render/keys"),
+  saveRenderKey:    (body) => req("/render/keys", { method: "POST", body }),
+  deleteRenderKey:  (id) => req(`/render/keys/${id}`, { method: "DELETE" }),
+  renderServices:  (creds) => req("/import/render/services", { method: "POST", body: creds }),
+  renderDatabases: (creds) => req("/import/render/databases", { method: "POST", body: creds }),
   importRender:   (body) => req("/import/render", { method: "POST", body }),
   importRenderProject: (body) => req("/import/render/project", { method: "POST", body }),
   // Activity & notifications
