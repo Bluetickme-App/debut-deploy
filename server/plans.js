@@ -3,11 +3,11 @@
 // ponytail: static catalog; move to DB when plans become editable/per-customer.
 
 export const COMPUTE_PLANS = [
-  { id: "hobby",    name: "Hobby",    ram: "512 MB", vcpu: "0.5 shared",    priceMo: 5,  costMo: 0.74, renderMo: 7,   note: "Personal projects" },
-  { id: "starter",  name: "Starter",  ram: "1 GB",   vcpu: "0.5 shared",    priceMo: 9,  costMo: 1.48, renderMo: 7,   note: "Small apps" },
-  { id: "pro",      name: "Pro",      ram: "2 GB",   vcpu: "1 shared",      priceMo: 15, costMo: 2.97, renderMo: 25,  note: "Production apps", popular: true },
-  { id: "proplus",  name: "Pro Plus", ram: "4 GB",   vcpu: "2 dedicated",   priceMo: 45, costMo: 5.93, renderMo: 85,  note: "Busy production" },
-  { id: "scale",    name: "Scale",    ram: "8 GB",   vcpu: "4 dedicated",   priceMo: 85, costMo: 9.17, renderMo: 175, note: "High traffic" },
+  { id: "hobby",    name: "Hobby",    ram: "512 MB", ramGb: 0.5, vcpu: "0.5 shared",  vcpuCount: 0.5, disk: "20 GB",  shared: true,  priceMo: 5,  costMo: 0.74, renderMo: 7,   note: "Personal projects" },
+  { id: "starter",  name: "Starter",  ram: "1 GB",   ramGb: 1,   vcpu: "0.5 shared",  vcpuCount: 0.5, disk: "40 GB",  shared: true,  priceMo: 9,  costMo: 1.48, renderMo: 7,   note: "Small apps" },
+  { id: "pro",      name: "Pro",      ram: "2 GB",   ramGb: 2,   vcpu: "1 shared",    vcpuCount: 1,   disk: "80 GB",  shared: true,  priceMo: 15, costMo: 2.97, renderMo: 25,  note: "Production apps", popular: true },
+  { id: "proplus",  name: "Pro Plus", ram: "4 GB",   ramGb: 4,   vcpu: "2 dedicated", vcpuCount: 2,   disk: "160 GB", shared: false, priceMo: 45, costMo: 5.93, renderMo: 85,  note: "Busy production" },
+  { id: "scale",    name: "Scale",    ram: "8 GB",   ramGb: 8,   vcpu: "4 dedicated", vcpuCount: 4,   disk: "240 GB", shared: false, priceMo: 85, costMo: 9.17, renderMo: 175, note: "High traffic" },
 ];
 
 export const DB_PLANS = [

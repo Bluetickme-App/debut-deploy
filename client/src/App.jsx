@@ -17,6 +17,7 @@ import SharedVars from "./pages/SharedVars.jsx";
 import Servers from "./pages/Servers.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
 import Projects from "./pages/Projects.jsx";
+import ProjectDetail from "./pages/ProjectDetail.jsx";
 import Customers from "./pages/Customers.jsx";
 import NewServiceGit from "./pages/NewServiceGit.jsx";
 import Billing from "./pages/Billing.jsx";
@@ -183,9 +184,9 @@ function Sidebar({ drawerOpen, onClose }) {
           background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: "0 1px 2px rgba(0,0,0,.18)",
         }}>
-          <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--accent-contrast)", lineHeight: 1 }}>D</span>
+          <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--accent-contrast)", lineHeight: 1 }}>D</span>
         </div>
-        <span style={{ fontFamily: "'Geist',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--text)" }}>
+        <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--text)" }}>
           Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
         </span>
       </div>
@@ -269,7 +270,8 @@ function Topbar({ onMenuClick }) {
   }, [menuOpen]);
 
   const crumb = CRUMB_MAP[location.pathname] ??
-    (location.pathname.startsWith("/services/") ? "Service Detail" : "");
+    (location.pathname.startsWith("/services/") ? "Service Detail" :
+     location.pathname.startsWith("/projects/") ? "Project Detail" : "");
 
   const isLive = mode === "live";
   const envLabel = mode === "demo" ? "Demo" : mode === "live" ? "Live" : null;
@@ -473,6 +475,7 @@ function AppShell() {
             <Route path="/billing" element={<Billing />} />
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
           </Routes>
         </main>
       </div>

@@ -88,7 +88,7 @@ function GridCard({ s, onClick }) {
         <span style={{
           fontSize: 15, fontWeight: 600, color: "var(--text)", letterSpacing: "-0.005em",
           flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          fontFamily: "'Geist', sans-serif",
+          fontFamily: "'Inter', sans-serif",
         }}>
           {s.name}
         </span>
@@ -192,7 +192,7 @@ function ListRow({ s, onClick }) {
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: "'Geist', sans-serif" }}>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: "'Inter', sans-serif" }}>
           {s.name}
         </span>
         <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--text-muted)" }}>
@@ -235,7 +235,7 @@ function EmptyDashed() {
         <Layers size={26} style={{ color: "var(--accent-text)" }} strokeWidth={1.7} />
       </div>
       <h3 style={{
-        margin: "0 0 6px", fontFamily: "'Geist', sans-serif", fontSize: 18,
+        margin: "0 0 6px", fontFamily: "'Inter', sans-serif", fontSize: 18,
         fontWeight: 600, color: "var(--text)",
       }}>
         No services yet

@@ -79,7 +79,7 @@ function BrandPanel() {
         <h2
           style={{
             margin: "0 0 16px",
-            fontFamily: "'Geist', sans-serif",
+            fontFamily: "'Inter', sans-serif",
             fontSize: 34,
             fontWeight: 600,
             lineHeight: 1.12,
@@ -220,7 +220,7 @@ export default function Login() {
           display: "flex",
           minHeight: "100vh",
           background: "var(--bg)",
-          fontFamily: "'Geist', system-ui, sans-serif",
+          fontFamily: "'Inter', system-ui, sans-serif",
         }}
       >
         {/* LEFT column */}
@@ -252,9 +252,9 @@ export default function Login() {
                   boxShadow: "0 4px 12px -2px rgba(37,99,235,.45)",
                 }}
               >
-                <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: 23, color: "#fff", lineHeight: 1 }}>D</span>
+                <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 23, color: "#fff", lineHeight: 1 }}>D</span>
               </div>
-              <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "-0.01em", color: "var(--text)" }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "-0.01em", color: "var(--text)" }}>
                 Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
               </span>
             </div>
@@ -273,7 +273,7 @@ export default function Login() {
               <h1
                 style={{
                   margin: "0 0 7px",
-                  fontFamily: "'Geist', sans-serif",
+                  fontFamily: "'Inter', sans-serif",
                   fontSize: 21,
                   fontWeight: 600,
                   textAlign: "center",

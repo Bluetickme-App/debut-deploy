@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Server, TrendingUp, Check } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Spinner, StatusPill } from "../components/ui.jsx";
+import PlanMatrix from "../components/PlanMatrix.jsx";
 
 // Admin billing: what the infra actually costs (Hetzner) + the customer plans
 // and the margin on each. Data from /api/billing.
@@ -64,19 +65,8 @@ export default function Billing() {
       <div className="flex items-center gap-2 mb-3" style={{ color: "var(--text)" }}>
         <TrendingUp size={16} /> <span className="font-semibold text-sm">Compute plans</span>
       </div>
-      <div className="grid gap-3 mb-6" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))" }}>
-        {computePlans.map((p) => (
-          <Card key={p.id} className={`card-hover ${p.popular ? "" : ""}`}>
-            {p.popular && <span className="pill pill-accent" style={{ marginBottom: 8 }}>Popular</span>}
-            <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.name}</div>
-            <div className="mt-1 text-2xl font-bold" style={{ color: "var(--text)" }}>{usd(p.priceMo)}<span className="text-sm font-normal" style={{ color: "var(--text-muted)" }}>/mo</span></div>
-            <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{p.ram} · {p.vcpu}</div>
-            <div className="mt-3 flex flex-col gap-1 text-xs">
-              <span style={{ color: "var(--ok-text)" }}>margin {eur(p.marginMo)}/mo ({p.marginPct}%)</span>
-              {p.discountVsRenderPct != null && <span style={{ color: "var(--text-muted)" }}>{p.discountVsRenderPct}% under Render (${p.renderMo})</span>}
-            </div>
-          </Card>
-        ))}
+      <div className="mb-6">
+        <PlanMatrix plans={computePlans} showCost={true} />
       </div>
 
       {/* DB plans */}

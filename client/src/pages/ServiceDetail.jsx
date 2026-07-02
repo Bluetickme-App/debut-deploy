@@ -8,6 +8,7 @@ import {
 import { api } from "../lib/api.js";
 import { actionLabel } from "../lib/eventLabels.js";
 import { StatusPill, Spinner, Button, Input, Mono, timeAgo } from "../components/ui.jsx";
+import { SettingsSection, AnchorNav } from "../components/SettingsSection.jsx";
 
 const TABS = ["Deployments", "Logs", "Environment", "Events", "Settings"];
 
@@ -85,14 +86,22 @@ export default function ServiceDetail() {
       {/* ── header ── */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-5">
         <div>
-          <div className="mb-2 flex items-center gap-3">
+          <div className="mb-2 flex flex-wrap items-center gap-3">
             <h1
               className="text-2xl font-semibold"
-              style={{ fontFamily: "'Geist', sans-serif", letterSpacing: "-0.01em", color: "var(--text)" }}
+              style={{ fontFamily: "'Inter', sans-serif", letterSpacing: "-0.01em", color: "var(--text)" }}
             >
               {svc.name}
             </h1>
             <StatusPill status={svc.status} />
+            {svc.type && (
+              <span
+                className="mono rounded-[6px] px-2 py-0.5 text-[11px] font-semibold"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+              >
+                {svc.type === "web" ? "web_service" : svc.type}
+              </span>
+            )}
           </div>
           {svc.domain && (
             <a
@@ -152,6 +161,9 @@ export default function ServiceDetail() {
           </span>
         )}
         <span>Last deploy {timeAgo(svc.lastDeployedAt)}</span>
+        <span className="inline-flex items-center gap-[7px]">
+          ID <Mono>{svc.uuid || id}</Mono>
+        </span>
       </div>
 
       {/* ── underline tab bar ── */}
@@ -188,7 +200,15 @@ export default function ServiceDetail() {
       {tab === "Logs" && <LogsTab serviceId={id} name={svc.name} />}
       {tab === "Environment" && <EnvironmentTab serviceId={id} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
-      {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} isAdmin={user?.role === "admin"} />}
+      {tab === "Settings" && (
+        <SettingsTab
+          svc={svc}
+          serviceId={id}
+          isAdmin={user?.role === "admin"}
+          onDeploy={() => action("deploy")}
+          deployBusy={busy}
+        />
+      )}
     </div>
   );
 }
@@ -736,7 +756,7 @@ function EventsTab({ serviceId }) {
 
 // ── Settings tab ───────────────────────────────────────────────────────────────
 
-function SettingsTab({ svc, serviceId, isAdmin }) {
+function SettingsTab({ svc, serviceId, isAdmin, onDeploy, deployBusy }) {
   const navigate = useNavigate();
 
   // build & deploy
@@ -861,146 +881,309 @@ function SettingsTab({ svc, serviceId, isAdmin }) {
     navigate("/");
   }
 
-  const cardStyle = { background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow)" };
-  const titleCls = "mb-4 text-[15px] font-semibold";
   const labelCls = "mb-1.5 block text-xs font-semibold";
   const SelectChevron = () => (
     <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
   );
 
+  // read-only "definition list" row for General
+  const InfoRow = ({ label, children }) => (
+    <div className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6" style={{ borderTop: "1px solid var(--border)" }}>
+      <span className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>{label}</span>
+      <span className="text-[13px] font-medium" style={{ color: "var(--text)" }}>{children}</span>
+    </div>
+  );
+
+  // right-side anchor nav wiring — track the visible section
+  const NAV = [
+    { id: "general", label: "General" },
+    { id: "build", label: "Build" },
+    { id: "deploy", label: "Deploy" },
+    { id: "domains", label: "Custom Domains" },
+    { id: "health", label: "Health Checks" },
+    { id: "scaling", label: "Scaling" },
+    { id: "notifications", label: "Notifications" },
+    { id: "danger", label: "Delete Service" },
+  ];
+  const [activeSection, setActiveSection] = useState("general");
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (vis[0]) setActiveSection(vis[0].target.id);
+      },
+      { rootMargin: "-15% 0px -70% 0px", threshold: 0 }
+    );
+    NAV.forEach((n) => { const el = document.getElementById(n.id); if (el) obs.observe(el); });
+    return () => obs.disconnect();
+  }, []);
+  function jump(secId) {
+    document.getElementById(secId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveSection(secId);
+  }
+
   return (
-    <div className="flex flex-col gap-[18px]">
-      {/* build & deploy */}
-      <form onSubmit={saveBuild} className="rounded-[13px] px-[22px] py-5" style={cardStyle}>
-        <h3 className={titleCls} style={{ fontFamily: "'Geist', sans-serif", color: "var(--text)" }}>Build &amp; deploy</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls} style={{ color: "var(--text-muted)" }}>Build pack</label>
-            <div className="relative">
-              <select className="select w-full" value={buildPack} onChange={(e) => setBuildPack(e.target.value)} style={{ appearance: "none" }}>
-                <option>Nixpacks (auto-detected)</option>
-                <option>Dockerfile</option>
-                <option>Static site</option>
-              </select>
-              <SelectChevron />
+    <div className="flex gap-8">
+      <div className="flex min-w-0 flex-1 flex-col gap-[18px]">
+        {/* General */}
+        <SettingsSection
+          id="general"
+          title="General"
+          description="Identity, plan and current status for this service."
+          right={
+            <div>
+              <InfoRow label="Name">{svc.name}</InfoRow>
+              <InfoRow label="Type">{svc.type === "web" ? "web_service" : (svc.type || "service")}</InfoRow>
+              <InfoRow label="Runtime">{svc.runtime || "—"}</InfoRow>
+              <InfoRow label="Plan">
+                {svc.server ? `${svc.server}${svc.region ? ` · ${svc.region}` : ""}` : "Standard"}
+              </InfoRow>
+              <InfoRow label="Status"><StatusPill status={svc.status} /></InfoRow>
+              <InfoRow label="Service ID"><Mono>{svc.uuid || serviceId}</Mono></InfoRow>
+              <p className="mt-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+                Renaming is managed in Coolify — this panel shows the current identity read-only.
+              </p>
             </div>
-          </div>
-          <div>
-            <label className={labelCls} style={{ color: "var(--text-muted)" }}>Exposed port</label>
-            <Input value={port} onChange={(e) => setPort(e.target.value)} placeholder="3000" />
-          </div>
-          <div>
-            <label className={labelCls} style={{ color: "var(--text-muted)" }}>Build command</label>
-            <Input className="mono" value={buildCmd} onChange={(e) => setBuildCmd(e.target.value)} placeholder="npm ci && npm run build" />
-          </div>
-          <div>
-            <label className={labelCls} style={{ color: "var(--text-muted)" }}>Start command</label>
-            <Input className="mono" value={startCmd} onChange={(e) => setStartCmd(e.target.value)} placeholder="node dist/server.js" />
-          </div>
-        </div>
-        <div className="mt-4 flex items-center gap-3">
-          <Button type="submit" variant="primary" disabled={buildBusy}>{buildBusy ? <Spinner /> : "Save build settings"}</Button>
-          {buildMsg && <span className="text-xs" style={{ color: buildMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{buildMsg.text}</span>}
-        </div>
-      </form>
+          }
+        />
 
-      {/* custom domain */}
-      <form onSubmit={saveDomain} className="rounded-[13px] px-[22px] py-5" style={cardStyle}>
-        <h3 className={titleCls} style={{ fontFamily: "'Geist', sans-serif", color: "var(--text)" }}>Custom domain</h3>
-        <div className="mb-3.5 flex items-end gap-2.5">
-          <div className="flex-1">
-            <label className={labelCls} style={{ color: "var(--text-muted)" }}>Domain</label>
-            <Input
-              className="mono"
-              value={fqdn}
-              onChange={(e) => { setFqdn(e.target.value); setVerifyResult(null); }}
-              placeholder="app.example.com"
-            />
-          </div>
-          <Button type="submit" variant="primary" disabled={domainBusy || !fqdn.trim()}>
-            {domainBusy ? <Spinner /> : "Save"}
-          </Button>
-          <Button type="button" variant="default" onClick={verifyDns} disabled={verifyBusy || !fqdn.trim()}>
-            {verifyBusy ? <Spinner /> : "Verify DNS"}
-          </Button>
-        </div>
+        {/* Build */}
+        <SettingsSection
+          id="build"
+          title="Build"
+          description="How DebutDeploy builds your service from source on each deploy."
+          right={
+            <form onSubmit={saveBuild}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Repository</label>
+                  <Input className="mono" value={`${svc.repo || "—"}`} readOnly />
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Branch</label>
+                  <Input className="mono" value={svc.branch || "main"} readOnly />
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Build pack</label>
+                  <div className="relative">
+                    <select className="select w-full" value={buildPack} onChange={(e) => setBuildPack(e.target.value)} style={{ appearance: "none" }}>
+                      <option>Nixpacks (auto-detected)</option>
+                      <option>Dockerfile</option>
+                      <option>Static site</option>
+                    </select>
+                    <SelectChevron />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Exposed port</label>
+                  <Input value={port} onChange={(e) => setPort(e.target.value)} placeholder="3000" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Build command</label>
+                  <Input className="mono" value={buildCmd} onChange={(e) => setBuildCmd(e.target.value)} placeholder="npm ci && npm run build" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <Button type="submit" variant="primary" disabled={buildBusy}>{buildBusy ? <Spinner /> : "Save build settings"}</Button>
+                {buildMsg && <span className="text-xs" style={{ color: buildMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{buildMsg.text}</span>}
+              </div>
+            </form>
+          }
+        />
 
-        {domainMsg && (
-          <p className="mb-2 text-xs" style={{ color: domainMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{domainMsg.text}</p>
-        )}
-        {verifyResult && !verifyResult.error && <DnsResult result={verifyResult} />}
-        {verifyResult?.error && (
-          <p className="mb-2 text-xs" style={{ color: "var(--err-text)" }}>Verify failed: {verifyResult.error}</p>
-        )}
+        {/* Deploy */}
+        <SettingsSection
+          id="deploy"
+          title="Deploy"
+          description="Start command, auto-deploy trigger and manual redeploy."
+          right={
+            <div>
+              <form onSubmit={saveBuild}>
+                <label className={labelCls} style={{ color: "var(--text-muted)" }}>Start command</label>
+                <Input className="mono" value={startCmd} onChange={(e) => setStartCmd(e.target.value)} placeholder="node dist/server.js" />
+                <div className="mt-4 flex items-center gap-3">
+                  <Button type="submit" variant="primary" disabled={buildBusy}>{buildBusy ? <Spinner /> : "Save"}</Button>
+                  {buildMsg && <span className="text-xs" style={{ color: buildMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{buildMsg.text}</span>}
+                </div>
+              </form>
 
-        <div className="mt-1 flex flex-wrap gap-2.5">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-            style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
-          >
-            <Check className="h-3 w-3" strokeWidth={3} /> DNS verified
-          </span>
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-            style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
-          >
-            <Lock className="h-3 w-3" /> TLS active · Let&apos;s Encrypt
-          </span>
-        </div>
-      </form>
+              <div className="mt-5 flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6" style={{ borderTop: "1px solid var(--border)" }}>
+                <div>
+                  <p className="text-[13px] font-medium" style={{ color: "var(--text)" }}>Auto-Deploy</p>
+                  <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Push to <Mono>{svc.branch || "main"}</Mono> redeploys automatically.</p>
+                </div>
+                <span
+                  className="inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+                  style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--ok)" }} /> On Commit
+                </span>
+              </div>
 
-      {/* resources */}
-      <form onSubmit={saveLimits} className="rounded-[13px] px-[22px] py-5" style={cardStyle}>
-        <h3 className={titleCls} style={{ fontFamily: "'Geist', sans-serif", color: "var(--text)" }}>
-          <span className="inline-flex items-center gap-2"><Cpu className="h-4 w-4" style={{ color: "var(--accent)" }} /> Resources</span>
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls} style={{ color: "var(--text-muted)" }}>CPU limit</label>
-            <div className="relative">
-              <select className="select w-full" value={cpus} onChange={(e) => setCpus(e.target.value)} style={{ appearance: "none" }}>
-                <option value="">Default</option>
-                <option value="0.5">0.5 vCPU</option>
-                <option value="1">1.0 vCPU</option>
-                <option value="2">2.0 vCPU</option>
-              </select>
-              <SelectChevron />
+              <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6" style={{ borderTop: "1px solid var(--border)" }}>
+                <div>
+                  <p className="text-[13px] font-medium" style={{ color: "var(--text)" }}>Manual deploy</p>
+                  <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Trigger a fresh deploy of the current branch now.</p>
+                </div>
+                <Button variant="default" onClick={onDeploy} disabled={deployBusy}>
+                  {deployBusy ? <Spinner /> : <Rocket className="h-3.5 w-3.5" />} Deploy latest
+                </Button>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className={labelCls} style={{ color: "var(--text-muted)" }}>Memory limit</label>
-            <div className="relative">
-              <select className="select w-full" value={memory} onChange={(e) => setMemory(e.target.value)} style={{ appearance: "none" }}>
-                <option value="">Default</option>
-                <option value="512M">512 MB</option>
-                <option value="1G">1 GB</option>
-                <option value="2G">2 GB</option>
-              </select>
-              <SelectChevron />
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center gap-3">
-          <Button type="submit" variant="primary" disabled={limitsBusy || (!cpus && !memory)}>
-            {limitsBusy ? <Spinner /> : "Save limits"}
-          </Button>
-          {limitsMsg && <span className="text-xs" style={{ color: limitsMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{limitsMsg.text}</span>}
-        </div>
-      </form>
+          }
+        />
 
-      {/* danger zone */}
-      <div className="rounded-[13px] px-5 py-[18px]" style={{ border: "1px solid var(--err)", background: "var(--err-soft)" }}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 className="mb-[3px] text-[14.5px] font-semibold" style={{ color: "var(--err-text)" }}>Delete this service</h3>
-            <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>
-              Permanently removes the container, domain and build history. This cannot be undone.
-            </p>
+        {/* Custom Domains */}
+        <SettingsSection
+          id="domains"
+          title="Custom Domains"
+          description="Point your own domain at this service. Verify the DNS record, then TLS is issued automatically."
+          right={
+            <form onSubmit={saveDomain}>
+              <div className="mb-3.5 flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Domain</label>
+                  <Input
+                    className="mono"
+                    value={fqdn}
+                    onChange={(e) => { setFqdn(e.target.value); setVerifyResult(null); }}
+                    placeholder="app.example.com"
+                  />
+                </div>
+                <Button type="submit" variant="primary" disabled={domainBusy || !fqdn.trim()}>
+                  {domainBusy ? <Spinner /> : "Save"}
+                </Button>
+                <Button type="button" variant="default" onClick={verifyDns} disabled={verifyBusy || !fqdn.trim()}>
+                  {verifyBusy ? <Spinner /> : "Verify DNS"}
+                </Button>
+              </div>
+
+              {domainMsg && (
+                <p className="mb-2 text-xs" style={{ color: domainMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{domainMsg.text}</p>
+              )}
+              {verifyResult && !verifyResult.error && <DnsResult result={verifyResult} />}
+              {verifyResult?.error && (
+                <p className="mb-2 text-xs" style={{ color: "var(--err-text)" }}>Verify failed: {verifyResult.error}</p>
+              )}
+
+              <div className="mt-1 flex flex-wrap gap-2.5">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+                  style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
+                >
+                  <Check className="h-3 w-3" strokeWidth={3} /> DNS verified
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+                  style={{ background: "var(--ok-soft)", color: "var(--ok-text)" }}
+                >
+                  <Lock className="h-3 w-3" /> TLS active · Let&apos;s Encrypt
+                </span>
+              </div>
+            </form>
+          }
+        />
+
+        {/* Health Checks — no backend endpoint; read-only display */}
+        <SettingsSection
+          id="health"
+          title="Health Checks"
+          description="Path DebutDeploy polls to decide if the service is healthy."
+          right={
+            <div>
+              <label className={labelCls} style={{ color: "var(--text-muted)" }}>Health check path</label>
+              <Input className="mono" value={svc.healthCheckPath || "/"} readOnly />
+              <p className="mt-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+                Configured in Coolify. Status here reflects the container health: <b style={{ color: "var(--text)" }}>{svc.health || svc.status || "unknown"}</b>.
+              </p>
+            </div>
+          }
+        />
+
+        {/* Scaling / Resources */}
+        <SettingsSection
+          id="scaling"
+          title="Scaling"
+          description="CPU and memory limits applied to the container. Takes effect on next deploy."
+          right={
+            <form onSubmit={saveLimits}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>
+                    <span className="inline-flex items-center gap-1.5"><Cpu className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} /> CPU limit</span>
+                  </label>
+                  <div className="relative">
+                    <select className="select w-full" value={cpus} onChange={(e) => setCpus(e.target.value)} style={{ appearance: "none" }}>
+                      <option value="">Default</option>
+                      <option value="0.5">0.5 vCPU</option>
+                      <option value="1">1.0 vCPU</option>
+                      <option value="2">2.0 vCPU</option>
+                    </select>
+                    <SelectChevron />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: "var(--text-muted)" }}>Memory limit</label>
+                  <div className="relative">
+                    <select className="select w-full" value={memory} onChange={(e) => setMemory(e.target.value)} style={{ appearance: "none" }}>
+                      <option value="">Default</option>
+                      <option value="512M">512 MB</option>
+                      <option value="1G">1 GB</option>
+                      <option value="2G">2 GB</option>
+                    </select>
+                    <SelectChevron />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <Button type="submit" variant="primary" disabled={limitsBusy || (!cpus && !memory)}>
+                  {limitsBusy ? <Spinner /> : "Save limits"}
+                </Button>
+                {limitsMsg && <span className="text-xs" style={{ color: limitsMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{limitsMsg.text}</span>}
+              </div>
+            </form>
+          }
+        />
+
+        {/* Notifications — no per-service endpoint; coming-soon placeholder */}
+        <SettingsSection
+          id="notifications"
+          title="Notifications"
+          description="Get alerted when a deploy fails or the service goes down."
+          right={
+            <div
+              className="flex items-center justify-between gap-4 rounded-[9px] border border-dashed px-4 py-3"
+              style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}
+            >
+              <span className="text-[12.5px]">Per-service notification rules are coming soon.</span>
+              <span
+                className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
+              >
+                Soon
+              </span>
+            </div>
+          }
+        />
+
+        {/* Danger zone */}
+        <section id="danger" className="scroll-mt-24 rounded-[13px] px-5 py-[18px]" style={{ border: "1px solid var(--err)", background: "var(--err-soft)" }}>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="mb-[3px] text-[14.5px] font-semibold" style={{ color: "var(--err-text)" }}>Delete this service</h3>
+              <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+                Permanently removes the container, domain and build history. This cannot be undone.
+              </p>
+            </div>
+            <Button variant="danger" onClick={deleteSvc}>
+              <Trash2 className="h-3.5 w-3.5" /> Delete service
+            </Button>
           </div>
-          <Button variant="danger" onClick={deleteSvc}>
-            <Trash2 className="h-3.5 w-3.5" /> Delete service
-          </Button>
-        </div>
+        </section>
+      </div>
+
+      <div className="w-[190px] shrink-0">
+        <AnchorNav items={NAV} active={activeSection} onJump={jump} />
       </div>
     </div>
   );
