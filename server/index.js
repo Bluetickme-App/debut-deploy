@@ -46,6 +46,7 @@ import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
 import {
   walletBalance, recentLedger, createTopupSession, handleWebhookEvent, stripeClient,
+  getOrCreateStripeCustomer,
 } from "./billing.js";
 import { planPriceUsd } from "./plans.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -804,11 +805,13 @@ app.post("/api/stripe/webhook", (req, res) => {
     return res.status(400).json({ error: "bad signature" });
   }
   try {
-    handleWebhookEvent(event); // idempotent credit
+    handleWebhookEvent(event); // idempotent credit (INSERT OR IGNORE) — safe to retry
   } catch (err) {
-    console.error("stripe webhook:", err.message);
+    // 500 so Stripe retries; handler is idempotent so a retry is always safe.
+    console.error("stripe webhook handler error:", err.message);
+    return res.status(500).json({ error: "handler error" });
   }
-  res.json({ received: true }); // respond 200 quickly
+  res.json({ received: true });
 });
 
 // --- GitHub API routes -------------------------------------------------------
@@ -1466,7 +1469,7 @@ app.post("/api/billing/portal", requireAuth, mutateGuard, attachOrgContext, requ
   h(async (req) => {
     const stripe = stripeClient();
     if (!stripe) throw Object.assign(new Error("Stripe is not configured"), { status: 503 });
-    const { getOrCreateStripeCustomer } = await import("./billing.js");
+    record(req, "billing.portal_accessed", {});
     const customer = await getOrCreateStripeCustomer(req.org.id);
     const session = await stripe.billingPortal.sessions.create({ customer, return_url: `${clientOrigin}/billing` });
     return { url: session.url };
