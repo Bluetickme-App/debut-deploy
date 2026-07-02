@@ -22,3 +22,28 @@ test("usdToPence uses the configurable rate (default 0.79) and rounds", () => {
   db.setSetting("usd_gbp_rate", "0.79"); // restore for later tests
   assert.equal(billing.usdToPence(0), 0);
 });
+
+test("balance = SUM(amount_pence), integer pence, may go negative (arrears)", () => {
+  const now = new Date().toISOString();
+  const org = db.db.prepare("INSERT INTO organizations (name,slug,created_at) VALUES (?,?,?)")
+    .run("Bal Co", "bal-co", now).lastInsertRowid;
+  assert.equal(billing.walletBalance(org), 0); // empty ledger → £0
+  billing.creditWallet({ orgId: org, amountPence: 1000, type: "topup", stripeSessionId: "cs_bal_1" }); // +£10
+  billing.creditWallet({ orgId: org, amountPence: -300, type: "hardware_charge", period: "2026-07" }); // −£3
+  assert.equal(billing.walletBalance(org), 700); // £7
+  billing.creditWallet({ orgId: org, amountPence: -1000, type: "hardware_charge", period: "2026-08" }); // −£10
+  assert.equal(billing.walletBalance(org), -300); // arrears, still integer
+});
+
+test("CRITICAL: crediting the same stripe_session_id twice inserts ONE row", () => {
+  const now = new Date().toISOString();
+  const org = db.db.prepare("INSERT INTO organizations (name,slug,created_at) VALUES (?,?,?)")
+    .run("Idem Co", "idem-co", now).lastInsertRowid;
+  const r1 = billing.creditWallet({ orgId: org, amountPence: 2500, type: "topup", stripeSessionId: "cs_dup" });
+  const r2 = billing.creditWallet({ orgId: org, amountPence: 2500, type: "topup", stripeSessionId: "cs_dup" });
+  assert.equal(r1.inserted, true);
+  assert.equal(r2.inserted, false); // silent no-op on replay
+  assert.equal(billing.walletBalance(org), 2500); // credited once, not twice
+  const rows = db.db.prepare("SELECT COUNT(*) c FROM credit_ledger WHERE stripe_session_id='cs_dup'").get();
+  assert.equal(rows.c, 1);
+});

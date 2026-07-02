@@ -20,3 +20,33 @@ export function usdToPence(usd) {
 }
 
 export { planPriceUsd }; // re-export so callers get plan lookup + conversion from one module
+
+// --- wallet ledger ----------------------------------------------------------
+
+const nowIso = () => new Date().toISOString();
+
+// Balance is always a live SUM — no cached column, nothing to drift.
+export function walletBalance(orgId) {
+  return db.prepare("SELECT COALESCE(SUM(amount_pence),0) b FROM credit_ledger WHERE org_id = ?").get(orgId).b;
+}
+
+// Single INSERT OR IGNORE. The UNIQUE(stripe_session_id)/(stripe_payment_intent_id)
+// columns make a duplicate webhook delivery a silent no-op (idempotent crediting).
+// Returns { inserted } so the webhook can tell a first delivery from a replay.
+export function creditWallet({
+  orgId, amountPence, type,
+  stripeSessionId = null, stripePaymentIntentId = null, period = null, notes = null,
+}) {
+  const info = db.prepare(
+    `INSERT OR IGNORE INTO credit_ledger
+       (org_id, amount_pence, type, stripe_session_id, stripe_payment_intent_id, period, notes, created_at)
+     VALUES (?,?,?,?,?,?,?,?)`
+  ).run(orgId, amountPence, type, stripeSessionId, stripePaymentIntentId, period, notes, nowIso());
+  return { inserted: info.changes > 0 };
+}
+
+export const recentLedger = (orgId, limit = 20) =>
+  db.prepare(
+    "SELECT id, amount_pence, type, period, notes, created_at FROM credit_ledger " +
+      "WHERE org_id = ? ORDER BY created_at DESC, id DESC LIMIT ?"
+  ).all(orgId, limit);
