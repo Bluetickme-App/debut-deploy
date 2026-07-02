@@ -47,6 +47,7 @@ import { computePlans, dbPlans } from "./plans.js";
 import { repoKey, verifyWebhookSig } from "./webhook.js";
 import { createRenderCredential, listRenderCredentials, getRenderCredential, deleteRenderCredential } from "./db.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
+import { getContainerStats } from "./hostexec.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -238,6 +239,21 @@ app.post(
     assertOwns(req.user, "application", req.params.id);
     record(req, req.params.action, { resourceType: "application", resourceUuid: req.params.id });
     return coolify.controlService(req.params.id, req.params.action);
+  })
+);
+
+// Live metrics for a service (Coolify has no metrics API — `docker stats` on the
+// host via SSH). Owner-scoped. Returns [] if the SSH host isn't configured.
+app.get(
+  "/api/services/:id/metrics",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    try {
+      return { containers: await getContainerStats(req.params.id) };
+    } catch (e) {
+      return { containers: [], error: e.status === 501 ? "metrics host not configured" : "unavailable" };
+    }
   })
 );
 

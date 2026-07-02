@@ -58,6 +58,19 @@ export function runOnHost(command) {
   });
 }
 
+// Live container stats for a service (Coolify has no metrics API). Runs `docker
+// stats` on the host for the app's container(s). uuid is sanitised before use.
+export async function getContainerStats(uuid) {
+  if (DEMO) return [{ name: uuid + "-demo", cpu: "3.20%", mem: "48MiB / 512MiB", memPerc: "9.4%" }];
+  const u = String(uuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) return [];
+  const out = await runOnHost(`IDS=$(docker ps -q --filter name=${u}); if [ -n "$IDS" ]; then docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}' $IDS; fi`);
+  return String(out).trim().split("\n").filter(Boolean).map((line) => {
+    const [name, cpu, mem, memPerc] = line.split("|");
+    return { name, cpu, mem, memPerc };
+  });
+}
+
 // Run a `docker run postgres:18` command on the host. Secret values (connection
 // URLs, SQL) pass as base64 env — only [A-Za-z0-9+/=], safe to interpolate — and
 // are decoded INSIDE the container, so no secret ever appears in the shell command.
