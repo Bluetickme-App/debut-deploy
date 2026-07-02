@@ -538,7 +538,7 @@ function EnvironmentTab({ serviceId, onDeploy }) {
   const [envs, setEnvs] = useState(null);
   const [baseline, setBaseline] = useState({});   // uuid → serialized "key\0value" at last load/save
   const [groups, setGroups] = useState(null);
-  const [reveal, setReveal] = useState(false);
+  const [shown, setShown] = useState({});         // uuid → true when its secret value is revealed
   const [menu, setMenu] = useState(null);         // null | "root" | "datastore"
   const [paste, setPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
@@ -569,6 +569,14 @@ function EnvironmentTab({ serviceId, onDeploy }) {
     return String(r.uuid).startsWith("new-") || baseline[r.uuid] !== `${r.key}\0${r.value ?? ""}`;
   }
   const dirty = !!envs && envs.some((r) => isDirtyRow(r) && r.key.trim());
+
+  // keys (trimmed, case-sensitive) that appear on more than one row → every row in the group is flagged
+  const dupKeys = (() => {
+    const counts = {};
+    (envs || []).forEach((r) => { const k = r.key.trim(); if (k) counts[k] = (counts[k] || 0) + 1; });
+    return new Set(Object.keys(counts).filter((k) => counts[k] > 1));
+  })();
+  const hasDups = dupKeys.size > 0;
 
   function addRow(row) {
     setEnvs((e) => [...(e || []), { uuid: "new-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), key: "", value: "", is_secret: false, ...row }]);
@@ -680,10 +688,18 @@ function EnvironmentTab({ serviceId, onDeploy }) {
           {envs ? `Service variables · ${envs.length} keys, injected at build & runtime` : "Service variables"}
         </span>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setReveal((r) => !r)}>
-            {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            {reveal ? "Hide values" : "Reveal values"}
-          </Button>
+          {(() => {
+            const anyShown = !!envs && envs.some((e) => e.is_secret && shown[e.uuid]);
+            return (
+              <Button
+                variant="secondary"
+                onClick={() => setShown(anyShown ? {} : Object.fromEntries((envs || []).filter((e) => e.is_secret).map((e) => [e.uuid, true])))}
+              >
+                {anyShown ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {anyShown ? "Hide values" : "Reveal values"}
+              </Button>
+            );
+          })()}
 
           {/* + Add variable dropdown (Render-style) */}
           <div className="relative">
@@ -772,20 +788,29 @@ function EnvironmentTab({ serviceId, onDeploy }) {
 
         {envs && envs.map((e) => {
           const secret = !!e.is_secret;
-          const maskValue = secret && !reveal;
+          const maskValue = secret && !shown[e.uuid];
+          const isDup = dupKeys.has(e.key.trim());
           return (
             <div
               key={e.uuid}
               className="grid items-center gap-3 border-t px-4 py-[9px]"
-              style={{ gridTemplateColumns: "1fr 1.5fr 40px", borderColor: "var(--border)", background: isDirtyRow(e) && e.key.trim() ? "var(--surface-2)" : undefined }}
+              style={{
+                gridTemplateColumns: "1fr 1.5fr 40px",
+                borderColor: "var(--border)",
+                background: isDup ? "var(--err-soft)" : (isDirtyRow(e) && e.key.trim() ? "var(--surface-2)" : undefined),
+                borderLeft: isDup ? "3px solid var(--err)" : "3px solid transparent",
+              }}
             >
-              <input
-                value={e.key}
-                onChange={(ev) => editRow(e.uuid, { key: ev.target.value.toUpperCase() })}
-                placeholder="KEY"
-                className={inputCell}
-                style={{ color: "var(--text)", fontWeight: 500 }}
-              />
+              <div>
+                <input
+                  value={e.key}
+                  onChange={(ev) => editRow(e.uuid, { key: ev.target.value.toUpperCase() })}
+                  placeholder="KEY"
+                  className={inputCell}
+                  style={{ color: "var(--text)", fontWeight: 500 }}
+                />
+                {isDup && <span className="px-2.5 text-[10.5px] font-semibold" style={{ color: "var(--err-text)" }}>duplicate key</span>}
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   value={e.value ?? ""}
@@ -795,6 +820,19 @@ function EnvironmentTab({ serviceId, onDeploy }) {
                   className={inputCell}
                   style={{ color: "var(--text-muted)" }}
                 />
+                {secret && (
+                  <button
+                    type="button"
+                    onClick={() => setShown((s) => ({ ...s, [e.uuid]: !s[e.uuid] }))}
+                    title={maskValue ? "Reveal value" : "Hide value"}
+                    className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md transition-colors"
+                    style={{ color: "var(--text-muted)", background: "transparent" }}
+                    onMouseEnter={(ev) => (ev.currentTarget.style.background = "var(--surface-2)")}
+                    onMouseLeave={(ev) => (ev.currentTarget.style.background = "transparent")}
+                  >
+                    {maskValue ? <Eye className="h-[15px] w-[15px]" /> : <EyeOff className="h-[15px] w-[15px]" />}
+                  </button>
+                )}
                 <label className="flex shrink-0 items-center gap-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
                   <input
                     type="checkbox"
@@ -822,11 +860,16 @@ function EnvironmentTab({ serviceId, onDeploy }) {
 
       {/* save controls */}
       <div className="mt-3.5 flex flex-wrap items-center justify-end gap-3">
+        {hasDups && (
+          <span className="text-xs font-semibold" style={{ color: "var(--err-text)" }}>
+            Duplicate key{dupKeys.size > 1 ? "s" : ""}: {[...dupKeys].join(", ")} — resolve before saving.
+          </span>
+        )}
         {saveMsg && <span className="text-xs" style={{ color: saveMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{saveMsg.text}</span>}
-        <Button variant="secondary" onClick={save} disabled={!dirty || saving}>
+        <Button variant="secondary" onClick={save} disabled={!dirty || saving || hasDups}>
           {saving ? <Spinner /> : <Check className="h-3.5 w-3.5" />} Save
         </Button>
-        <Button variant="primary" onClick={saveAndRedeploy} disabled={!dirty || saving}>
+        <Button variant="primary" onClick={saveAndRedeploy} disabled={!dirty || saving || hasDups}>
           {saving ? <Spinner /> : <Rocket className="h-3.5 w-3.5" />} Save &amp; Redeploy
         </Button>
       </div>

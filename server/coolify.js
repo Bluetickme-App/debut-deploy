@@ -131,10 +131,13 @@ export async function getLogLines(uuid) {
 export async function listEnvs(uuid) {
   if (isDemo()) return fx.getEnvs(uuid);
   const envs = await cf(`/applications/${uuid}/envs`);
+  // Return the real value (masking is client-side, revealable) — the route is
+  // owner-scoped, so this matches Render's "reveal secret" behaviour. Previously
+  // secrets were masked here, which made the reveal toggle impossible.
   return (Array.isArray(envs) ? envs : []).map((e) => ({
     uuid: e.uuid,
     key: e.key,
-    value: e.is_secret ? "••••••" : e.value,
+    value: e.value,
     is_secret: !!e.is_secret,
   }));
 }
