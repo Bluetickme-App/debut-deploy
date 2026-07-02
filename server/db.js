@@ -10,6 +10,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes, createHash } from "node:crypto";
 
+// Lowercase, hyphenate, strip to [a-z0-9-]; used for org slugs.
+export function slugify(input) {
+  const s = String(input || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return s || "org";
+}
+
 const MIGRATIONS = [
   // -> user_version 1
   (d) => {
@@ -139,6 +148,61 @@ const MIGRATIONS = [
         updated_at TEXT NOT NULL
       );
     `);
+  },
+  // -> user_version 10: organizations, memberships, invites; org-scope ownership
+  (d) => {
+    d.exec(`
+      CREATE TABLE organizations (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE memberships (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id),
+        org_id  INTEGER NOT NULL REFERENCES organizations(id),
+        role    TEXT NOT NULL CHECK(role IN ('owner','manager','deployer','viewer')),
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE org_invites (
+        id INTEGER PRIMARY KEY,
+        org_id     INTEGER NOT NULL REFERENCES organizations(id),
+        email      TEXT,
+        token_hash TEXT UNIQUE NOT NULL,
+        role       TEXT NOT NULL CHECK(role IN ('owner','manager','deployer','viewer')),
+        invited_by  INTEGER REFERENCES users(id),
+        accepted_by INTEGER REFERENCES users(id),
+        accepted_at TEXT,
+        expires_at  TEXT NOT NULL,
+        created_at  TEXT NOT NULL
+      );
+      ALTER TABLE resource_ownership ADD COLUMN org_id INTEGER REFERENCES organizations(id);
+      CREATE INDEX idx_memberships_org_id        ON memberships(org_id);
+      CREATE INDEX idx_resource_ownership_org_id ON resource_ownership(org_id);
+    `);
+
+    // Backfill: one org per existing user, owner membership, stamp ownership rows.
+    const now = new Date().toISOString();
+    const users = d.prepare("SELECT id, name, email FROM users").all();
+    const insOrg = d.prepare("INSERT INTO organizations (name, slug, created_at) VALUES (?,?,?)");
+    const insMem = d.prepare("INSERT INTO memberships (user_id, org_id, role, created_at) VALUES (?,?,?,?)");
+    const updOwn = d.prepare("UPDATE resource_ownership SET org_id = ? WHERE user_id = ?");
+    const slugTaken = d.prepare("SELECT 1 FROM organizations WHERE slug = ?");
+    for (const u of users) {
+      const base = slugify(u.name || (u.email || "").split("@")[0] || `user-${u.id}`);
+      let slug = base, n = 1;
+      while (slugTaken.get(slug)) { n += 1; slug = `${base}-${n}`; } // never -1; -2, -3, …
+      const orgId = insOrg.run(u.name || u.email || `User ${u.id}`, slug, now).lastInsertRowid;
+      insMem.run(u.id, orgId, "owner", now);
+      updOwn.run(orgId, u.id);
+    }
+
+    // Validation — throw (rolls back the migration transaction) if backfill is incomplete.
+    const noMem = d.prepare("SELECT COUNT(*) c FROM users u LEFT JOIN memberships m ON m.user_id=u.id WHERE m.user_id IS NULL").get().c;
+    const nullOrg = d.prepare("SELECT COUNT(*) c FROM resource_ownership WHERE org_id IS NULL").get().c;
+    if (noMem || nullOrg) {
+      throw new Error(`migration 10 backfill incomplete: ${noMem} users without org, ${nullOrg} ownership rows without org`);
+    }
   },
 ];
 
