@@ -129,13 +129,14 @@ test("webhook credits a paid topup session once, idempotently", () => {
   const event = {
     type: "checkout.session.completed",
     data: { object: { id: "cs_hook_1", mode: "payment", payment_status: "paid",
-      metadata: { org_id: String(org), amount_pence: "5000" } } },
+      amount_total: 5000,
+      metadata: { org_id: String(org), amount_pence: "9999" } } }, // metadata intentionally differs to prove amount_total wins
   };
   const r1 = billing.handleWebhookEvent(event);
   const r2 = billing.handleWebhookEvent(event); // replay
   assert.equal(r1.credited, true);
   assert.equal(r2.credited, false); // idempotent: INSERT OR IGNORE no-op
-  assert.equal(billing.walletBalance(org), 5000);
+  assert.equal(billing.walletBalance(org), 5000); // amount_total, not metadata.amount_pence
 });
 
 test("webhook ignores unpaid / non-payment sessions", () => {

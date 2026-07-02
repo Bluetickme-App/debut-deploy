@@ -159,8 +159,11 @@ export function handleWebhookEvent(event) {
   const s = event.data.object;
   if (s.mode !== "payment" || s.payment_status !== "paid") return { credited: false };
   const orgId = Number(s.metadata?.org_id);
-  const amountPence = Number(s.metadata?.amount_pence);
-  if (!orgId || !Number.isFinite(amountPence)) return { credited: false };
+  const amountPence = s.amount_total; // authoritative charged amount (minor units); metadata is only what was requested
+  if (!orgId || !Number.isInteger(amountPence) || amountPence <= 0) {
+    recordSystem("billing.topup_skipped", { metadata: { reason: "bad_amount_total", session: s.id, amount_total: s.amount_total } });
+    return { credited: false };
+  }
   const { inserted } = creditWallet({
     orgId, amountPence, type: "topup", stripeSessionId: s.id, notes: "Stripe top-up",
   });
