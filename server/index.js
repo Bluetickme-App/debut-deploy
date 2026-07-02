@@ -921,8 +921,9 @@ app.post(
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await volumes.addVolume(req.params.id, req.body || {});
+    await coolify.deployService(req.params.id); // redeploy so Coolify mounts the volume
     record(req, "volume.add", { resourceType: "application", resourceUuid: req.params.id, metadata: { mountPath: req.body?.mountPath } });
-    return result;
+    return { ...result, redeployed: true };
   })
 );
 
@@ -933,8 +934,9 @@ app.delete(
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await volumes.deleteVolume(req.params.id, req.params.vid);
+    await coolify.deployService(req.params.id); // redeploy so Coolify detaches the volume
     record(req, "volume.delete", { resourceType: "application", resourceUuid: req.params.id, metadata: { volumeUuid: req.params.vid } });
-    return result;
+    return { ...result, redeployed: true };
   })
 );
 
