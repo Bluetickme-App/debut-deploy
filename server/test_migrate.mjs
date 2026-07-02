@@ -24,7 +24,6 @@ test("assertPgUrl rejects flag-smuggling / non-postgres values with 400", () => 
 
 // Shared stubs
 const baseDeps = {
-  findUserInstallationByLogin: () => ({ installation_id: 42 }),
   assign: () => {},
 };
 
@@ -56,7 +55,7 @@ test("(a) happy path: ok:true, truthy appUuid, all non-skipped steps ok", async 
   }
 });
 
-test("(b) rollback: createPrivateGithubApp fails → ok:false, create-app error, no assign", async () => {
+test("(b) rollback: createDeployKeyApp fails → ok:false, create-app error, no assign", async () => {
   let assigned = false;
 
   const result = await importFromRender({
@@ -66,7 +65,7 @@ test("(b) rollback: createPrivateGithubApp fails → ok:false, create-app error,
     apiKey: undefined,
     deps: {
       ...baseDeps,
-      createPrivateGithubApp: async () => {
+      createDeployKeyApp: async () => {
         throw Object.assign(new Error("boom"), { status: 500 });
       },
       assign: () => {

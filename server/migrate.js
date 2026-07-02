@@ -3,12 +3,9 @@
 
 import { getService, getEnvVars, getConnectionInfo } from "./render.js";
 import { provisionServer } from "./provision.js";
-import { ensureCoolifySourceForInstallation } from "./coolify-github.js";
-import { findUserInstallationByLogin } from "./db.js";
+import { createDeployKeyApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import {
-  createProject,
   getDefaultDestination,
-  createPrivateGithubApp,
   upsertEnv,
   deployService,
 } from "./coolify.js";
@@ -46,11 +43,10 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     getEnvVars,
     getConnectionInfo,
     provisionServer,
-    ensureCoolifySourceForInstallation,
-    findUserInstallationByLogin,
-    createProject,
+    ensureAccountKey,
+    toSshUrl,
+    createDeployKeyApp,
     getDefaultDestination,
-    createPrivateGithubApp,
     upsertEnv,
     deployService,
     assign,
@@ -88,45 +84,32 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     return { ok: false, appUuid: null, steps };
   }
 
-  // Step 3 — resolve GitHub installation + Coolify source
-  let github_app_uuid;
+  // Step 3 — resolve the shared account deploy key. Its public half lives on the
+  // operator's GitHub account, so Coolify can clone any of their repos (no
+  // per-repo deploy key, and no dependency on Coolify's absent /sources API).
+  let keyUuid;
   try {
-    // Parse owner from repo URL: https://github.com/OWNER/repo
-    const repoUrl = service.repo || "";
-    const repoPath = repoUrl.replace(/^https?:\/\/github\.com\//, "");
-    const owner = repoPath.split("/")[0];
-    // owner is a login STRING parsed from the repo URL — key the lookup by
-    // account_login (case-insensitive), not the numeric account_id.
-    const row = await d.findUserInstallationByLogin(userId, owner);
-    const installation_id = row?.installation_id;
-    if (!installation_id) {
-      throw Object.assign(new Error(`No GitHub installation found for account "${owner}"`), { status: 404 });
-    }
-    ({ github_app_uuid } = await d.ensureCoolifySourceForInstallation(installation_id));
-    steps.push({ step: "resolve-github", status: "ok", detail: { owner } });
+    ({ uuid: keyUuid } = await d.ensureAccountKey());
+    steps.push({ step: "resolve-key", status: "ok", detail: null });
   } catch (err) {
-    steps.push({ step: "resolve-github", status: "error", detail: err.message });
+    steps.push({ step: "resolve-key", status: "error", detail: err.message });
     return { ok: false, appUuid: null, steps };
   }
 
-  // Step 4 — create Coolify project + app
+  // Step 4 — create the Coolify app via the deploy-key path. Dedicated mode
+  // targets the freshly provisioned server; shared uses the default host.
   let appUuid;
   try {
-    const { uuid: projectUuid } = await d.createProject(service.name);
-    const destinationUuid = await d.getDefaultDestination(serverUuid);
-    const repoPath = (service.repo || "").replace(/^https?:\/\/github\.com\//, "");
-    const { uuid } = await d.createPrivateGithubApp({
-      githubAppUuid: github_app_uuid,
-      projectUuid,
-      environmentName: "production",
-      serverUuid,
-      destinationUuid,
-      gitRepository: repoPath,
-      gitBranch: service.branch,
-      portsExposes: "3000",
+    const dedicated = target.mode === "dedicated";
+    const { uuid } = await d.createDeployKeyApp({
+      keyUuid,
+      repo: d.toSshUrl(service.repo),
+      branch: service.branch,
       name: service.name,
+      port: "3000",
       buildCommand: service.buildCommand,
       startCommand: service.startCommand,
+      ...(dedicated ? { serverUuid, destinationUuid: await d.getDefaultDestination(serverUuid) } : {}),
     });
     appUuid = uuid;
     steps.push({ step: "create-app", status: "ok", detail: { appUuid } });
@@ -134,6 +117,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     steps.push({ step: "create-app", status: "error", detail: err.message });
     return { ok: false, appUuid: null, steps };
   }
+
 
   // Step 5 — migrate database (optional)
   const datastoreId = service.datastoreId || target.datastoreId;

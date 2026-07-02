@@ -7,7 +7,23 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createPublicKey } from "node:crypto";
 
-const { generateDeployKeypair, registerDeployKey, createDeployKeyApp } = await import("./deploykey.js");
+const { generateDeployKeypair, registerDeployKey, createDeployKeyApp, toSshUrl, ensureAccountKey } = await import("./deploykey.js");
+
+test("toSshUrl normalises every git remote form to git@github.com:O/R.git", () => {
+  assert.equal(toSshUrl("https://github.com/Bluetickme-App/debut-deploy"), "git@github.com:Bluetickme-App/debut-deploy.git");
+  assert.equal(toSshUrl("https://github.com/Bluetickme-App/debut-deploy.git"), "git@github.com:Bluetickme-App/debut-deploy.git");
+  assert.equal(toSshUrl("Bluetickme-App/debut-deploy"), "git@github.com:Bluetickme-App/debut-deploy.git");
+  assert.equal(toSshUrl("github.com/Bluetickme-App/debut-deploy"), "git@github.com:Bluetickme-App/debut-deploy.git");
+  assert.equal(toSshUrl("git@github.com:Bluetickme-App/debut-deploy.git"), "git@github.com:Bluetickme-App/debut-deploy.git");
+  assert.equal(toSshUrl("git@github.com:Bluetickme-App/debut-deploy"), "git@github.com:Bluetickme-App/debut-deploy.git");
+  assert.equal(toSshUrl("https://github.com/O/R/"), "git@github.com:O/R.git");
+});
+
+test("demo ensureAccountKey returns a stub uuid + public key", async () => {
+  const { uuid, publicKey } = await ensureAccountKey();
+  assert.ok(uuid);
+  assert.match(publicKey, /^ssh-ed25519 /);
+});
 
 test("generateDeployKeypair returns a valid ssh-ed25519 public key + PKCS8 private", () => {
   const { publicKey, privateKeyPem } = generateDeployKeypair();

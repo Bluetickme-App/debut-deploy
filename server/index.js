@@ -42,7 +42,7 @@ import * as hetzner from "./hetzner.js";
 import { provisionServer } from "./provision.js";
 import { importFromRender } from "./migrate.js";
 import * as render from "./render.js";
-import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp } from "./deploykey.js";
+import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import { computePlans, dbPlans } from "./plans.js";
 import { repoKey, verifyWebhookSig } from "./webhook.js";
 
@@ -431,6 +431,19 @@ app.post(
   })
 );
 
+// The ONE-TIME account key: the operator adds this public key to their GitHub
+// ACCOUNT once, then Coolify can clone any repo — used by New Service, the API
+// create path, and the Render importer. Idempotent.
+app.get(
+  "/api/git/account-key",
+  requireAuth,
+  requireAdmin,
+  h(async () => {
+    const { keyUuid, publicKey } = await ensureAccountKey().then((k) => ({ keyUuid: k.uuid, publicKey: k.publicKey }));
+    return { keyUuid, publicKey };
+  })
+);
+
 // Step 2: create the Coolify app from the repo using that key, set domain, deploy,
 // and assign ownership to the creator.
 app.post(
@@ -685,54 +698,42 @@ app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
     throw Object.assign(new Error("Branch not found in the selected repository"), { status: 400 });
   }
 
-  // 2. Ensure customer project exists
-  let proj = getCustomerProject(userId);
-  let projectUuid, environmentName;
-  if (proj) {
-    projectUuid = proj.project_uuid;
-    environmentName = proj.environment_name;
-  } else {
-    const created = await coolify.createProject("deploy-" + userId);
-    projectUuid = created.uuid;
-    environmentName = "production";
-    setCustomerProject({ userId, projectUuid, environmentName });
-  }
-
-  // 2. Resolve destination
-  const serverUuid = process.env.COOLIFY_SERVER_UUID;
-  const destinationUuid = process.env.COOLIFY_DESTINATION_UUID ||
-    await coolify.getDefaultDestination(serverUuid);
-
-  // 3. Create app in Coolify
-  const { uuid } = await coolify.createPrivateGithubApp({
-    githubAppUuid: process.env.COOLIFY_GITHUB_APP_UUID,
-    projectUuid,
-    environmentName,
-    serverUuid,
-    destinationUuid,
-    gitRepository: repo,
-    gitBranch: branch,
-    portsExposes: String(port),
+  // 2. Create the app via the deploy-key path. The one shared account key clones
+  //    any repo on the operator's GitHub account — Coolify's GitHub-App-source
+  //    API (createPrivateGithubApp) doesn't exist on this Coolify instance.
+  const { uuid: keyUuid } = await ensureAccountKey();
+  const { uuid } = await createDeployKeyApp({
+    keyUuid,
+    repo: toSshUrl(repo),
+    branch,
     name,
+    port,
     buildPack: buildPack || "nixpacks",
     ...(installCommand ? { installCommand } : {}),
     ...(buildCommand ? { buildCommand } : {}),
     ...(startCommand ? { startCommand } : {}),
-    instantDeploy: true,
   });
 
-  // 4. Assign ownership + audit (only after successful create)
+  // 3. Assign ownership + audit (only after a successful create).
   assign(uuid, "application", userId);
   record(req, "app.create", { resourceType: "application", resourceUuid: uuid });
 
-  // 5. Set env vars — team shared variables first (env-group behavior), then
-  //    the app's own (so per-app values win on key collisions).
+  // 4. Auto-assign <name>.debutdepoly.com — wildcard DNS + on-demand Traefik cert.
+  const slug = String(name).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "app";
+  const domain = `https://${slug}.debutdepoly.com`;
+  try { await setAppDomain(uuid, domain); } catch { /* non-fatal — domain settable later */ }
+
+  // 5. Env: team shared vars first (env-group behavior), then the app's own
+  //    (per-app values win on key collisions).
   for (const sv of await sharedvars.listSharedVars()) {
     await coolify.upsertEnv(uuid, { key: sv.key, value: sv.value, is_secret: sv.is_secret });
   }
   for (const e of envs || []) await coolify.upsertEnv(uuid, e);
 
-  return { uuid };
+  // 6. Deploy now that env + domain are in place.
+  await coolify.deployService(uuid);
+
+  return { uuid, domain };
 }));
 
 // build/deploy logs for one deployment

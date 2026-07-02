@@ -41,6 +41,35 @@ export async function registerDeployKey({ name, privateKeyPem }) {
   return { uuid: r.uuid };
 }
 
+// Normalise any git remote form to an SSH url Coolify can clone with a deploy key.
+// git@github.com:O/R.git | https://github.com/O/R(.git) | O/R  →  git@github.com:O/R.git
+export function toSshUrl(repo) {
+  const s = String(repo || "").trim();
+  if (s.startsWith("git@")) return s.endsWith(".git") ? s : s + ".git";
+  const p = s
+    .replace(/^https?:\/\/github\.com\//i, "")
+    .replace(/^github\.com\//i, "")
+    .replace(/\.git$/i, "")
+    .replace(/\/+$/, "");
+  return `git@github.com:${p}.git`;
+}
+
+// One shared Coolify SSH key whose PUBLIC half the operator adds to their GitHub
+// ACCOUNT once — Coolify then clones ANY repo on that account (no per-repo deploy
+// key). Idempotent: reuses the key named `debutdeploy-account` if it exists.
+export async function ensureAccountKey() {
+  if (isDemo()) return { uuid: "demo-account-key", publicKey: "ssh-ed25519 DEMO debutdeploy" };
+  const keys = await cf("/security/keys");
+  const existing = (Array.isArray(keys) ? keys : []).find((k) => k.name === "debutdeploy-account");
+  if (existing) return { uuid: existing.uuid, publicKey: existing.public_key || null };
+  const { privateKeyPem, publicKey } = generateDeployKeypair();
+  const r = await cf("/security/keys", {
+    method: "POST",
+    body: { name: "debutdeploy-account", description: "DebutDeploy account key — add the public half to your GitHub account", private_key: privateKeyPem },
+  });
+  return { uuid: r.uuid, publicKey };
+}
+
 async function resolveDefaultProject() {
   if (isDemo()) return "demo-project";
   const ps = await cf("/projects");
@@ -54,12 +83,12 @@ async function resolveDefaultProject() {
 const SERVER_UUID = "odtl07eovoo6f40gqwztsyhq";
 const DESTINATION_UUID = "pnecqcf9akvlwqp3wnky60ml";
 
-export async function createDeployKeyApp({ keyUuid, repo, branch = "main", name, buildPack = "nixpacks", installCommand, buildCommand, startCommand, port = "3000" }) {
+export async function createDeployKeyApp({ keyUuid, repo, branch = "main", name, buildPack = "nixpacks", installCommand, buildCommand, startCommand, port = "3000", serverUuid = SERVER_UUID, destinationUuid = DESTINATION_UUID }) {
   if (isDemo()) return { uuid: `demo-app-${name}` };
   const project = await resolveDefaultProject();
   const body = {
     private_key_uuid: keyUuid, project_uuid: project, environment_name: "production",
-    server_uuid: SERVER_UUID, destination_uuid: DESTINATION_UUID,
+    server_uuid: serverUuid || SERVER_UUID, destination_uuid: destinationUuid || DESTINATION_UUID,
     git_repository: repo, git_branch: branch, ports_exposes: String(port),
     name, build_pack: buildPack, instant_deploy: false,
   };
