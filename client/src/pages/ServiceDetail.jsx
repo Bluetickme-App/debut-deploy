@@ -299,38 +299,47 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
   );
 }
 
-// ── Logs tab (terminal — dark in both themes) ───────────────────────────────────
+// ── Logs tab (Render-style terminal — dark in both themes) ──────────────────────
 
-const LVL_STYLE = { INFO: "#6ea8fe", OK: "#34d77a", WARN: "#f5b945", ERROR: "#f87171" };
+const LVL_STYLE = { INFO: "#6ea8fe", LOG: "#7c8696", OK: "#34d77a", WARN: "#f5b945", ERROR: "#f87171" };
 
-function parseLine(line) {
-  if (typeof line !== "string") {
-    return { t: line.t || "", lvl: line.lvl || "", msg: line.msg ?? String(line) };
-  }
-  const m = line.match(/^(\d{2}:\d{2}:\d{2})\s+(INFO|OK|WARN|ERROR)\s+(.*)$/);
-  if (m) return { t: m[1], lvl: m[2], msg: m[3] };
-  return { t: "", lvl: "", msg: line };
+// ISO timestamp → HH:MM:SS (local); "" if missing/unparseable.
+function fmtTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toTimeString().slice(0, 8);
 }
 
 function LogsTab({ serviceId, name }) {
   const [lines, setLines] = useState(null);
   const [wrap, setWrap] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [query, setQuery] = useState("");
+  const [tail, setTail] = useState(true);
   const boxRef = useRef(null);
 
+  // Fetch on mount; while live-tail is on, re-fetch every 4s. Interval cleared on unmount/toggle.
   useEffect(() => {
     let cancelled = false;
+    const load = () =>
+      api.logs(serviceId).then((data) => { if (!cancelled) setLines(data); }).catch(() => { if (!cancelled) setLines((l) => l || []); });
     setLines(null);
-    api.logs(serviceId).then((data) => { if (!cancelled) setLines(data || []); }).catch(() => { if (!cancelled) setLines([]); });
-    return () => { cancelled = true; };
-  }, [serviceId]);
+    load();
+    if (!tail) return () => { cancelled = true; };
+    const t = setInterval(load, 4000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [serviceId, tail]);
 
+  const q = query.trim().toLowerCase();
+  const shown = (lines || []).filter((l) => !q || String(l.message ?? "").toLowerCase().includes(q));
+
+  // Auto-scroll to bottom on new lines while tailing.
   useEffect(() => {
-    if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
-  }, [lines]);
+    if (tail && boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
+  }, [shown.length, tail]);
 
   function copy() {
-    const text = (lines || []).map((l) => (typeof l === "string" ? l : l.msg ?? "")).join("\n");
+    const text = shown.map((l) => `${fmtTime(l.time)} ${l.level || ""} ${l.message ?? ""}`.trim()).join("\n");
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -341,15 +350,27 @@ function LogsTab({ serviceId, name }) {
 
   return (
     <div className="overflow-hidden rounded-lg border" style={{ borderColor: "var(--border-strong)", boxShadow: "var(--shadow)" }}>
-      <div className="flex items-center justify-between px-3.5 py-[9px]" style={{ background: "#13161d", borderBottom: "1px solid #232a36" }}>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-[9px]" style={{ background: "#13161d", borderBottom: "1px solid #232a36" }}>
         <div className="flex items-center gap-[9px]">
-          <span className="inline-flex items-center gap-[7px] text-xs font-semibold" style={{ color: "#cfe9d6" }}>
-            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "#34d77a", animation: "dd-pulse 1.4s infinite" }} />
-            Live tail
-          </span>
+          <button
+            onClick={() => setTail((v) => !v)}
+            className="inline-flex items-center gap-[7px] text-xs font-semibold"
+            style={{ color: tail ? "#cfe9d6" : "#7c8696" }}
+            title={tail ? "Pause live tail" : "Resume live tail"}
+          >
+            <span className="h-[7px] w-[7px] rounded-full" style={{ background: tail ? "#34d77a" : "#4a5261", animation: tail ? "dd-pulse 1.4s infinite" : "none" }} />
+            Live tail {tail ? "on" : "off"}
+          </button>
           <span className="mono text-[11.5px]" style={{ color: "#7c8696" }}>{name} · stdout</span>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search logs…"
+            className="mono rounded-md border px-2.5 py-[5px] text-[11.5px] outline-none"
+            style={{ borderColor: "#2a323f", background: "#0b0e14", color: "#cdd6e4", width: "160px" }}
+          />
           <button
             onClick={copy}
             className={tools}
@@ -373,24 +394,39 @@ function LogsTab({ serviceId, name }) {
 
       <div
         ref={boxRef}
-        className="mono h-[380px] overflow-y-auto px-4 py-3.5 text-[12px]"
-        style={{ background: "#0b0e14", lineHeight: "1.85" }}
+        className="mono h-[380px] overflow-y-auto px-2 py-2 text-[12px]"
+        style={{ background: "#0b0e14", lineHeight: "1.7" }}
       >
         {!lines && (
-          <div style={{ color: "#5b6678" }}><Spinner className="mr-2 inline" /> Fetching logs…</div>
+          <div className="px-2" style={{ color: "#5b6678" }}><Spinner className="mr-2 inline" /> Fetching logs…</div>
         )}
-        {lines && lines.map((raw, i) => {
-          const { t, lvl, msg } = parseLine(raw);
+        {lines && shown.length === 0 && (
+          <div className="px-2 py-8 text-center" style={{ color: "#5b6678" }}>
+            {q ? `No log lines match “${query.trim()}”.` : "No logs yet — output appears here once the service produces some."}
+          </div>
+        )}
+        {shown.map((l, i) => {
+          const t = fmtTime(l.time);
+          const lvl = l.level || "";
+          const isErr = lvl === "ERROR";
           return (
-            <div key={i} className="flex gap-3" style={{ whiteSpace: wrap ? "pre-wrap" : "pre" }}>
-              {t && <span className="shrink-0" style={{ color: "#5b6678" }}>{t}</span>}
+            <div
+              key={i}
+              className="flex gap-3 rounded px-2 py-[1px]"
+              style={{
+                whiteSpace: wrap ? "pre-wrap" : "pre",
+                background: isErr ? "rgba(248,113,113,0.08)" : undefined,
+                borderLeft: isErr ? "2px solid #f87171" : "2px solid transparent",
+              }}
+            >
+              <span className="shrink-0" style={{ color: "#5b6678", width: "58px" }}>{t || "—"}</span>
               {lvl && <span className="shrink-0 font-semibold" style={{ color: LVL_STYLE[lvl] || "#cdd6e4", width: "46px" }}>{lvl}</span>}
-              <span style={{ color: "#cdd6e4" }}>{msg}</span>
+              <span style={{ color: isErr ? "#f6b6b6" : "#cdd6e4" }}>{l.message}</span>
             </div>
           );
         })}
-        {lines && (
-          <div className="mt-0.5 flex items-center gap-3">
+        {lines && tail && shown.length > 0 && (
+          <div className="mt-0.5 flex items-center gap-3 px-2">
             <span className="inline-block h-[15px] w-2" style={{ background: "#34d77a", animation: "dd-pulse 1.1s steps(1) infinite" }} />
           </div>
         )}

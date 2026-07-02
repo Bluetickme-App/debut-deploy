@@ -36,7 +36,8 @@ export const api = {
   deploy: (id) => req(`/services/${id}/deploy`, { method: "POST" }),
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),
-  logs: (id) => req(`/services/${id}/logs`),
+  // Returns the array of {time, level, message} lines; falls back if the shape is older (raw array/string).
+  logs: (id) => req(`/services/${id}/logs`).then((d) => (Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : [])),
   metrics: (id) => req(`/services/${id}/metrics`),
   envs: (id) => req(`/services/${id}/envs`),
   saveEnv: (id, body) => req(`/services/${id}/envs`, { method: "POST", body }),

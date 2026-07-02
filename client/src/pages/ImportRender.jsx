@@ -116,7 +116,7 @@ export default function ImportRender() {
     setResults(null);
     try {
       const dbTarget = migrateDb && srcDbId
-        ? { mode: "shared", source: srcDbId }
+        ? { mode, source: srcDbId } // follow deployment target: dedicated → dedicated instance, shared → shared cluster
         : { mode: "none" };
       const target = { mode, dbTarget };
       if (mode === "dedicated") {
@@ -338,13 +338,17 @@ export default function ImportRender() {
                     <div>
                       <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Target</div>
                       <p className="rounded-lg px-3 py-2 text-sm" style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-muted)" }}>
-                        A new isolated database on the shared cluster (provisioned automatically).
+                        {mode === "dedicated"
+                          ? <>A new <strong>dedicated</strong> Postgres instance (provisioned automatically).</>
+                          : "A new isolated database on the shared cluster (provisioned automatically)."}
                       </p>
                     </div>
                   </div>
                 )}
                 <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                  A fresh, isolated Postgres is created on the shared cluster and your data is restored into it via pg_dump — your existing databases are never touched.
+                  {mode === "dedicated"
+                    ? "A fresh dedicated Postgres is provisioned and your data is restored into it via pg_dump — your existing databases are never touched."
+                    : "A fresh, isolated Postgres is created on the shared cluster and your data is restored into it via pg_dump — your existing databases are never touched."}
                 </p>
               </Field>
 
