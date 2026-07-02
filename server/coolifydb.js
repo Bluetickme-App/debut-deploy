@@ -31,7 +31,13 @@ async function runSql(sql) {
     if (/not configured/i.test(raw)) reason = "storage host SSH is not configured (MIGRATION_SSH_*)";
     else if (/denied|verification failed|host key/i.test(raw)) reason = "storage host key pin mismatch — SSH refused (check MIGRATION_SSH_HOSTKEY_SHA256)";
     else if (/SSH to migration host/i.test(raw)) reason = "could not reach the storage host over SSH";
-    else if (/exit \d+:/i.test(raw)) reason = "Coolify DB rejected the change — " + ((raw.split(/exit \d+:/)[1] || "").trim().split("\n").filter(Boolean).pop() || "").slice(0, 200);
+    else if (/exit \d+:/i.test(raw)) {
+      // psql prints: "ERROR: <msg>\nLINE 1: <sql>\n        ^". Grab the ERROR line,
+      // not the caret line (".pop()" used to return just "^" — useless).
+      const stderr = (raw.split(/exit \d+:/)[1] || "").trim();
+      const lines = stderr.split("\n").map((s) => s.trim()).filter(Boolean);
+      reason = "Coolify DB rejected the change — " + ((lines.find((l) => /error/i.test(l)) || lines[0] || stderr).slice(0, 220));
+    }
     else reason = raw.slice(0, 200) || "unknown error";
     throw Object.assign(new Error("Coolify host operation failed: " + reason), { status: 422 });
   }
@@ -50,7 +56,7 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   const n = Math.min(50, Math.max(1, Number(limit) || 20));
   const raw = await runSql(
     `SELECT deployment_uuid||'|'||status||'|'||coalesce(commit,'')||'|'||replace(split_part(coalesce(commit_message,''),chr(10),1),'|','/')||'|'||coalesce(is_webhook::text,'f')||'|'||created_at||'|'||coalesce(updated_at,'') ` +
-    `FROM application_deployment_queue WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT ${n}`
+    `FROM application_deployment_queues WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT ${n}`
   );
   return String(raw || "").trim().split("\n").filter(Boolean).map((line) => {
     const [uuid, status, commit, message, webhook, created, updated] = line.split("|");
@@ -76,7 +82,7 @@ export async function getBuildLogs(appUuid, { limit = 600 } = {}) {
   const u = String(appUuid).replace(/[^a-z0-9]/gi, "");
   if (!u) return [];
   const raw = await runSql(
-    `SELECT logs FROM application_deployment_queue WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT 1`
+    `SELECT logs FROM application_deployment_queues WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT 1`
   );
   const text = String(raw || "").trim();
   if (!text) return [];
