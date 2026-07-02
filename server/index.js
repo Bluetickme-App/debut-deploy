@@ -245,6 +245,8 @@ app.post(
   "/api/services/:id/deploy",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, "deploy", { resourceType: "application", resourceUuid: req.params.id });
@@ -260,6 +262,8 @@ app.post(
   "/api/services/:id/:action(start|stop|restart)",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, req.params.action, { resourceType: "application", resourceUuid: req.params.id });
@@ -287,6 +291,8 @@ app.patch(
   "/api/services/:id/rename",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const name = String(req.body?.name ?? "").trim();
@@ -336,6 +342,8 @@ app.post(
   "/api/services/:id/envs",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, "env_upsert", {
@@ -354,6 +362,8 @@ app.delete(
   "/api/services/:id/envs/:envId",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, "env_delete", { resourceType: "application", resourceUuid: req.params.id, metadata: { envId: req.params.envId } });
@@ -383,6 +393,8 @@ app.patch(
   "/api/databases/:uuid/rename",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.uuid);
     const name = String(req.body?.name ?? "").trim();
@@ -396,6 +408,8 @@ app.post(
   "/api/databases",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     const userId = req.user.id;
     const { type, name } = req.body || {};
@@ -425,6 +439,8 @@ app.delete(
   "/api/databases/:id",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     await databases.deleteDatabase(req.params.id);
@@ -777,7 +793,7 @@ app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, re
 
 // --- App creation ------------------------------------------------------------
 
-app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
+app.post("/api/apps", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"), h(async (req, res) => {
   const userId = req.user.id;
   const { repo, branch, name, port, envs, buildPack, installCommand, buildCommand, startCommand } = req.body || {};
 
@@ -926,6 +942,8 @@ app.post(
   "/api/services/:id/rollback",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const { commit } = req.body || {};
@@ -950,6 +968,8 @@ app.post(
   "/api/services/:id/volumes",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await volumes.addVolume(req.params.id, req.body || {});
@@ -963,6 +983,8 @@ app.delete(
   "/api/services/:id/volumes/:vid",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await volumes.deleteVolume(req.params.id, req.params.vid);
@@ -1018,6 +1040,8 @@ app.post(
   "/api/databases/:id/backups",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     const result = await backups.setBackupSchedule(req.params.id, req.body || {});
@@ -1030,6 +1054,8 @@ app.post(
   "/api/databases/:id/backups/run",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     const result = await backups.triggerBackup(req.params.id);
@@ -1117,6 +1143,8 @@ app.post(
   "/api/import/render/services",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   // POST (not GET) because the API key travels in the body; never logged.
   h((req) => render.listServices(resolveRenderKey(req)))
 );
@@ -1126,6 +1154,8 @@ app.post(
   "/api/import/render/databases",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h((req) => render.listDatabases(resolveRenderKey(req)))
 );
 
@@ -1133,6 +1163,8 @@ app.post(
   "/api/import/render",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     const { renderServiceId, target } = req.body || {};
     const apiKey = resolveRenderKey(req);
@@ -1163,6 +1195,8 @@ app.post(
   "/api/import/render/project",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     const { services, target } = req.body || {};
     const apiKey = resolveRenderKey(req);
