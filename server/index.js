@@ -427,6 +427,8 @@ app.post(
   "/api/databases/:id/:action(start|stop)",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     return req.params.action === "start"
@@ -453,6 +455,8 @@ app.delete(
   "/api/services/:id",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     await lifecycle.deleteApp(req.params.id);
@@ -474,6 +478,8 @@ app.post(
   "/api/services/:id/domain",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await lifecycle.setDomain(req.params.id, req.body?.fqdn);
@@ -909,6 +915,8 @@ app.patch(
   "/api/services/:id/limits",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await resources.setLimits(req.params.id, req.body || {});
@@ -921,6 +929,8 @@ app.patch(
   "/api/services/:id/healthcheck",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await resources.setHealthcheck(req.params.id, req.body || {});
