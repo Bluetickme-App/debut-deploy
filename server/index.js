@@ -29,6 +29,16 @@ import {
   addUserInstallation,
   listUserInstallations,
   getMembership,
+  listOrgMembers,
+  countOrgOwners,
+  setMemberRole,
+  removeMembership,
+  createInvite,
+  getValidInvite,
+  addMembership,
+  markInviteAccepted,
+  listPendingInvites,
+  deleteInvite,
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
@@ -1276,6 +1286,89 @@ app.put(
     const saved = setNotificationSettings({ userId: req.user.id, webhookUrl, enabled, events });
     record(req, "notification.update", { metadata: { enabled: !!enabled, events: saved.events } });
     return { ...saved, catalog: EVENT_TYPES };
+  })
+);
+
+// --- organization + team ---
+app.get("/api/org", requireAuth, attachOrgContext, h((req) =>
+  req.user.role === "admin" ? { id: null, role: "admin" } : { id: req.org.id, role: req.org.role }
+));
+
+app.get("/api/org/members", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => listOrgMembers(req.org.id))
+);
+
+app.post("/api/org/invites", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const { email = null, role } = req.body || {};
+    if (!["owner", "manager", "deployer", "viewer"].includes(role)) {
+      throw Object.assign(new Error("valid role is required"), { status: 400 });
+    }
+    const { id, token } = createInvite({ orgId: req.org.id, email, role, invitedBy: req.user.id });
+    record(req, "invite.create", { metadata: { org_id: req.org.id, role, email } });
+    // ponytail: return the link for copy-paste; email delivery slots in here later.
+    return { id, link: `${clientOrigin}/accept-invite?token=${token}` };
+  })
+);
+
+app.get("/api/org/invites", requireAuth, attachOrgContext, requireCapability("owner"),
+  h((req) => listPendingInvites(req.org.id))
+);
+
+app.delete("/api/org/invites/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const changes = deleteInvite(req.org.id, Number(req.params.id));
+    if (!changes) throw Object.assign(new Error("Invite not found"), { status: 404 });
+    record(req, "invite.revoke", { metadata: { invite_id: Number(req.params.id) } });
+    return { ok: true };
+  })
+);
+
+app.post("/api/org/invites/accept", requireAuth, mutateGuard, h((req) => {
+  const { token } = req.body || {};
+  const invite = getValidInvite(token);
+  if (!invite) throw Object.assign(new Error("Invalid or expired invite"), { status: 400 });
+  if (getMembership(req.user.id)) {
+    throw Object.assign(new Error("You already belong to an organization"), { status: 409 });
+  }
+  if (invite.email && invite.email.toLowerCase() !== (req.user.email || "").toLowerCase()) {
+    throw Object.assign(new Error("This invite was issued to a different email"), { status: 403 });
+  }
+  addMembership(req.user.id, invite.org_id, invite.role);
+  markInviteAccepted(invite.id, req.user.id);
+  record(req, "invite.accept", { metadata: { org_id: invite.org_id, role: invite.role } });
+  return { ok: true, role: invite.role };
+}));
+
+app.patch("/api/org/members/:userId", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const userId = Number(req.params.userId);
+    const { role } = req.body || {};
+    if (!["owner", "manager", "deployer", "viewer"].includes(role)) {
+      throw Object.assign(new Error("valid role is required"), { status: 400 });
+    }
+    const target = getMembership(userId);
+    if (!target || target.org_id !== req.org.id) throw Object.assign(new Error("Member not found"), { status: 404 });
+    if (target.role === "owner" && role !== "owner" && countOrgOwners(req.org.id) <= 1) {
+      throw Object.assign(new Error("An organization must keep at least one owner"), { status: 409 });
+    }
+    setMemberRole(userId, role);
+    record(req, "member.role_change", { metadata: { user_id: userId, role } });
+    return { ok: true };
+  })
+);
+
+app.delete("/api/org/members/:userId", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const userId = Number(req.params.userId);
+    const target = getMembership(userId);
+    if (!target || target.org_id !== req.org.id) throw Object.assign(new Error("Member not found"), { status: 404 });
+    if (target.role === "owner" && countOrgOwners(req.org.id) <= 1) {
+      throw Object.assign(new Error("An organization must keep at least one owner"), { status: 409 });
+    }
+    removeMembership(userId);
+    record(req, "member.remove", { metadata: { user_id: userId } });
+    return { ok: true };
   })
 );
 
