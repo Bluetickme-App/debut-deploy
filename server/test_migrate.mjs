@@ -135,6 +135,48 @@ test("(f) dbTarget shared → provisions a fresh logical DB as the target", asyn
   assert.equal(dbUrlSet, "postgresql://premium_u:pw@shared:5432/premium", "DATABASE_URL points at the fresh shared-cluster DB");
 });
 
+// Regression: Render normalises a missing branch to "" (not undefined), which slips
+// past createDeployKeyApp's `branch = "main"` default and 422s at Coolify. migrate.js
+// must coerce an empty branch to "main" before the create call.
+test("(g) empty Render branch → Coolify create gets git_branch 'main', not ''", async () => {
+  let seenBranch = "unset";
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "shared" },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      getService: async () => ({ id: "srv-demo1", name: "QrConnect", repo: "https://github.com/Bluetickme-App/QrConnect", branch: "", buildCommand: "", startCommand: "" }),
+      getEnvVars: async () => [],
+      createDeployKeyApp: async ({ branch }) => { seenBranch = branch; return { uuid: "app-qr" }; },
+    },
+  });
+  assert.equal(result.steps.find((s) => s.step === "create-app").status, "ok");
+  assert.equal(seenBranch, "main", "empty branch must fall back to main");
+});
+
+// Image-based Render services have no git repo (repo: "") — cloning that would 422
+// with a confusing message, so migrate.js rejects it up front with a clear one.
+test("(h) empty Render repo → create-app errors clearly, assign never runs", async () => {
+  let assigned = false;
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "shared" },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      getService: async () => ({ id: "srv-demo1", name: "img-svc", repo: "", branch: "main" }),
+      getEnvVars: async () => [],
+      // TODO(you): fail the test if createDeployKeyApp is ever reached — the guard
+      // must short-circuit BEFORE any Coolify call. Set a flag or throw here.
+      createDeployKeyApp: async () => ({ uuid: "should-not-happen" }),
+      assign: () => { assigned = true; },
+    },
+  });
+  // TODO(you): assert result.ok === false, the create-app step is "error", its detail
+  // mentions the repo problem, and `assigned` stayed false.
+});
+
 test("(e) dbTarget none → migrate-db skipped even when a datastore exists", async () => {
   const result = await importFromRender({
     renderServiceId: "srv-demo1",
