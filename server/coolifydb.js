@@ -33,11 +33,33 @@ async function runSql(sql) {
     else if (/SSH to migration host/i.test(raw)) reason = "could not reach the storage host over SSH";
     else if (/exit \d+:/i.test(raw)) reason = "Coolify DB rejected the change — " + ((raw.split(/exit \d+:/)[1] || "").trim().split("\n").filter(Boolean).pop() || "").slice(0, 200);
     else reason = raw.slice(0, 200) || "unknown error";
-    throw Object.assign(new Error("Disk operation failed: " + reason), { status: 422 });
+    throw Object.assign(new Error("Coolify host operation failed: " + reason), { status: 422 });
   }
 }
 
 const coolifyUuid = () => randomBytes(12).toString("hex").slice(0, 24);
+
+// Coolify keeps build/deploy logs ONLY in its own DB (the REST API never returns
+// them) — a JSON array in application_deployment_queue.logs. Read the latest
+// deployment's logs for an app over the SSH channel so the panel can show WHY a
+// build failed. // ponytail: // VERIFY LIVE — Coolify-internal schema (fragile).
+export async function getBuildLogs(appUuid, { limit = 600 } = {}) {
+  if (DEMO) return [];
+  const u = String(appUuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) return [];
+  const raw = await runSql(
+    `SELECT logs FROM application_deployment_queue WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT 1`
+  );
+  const text = String(raw || "").trim();
+  if (!text) return [];
+  let arr;
+  try { arr = JSON.parse(text); } catch { return text.split("\n").filter(Boolean).slice(-limit).map((l) => ({ message: l })); }
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((x) => !x.hidden)
+    .map((x) => ({ time: x.timestamp || null, type: x.type || "stdout", message: x.output ?? x.line ?? "" }))
+    .slice(-limit);
+}
 
 export async function listServiceVolumes(appUuid) {
   if (DEMO) return [];

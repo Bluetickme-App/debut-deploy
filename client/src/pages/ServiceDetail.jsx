@@ -317,19 +317,30 @@ function LogsTab({ serviceId, name }) {
   const [copied, setCopied] = useState(false);
   const [query, setQuery] = useState("");
   const [tail, setTail] = useState(true);
+  const [source, setSource] = useState("runtime"); // "runtime" (container) | "build" (last deploy)
+  const [err, setErr] = useState(null);
   const boxRef = useRef(null);
 
-  // Fetch on mount; while live-tail is on, re-fetch every 4s. Interval cleared on unmount/toggle.
+  // Runtime: live-tail the container (re-fetch every 4s). Build: one-shot fetch of the
+  // last deployment's logs from Coolify's DB (this is where a failed build's error is).
   useEffect(() => {
     let cancelled = false;
+    setLines(null); setErr(null);
+    if (source === "build") {
+      api.buildLogs(serviceId).then((d) => {
+        if (cancelled) return;
+        setErr(d?.error || null);
+        setLines((d?.lines || []).map((l) => ({ time: l.time, level: l.type === "stderr" ? "ERROR" : "LOG", message: l.message })));
+      }).catch((e) => { if (!cancelled) { setErr(e.message); setLines([]); } });
+      return () => { cancelled = true; };
+    }
     const load = () =>
       api.logs(serviceId).then((data) => { if (!cancelled) setLines(data); }).catch(() => { if (!cancelled) setLines((l) => l || []); });
-    setLines(null);
     load();
     if (!tail) return () => { cancelled = true; };
     const t = setInterval(load, 4000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [serviceId, tail]);
+  }, [serviceId, tail, source]);
 
   const q = query.trim().toLowerCase();
   const shown = (lines || []).filter((l) => !q || String(l.message ?? "").toLowerCase().includes(q));
@@ -353,16 +364,33 @@ function LogsTab({ serviceId, name }) {
     <div className="overflow-hidden rounded-lg border" style={{ borderColor: "var(--border-strong)", boxShadow: "var(--shadow)" }}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-[9px]" style={{ background: "#13161d", borderBottom: "1px solid #232a36" }}>
         <div className="flex items-center gap-[9px]">
-          <button
-            onClick={() => setTail((v) => !v)}
-            className="inline-flex items-center gap-[7px] text-xs font-semibold"
-            style={{ color: tail ? "#cfe9d6" : "#7c8696" }}
-            title={tail ? "Pause live tail" : "Resume live tail"}
-          >
-            <span className="h-[7px] w-[7px] rounded-full" style={{ background: tail ? "#34d77a" : "#4a5261", animation: tail ? "dd-pulse 1.4s infinite" : "none" }} />
-            Live tail {tail ? "on" : "off"}
-          </button>
-          <span className="mono text-[11.5px]" style={{ color: "#7c8696" }}>{name} · stdout</span>
+          <div className="inline-flex overflow-hidden rounded-md border" style={{ borderColor: "#2a323f" }}>
+            {["runtime", "build"].map((s) => (
+              <button
+                key={s}
+                onClick={() => setSource(s)}
+                className="px-2.5 py-[4px] text-[11px] font-semibold"
+                style={{ background: source === s ? "#1c212b" : "transparent", color: source === s ? "#cdd6e4" : "#7c8696" }}
+                title={s === "build" ? "Build/deploy logs from the last deployment" : "Live logs from the running container"}
+              >
+                {s === "build" ? "Build" : "Runtime"}
+              </button>
+            ))}
+          </div>
+          {source === "runtime" ? (
+            <button
+              onClick={() => setTail((v) => !v)}
+              className="inline-flex items-center gap-[7px] text-xs font-semibold"
+              style={{ color: tail ? "#cfe9d6" : "#7c8696" }}
+              title={tail ? "Pause live tail" : "Resume live tail"}
+            >
+              <span className="h-[7px] w-[7px] rounded-full" style={{ background: tail ? "#34d77a" : "#4a5261", animation: tail ? "dd-pulse 1.4s infinite" : "none" }} />
+              Live tail {tail ? "on" : "off"}
+            </button>
+          ) : (
+            <span className="mono text-[11.5px]" style={{ color: "#7c8696" }}>last deploy</span>
+          )}
+          <span className="mono text-[11.5px]" style={{ color: "#7c8696" }}>{name} · {source === "build" ? "build" : "stdout"}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <input
@@ -401,9 +429,12 @@ function LogsTab({ serviceId, name }) {
         {!lines && (
           <div className="px-2" style={{ color: "#5b6678" }}><Spinner className="mr-2 inline" /> Fetching logs…</div>
         )}
-        {lines && shown.length === 0 && (
+        {err && (
+          <div className="px-2 py-2" style={{ color: "#f6b6b6" }}>Couldn’t load build logs: {err}</div>
+        )}
+        {lines && !err && shown.length === 0 && (
           <div className="px-2 py-8 text-center" style={{ color: "#5b6678" }}>
-            {q ? `No log lines match “${query.trim()}”.` : "No logs yet — output appears here once the service produces some."}
+            {q ? `No log lines match “${query.trim()}”.` : source === "build" ? "No build logs for the last deployment." : "No logs yet — output appears here once the service produces some."}
           </div>
         )}
         {shown.map((l, i) => {
