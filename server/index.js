@@ -46,7 +46,7 @@ import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
 import {
   walletBalance, recentLedger, createTopupSession, handleWebhookEvent, stripeClient,
-  getOrCreateStripeCustomer,
+  getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod,
 } from "./billing.js";
 import { planPriceUsd } from "./plans.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -1572,6 +1572,23 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
     }
   }, 60_000); // VERIFY LIVE: cadence
   timer.unref?.();
+}
+
+// --- monthly hardware charge: hourly tick, idempotent per (org, period) ---
+// ponytail: single-process setInterval; the (org, period) guard makes double-fire safe,
+// but if the server is down for ALL of the billing day the charge is deferred until it
+// next runs (any later tick in the same month still charges once). Reliable upgrade path:
+// the admin POST /api/admin/billing/run-monthly hit by an external cron (Hetzner/GitHub Actions).
+if (!demoMode && process.env.NODE_ENV !== "test") {
+  const runMonthly = () => {
+    const period = currentPeriod();
+    for (const o of db.prepare("SELECT id FROM organizations").all()) {
+      try { chargeMonthlyHardware(o.id, period); }
+      catch (err) { console.error("monthly charge:", o.id, err.message); }
+    }
+  };
+  const billingTimer = setInterval(runMonthly, 60 * 60_000); // hourly; guard makes it idempotent
+  billingTimer.unref?.();
 }
 
 const PORT = process.env.PORT || 8787;
