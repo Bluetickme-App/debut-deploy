@@ -43,7 +43,7 @@ export default function EnvEditor({ serviceId }) {
         {envs.length} environment variables · changes apply on next deploy.
       </p>
 
-      <div className="overflow-hidden rounded-xl border border-white/8 bg-[#13161d]">
+      <div className="overflow-hidden rounded-lg border border-white/8 bg-[#13161d]">
         {envs.map((e, i) => (
           <div
             key={e.uuid}

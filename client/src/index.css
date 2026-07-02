@@ -81,11 +81,21 @@ body {
   scrollbar-color: var(--border) transparent;
 }
 
+/* ── Page container — every page centers on this so nav feels aligned ── */
+.page {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding: 1rem 1rem 2.5rem;
+}
+@media (min-width: 640px) {
+  .page { padding: 1.5rem 1.75rem 2.75rem; }
+}
+
 /* ── Cards ── */
 .card {
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 1.25rem;
   box-shadow: var(--shadow);
 }
@@ -100,7 +110,7 @@ body {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.5rem 0.875rem;
-  border-radius: 9px;
+  border-radius: 6px;
   font-size: 0.8125rem;
   font-weight: 600;
   font-family: inherit;
@@ -137,7 +147,7 @@ body {
   width: 100%;
   background-color: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 6px;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   font-family: inherit;

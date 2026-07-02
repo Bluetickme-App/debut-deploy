@@ -74,7 +74,7 @@ export default function NewDatabase() {
 
         {error && (
           <div
-            className="rounded-xl px-4 py-3 text-sm"
+            className="rounded-lg px-4 py-3 text-sm"
             style={{
               background: "color-mix(in srgb, var(--err) 10%, transparent)",
               border: "1px solid color-mix(in srgb, var(--err) 25%, transparent)",

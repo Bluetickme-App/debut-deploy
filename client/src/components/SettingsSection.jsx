@@ -7,7 +7,7 @@ export function SettingsSection({ id, title, children }) {
   return (
     <section
       id={id}
-      className="scroll-mt-24 rounded-[13px] px-[22px] py-[18px]"
+      className="scroll-mt-24 rounded-lg px-[22px] py-[18px]"
       style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow)" }}
     >
       <h3
@@ -50,7 +50,7 @@ export function AnchorNav({ items, active, onJump }) {
             <button
               key={it.id}
               onClick={() => onJump(it.id)}
-              className="rounded-[7px] px-3 py-[7px] text-left text-[12.5px] font-medium transition-colors"
+              className="rounded-md px-3 py-[7px] text-left text-[12.5px] font-medium transition-colors"
               style={on
                 ? { background: "var(--accent-soft)", color: "var(--accent-text)" }
                 : { background: "transparent", color: "var(--text-muted)" }}

@@ -19,7 +19,7 @@ function RuntimeChip({ runtime }) {
     <span
       style={{
         display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px",
-        borderRadius: 7, background: "var(--surface-2)", border: "1px solid var(--border)",
+        borderRadius: 6, background: "var(--surface-2)", border: "1px solid var(--border)",
         fontSize: 11.5, fontWeight: 500, color: "var(--text)",
       }}
     >
@@ -46,7 +46,7 @@ function SkeletonGrid() {
           style={{
             display: "flex", flexDirection: "column", gap: 13, padding: 17,
             background: "var(--surface)", border: "1px solid var(--border)",
-            borderRadius: 13, boxShadow: "var(--shadow)",
+            borderRadius: 8, boxShadow: "var(--shadow)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -57,7 +57,7 @@ function SkeletonGrid() {
           <div style={{ height: 1, background: "var(--border)" }} />
           <span style={{ ...sk, width: "85%", height: 12 }} />
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ ...sk, width: 64, height: 22, borderRadius: 7 }} />
+            <span style={{ ...sk, width: 64, height: 22, borderRadius: 6 }} />
             <span style={{ ...sk, width: 54, height: 12 }} />
           </div>
         </div>
@@ -77,7 +77,7 @@ function GridCard({ s, onClick }) {
       style={{
         display: "flex", flexDirection: "column", gap: 13, padding: "17px 17px 15px",
         background: "var(--surface)", border: `1px solid ${hovered ? "var(--border-strong)" : "var(--border)"}`,
-        borderRadius: 13, cursor: "pointer",
+        borderRadius: 8, cursor: "pointer",
         transition: "transform .15s, box-shadow .15s, border-color .15s",
         boxShadow: hovered ? "var(--shadow-lg)" : "var(--shadow)",
         transform: hovered ? "translateY(-2px)" : "none",
@@ -148,7 +148,7 @@ function ListTable({ services, onRowClick }) {
     <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
     <div style={{
       minWidth: 620,
-      border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden",
+      border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden",
       background: "var(--surface)", boxShadow: "var(--shadow)",
     }}>
       {/* Header */}
@@ -225,11 +225,11 @@ function EmptyDashed() {
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       textAlign: "center", padding: "64px 24px",
-      border: "1px dashed var(--border-strong)", borderRadius: 14,
+      border: "1px dashed var(--border-strong)", borderRadius: 8,
       background: "var(--surface)",
     }}>
       <div style={{
-        width: 56, height: 56, borderRadius: 14, background: "var(--accent-soft)",
+        width: 56, height: 56, borderRadius: 8, background: "var(--accent-soft)",
         display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18,
       }}>
         <Layers size={26} style={{ color: "var(--accent-text)" }} strokeWidth={1.7} />
@@ -304,7 +304,7 @@ export default function Dashboard() {
   });
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }} className="px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
+    <div className="page">
       {/* ── Header ── */}
       <PageHeader
         title="Services"
@@ -366,7 +366,7 @@ export default function Dashboard() {
         {/* Right: grid/list toggle */}
         <div style={{
           display: "flex", gap: 2, padding: 3,
-          border: "1px solid var(--border)", borderRadius: 9,
+          border: "1px solid var(--border)", borderRadius: 6,
           background: "var(--surface)",
         }}>
           <button
@@ -397,7 +397,7 @@ export default function Dashboard() {
         <div style={{
           display: "flex", flexDirection: "column", alignItems: "center",
           padding: "48px 24px", textAlign: "center",
-          border: "1px dashed var(--border-strong)", borderRadius: 14,
+          border: "1px dashed var(--border-strong)", borderRadius: 8,
           background: "var(--surface)",
         }}>
           <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", margin: "0 0 6px" }}>

@@ -21,7 +21,7 @@ function ProjectCard({ project, onClick }) {
       }}
     >
       <span style={{
-        width: 34, height: 34, borderRadius: 9, background: project.color, flexShrink: 0,
+        width: 34, height: 34, borderRadius: 6, background: project.color, flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
         color: "#fff", fontWeight: 700, fontSize: 15, fontFamily: "'Inter', sans-serif",
       }}>
@@ -46,7 +46,7 @@ function CreateCard({ onClick }) {
       onClick={onClick}
       style={{
         display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        padding: "18px", borderRadius: 14, cursor: "pointer", width: "100%",
+        padding: "18px", borderRadius: 8, cursor: "pointer", width: "100%",
         border: "1px dashed var(--border-strong)", background: "transparent",
         color: "var(--text-muted)", fontSize: 13.5, fontWeight: 600,
         transition: "background .15s, color .15s, border-color .15s",
@@ -149,7 +149,7 @@ function NewProjectModal({ onClose, onCreate }) {
   }
 
   const segBtn = (active) => ({
-    padding: "6px 14px", borderRadius: 7, border: "none",
+    padding: "6px 14px", borderRadius: 6, border: "none",
     fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
     background: active ? "var(--surface)" : "transparent",
     color: active ? "var(--text)" : "var(--text-muted)",
@@ -172,7 +172,7 @@ function NewProjectModal({ onClose, onCreate }) {
       <div style={{
         width: 440, maxWidth: "calc(100% - 40px)",
         background: "var(--surface)", border: "1px solid var(--border)",
-        borderRadius: 16, boxShadow: "var(--shadow-lg)", overflow: "hidden",
+        borderRadius: 8, boxShadow: "var(--shadow-lg)", overflow: "hidden",
       }}>
         {/* header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid var(--border)" }}>
@@ -181,7 +181,7 @@ function NewProjectModal({ onClose, onCreate }) {
           </h3>
           <button onClick={onClose} style={{
             width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
-            borderRadius: 7, border: "none", background: "transparent", color: "var(--text-muted)", cursor: "pointer",
+            borderRadius: 6, border: "none", background: "transparent", color: "var(--text-muted)", cursor: "pointer",
           }}
             onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.color = "var(--text)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
@@ -211,7 +211,7 @@ function NewProjectModal({ onClose, onCreate }) {
                   role="button"
                   onClick={() => setColor(c)}
                   style={{
-                    width: 30, height: 30, borderRadius: 9, background: c, cursor: "pointer",
+                    width: 30, height: 30, borderRadius: 6, background: c, cursor: "pointer",
                     boxShadow: color === c ? `0 0 0 2px var(--surface), 0 0 0 4px ${c}` : "none",
                     transition: "box-shadow .12s",
                   }}
@@ -232,7 +232,7 @@ function NewProjectModal({ onClose, onCreate }) {
             <label className="label">Environment</label>
             <div style={{
               display: "flex", gap: 2, padding: 3,
-              border: "1px solid var(--border)", borderRadius: 9,
+              border: "1px solid var(--border)", borderRadius: 6,
               background: "var(--surface-2)", width: "fit-content",
             }}>
               <button style={segBtn(env === "production")} onClick={() => setEnv("production")}>Production</button>
@@ -274,7 +274,7 @@ export default function Projects() {
   );
 
   return (
-    <div style={{ maxWidth: 1000 }} className="px-4 pt-4 pb-10 sm:px-7 sm:pt-6">
+    <div className="page">
       <h1 className="text-2xl font-bold" style={{ fontFamily: "'Inter', sans-serif", letterSpacing: "-0.01em", color: "var(--text)", marginBottom: 24 }}>
         Overview
       </h1>

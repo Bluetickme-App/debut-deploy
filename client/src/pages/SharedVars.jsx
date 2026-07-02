@@ -112,7 +112,7 @@ function CreateCard({ onCancel, onCreate }) {
   return (
     <div style={{
       border: "1px solid var(--accent)",
-      borderRadius: 13,
+      borderRadius: 8,
       background: "var(--surface)",
       boxShadow: "var(--shadow)",
       padding: "20px 22px",
@@ -190,7 +190,7 @@ function CreateCard({ onCancel, onCreate }) {
           onClick={addRow}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "6px 10px", borderRadius: 8,
+            padding: "6px 10px", borderRadius: 6,
             border: "1px dashed var(--border-strong)",
             background: "transparent", color: "var(--text-muted)",
             fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
@@ -228,7 +228,7 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
   return (
     <div style={{
       border: "1px solid var(--border)",
-      borderRadius: 13,
+      borderRadius: 8,
       background: "var(--surface)",
       boxShadow: "var(--shadow)",
       overflow: "visible",
@@ -254,7 +254,7 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
           />
           {/* {} tile */}
           <span style={{
-            width: 30, height: 30, borderRadius: 8,
+            width: 30, height: 30, borderRadius: 6,
             background: "var(--accent-soft)",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
@@ -291,7 +291,7 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
           <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", marginBottom: 16 }}>
           <div style={{
             minWidth: 380,
-            border: "1px solid var(--border)", borderRadius: 10,
+            border: "1px solid var(--border)", borderRadius: 6,
             overflow: "hidden",
           }}>
             <div style={{
@@ -398,7 +398,7 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
                       position: "absolute", top: "100%", left: 0, marginTop: 6,
                       width: 230,
                       background: "var(--surface)", border: "1px solid var(--border)",
-                      borderRadius: 11, boxShadow: "var(--shadow-lg)",
+                      borderRadius: 8, boxShadow: "var(--shadow-lg)",
                       padding: 6, zIndex: 30,
                       maxHeight: 240, overflowY: "auto",
                     }}>
@@ -411,7 +411,7 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
                             onClick={e => { e.stopPropagation(); onToggleAssign(group.id, svc); }}
                             style={{
                               display: "flex", alignItems: "center", justifyContent: "space-between",
-                              gap: 8, padding: "7px 9px", borderRadius: 7,
+                              gap: 8, padding: "7px 9px", borderRadius: 6,
                               cursor: "pointer", fontSize: 12.5, color: "var(--text)",
                             }}
                             onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; }}
@@ -464,7 +464,7 @@ export default function SharedVars() {
   }
 
   return (
-    <div style={{ maxWidth: 1000 }} className="px-4 pt-4 pb-11 sm:px-7 sm:pt-6">
+    <div className="page">
       <PageHeader
         title="Variable Groups"
         subtitle="Reusable sets of environment variables you can attach to any service."

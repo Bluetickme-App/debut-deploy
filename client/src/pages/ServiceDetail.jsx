@@ -67,7 +67,7 @@ export default function ServiceDetail() {
   const runtimeLabel = runtimeName(svc.runtime);
 
   return (
-    <div className="mx-auto max-w-[1060px] px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
+    <div className="page">
       {/* back link */}
       <Link
         to="/"
@@ -224,7 +224,7 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
       </div>
 
       <div
-        className="overflow-hidden rounded-[13px] border"
+        className="overflow-hidden rounded-lg border"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}
       >
         {deploys.length === 0 && (
@@ -279,7 +279,7 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
                 {canRollback && (
                   <button
                     onClick={() => rollback(d)}
-                    className="rounded-[7px] border px-3 py-[5px] text-xs font-semibold transition-colors"
+                    className="rounded-md border px-3 py-[5px] text-xs font-semibold transition-colors"
                     style={{ borderColor: "var(--border-strong)", background: "var(--surface)", color: "var(--text)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "var(--surface)")}
@@ -335,10 +335,10 @@ function LogsTab({ serviceId, name }) {
     });
   }
 
-  const tools = "inline-flex items-center gap-1.5 rounded-[7px] border px-2.5 py-[5px] text-[11.5px] font-medium transition-colors";
+  const tools = "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-[5px] text-[11.5px] font-medium transition-colors";
 
   return (
-    <div className="overflow-hidden rounded-[13px] border" style={{ borderColor: "var(--border-strong)", boxShadow: "var(--shadow)" }}>
+    <div className="overflow-hidden rounded-lg border" style={{ borderColor: "var(--border-strong)", boxShadow: "var(--shadow)" }}>
       <div className="flex items-center justify-between px-3.5 py-[9px]" style={{ background: "#13161d", borderBottom: "1px solid #232a36" }}>
         <div className="flex items-center gap-[9px]">
           <span className="inline-flex items-center gap-[7px] text-xs font-semibold" style={{ color: "#cfe9d6" }}>
@@ -455,13 +455,13 @@ function EnvironmentTab({ serviceId }) {
     } finally { setSaving(false); }
   }
 
-  const inputCell = "mono w-full rounded-[7px] border border-transparent bg-transparent px-2.5 py-[7px] text-[12px] outline-none transition-colors focus:border-[var(--accent)]";
+  const inputCell = "mono w-full rounded-md border border-transparent bg-transparent px-2.5 py-[7px] text-[12px] outline-none transition-colors focus:border-[var(--accent)]";
 
   return (
     <div>
       {/* attached variable groups */}
       <div
-        className="mb-4 rounded-[13px] border px-[18px] py-[15px]"
+        className="mb-4 rounded-lg border px-[18px] py-[15px]"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}
       >
         <div className="mb-[13px] flex items-start justify-between gap-3">
@@ -484,7 +484,7 @@ function EnvironmentTab({ serviceId }) {
             {groups.map((g) => (
               <span
                 key={g.id ?? g.uuid ?? g.key ?? g.name}
-                className="inline-flex items-center gap-2 rounded-[9px] border px-2.5 py-1.5 text-[12.5px]"
+                className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[12.5px]"
                 style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
               >
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-md" style={{ background: "var(--accent-soft)" }}>
@@ -516,7 +516,7 @@ function EnvironmentTab({ serviceId }) {
       </div>
 
       {paste && (
-        <div className="mb-3.5 rounded-[13px] border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <div className="mb-3.5 rounded-lg border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
           <textarea
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
@@ -536,7 +536,7 @@ function EnvironmentTab({ serviceId }) {
 
       {/* env table */}
       <div
-        className="overflow-hidden rounded-[13px] border"
+        className="overflow-hidden rounded-lg border"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}
       >
         <div
@@ -570,7 +570,7 @@ function EnvironmentTab({ serviceId }) {
               <button
                 onClick={() => remove(e.uuid)}
                 title="Remove"
-                className="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] transition-colors"
+                className="flex h-[30px] w-[30px] items-center justify-center rounded-md transition-colors"
                 style={{ color: "var(--text-muted)", background: "transparent" }}
                 onMouseEnter={(ev) => { ev.currentTarget.style.background = "var(--err-soft)"; ev.currentTarget.style.color = "var(--err-text)"; }}
                 onMouseLeave={(ev) => { ev.currentTarget.style.background = "transparent"; ev.currentTarget.style.color = "var(--text-muted)"; }}
@@ -613,7 +613,7 @@ function EnvironmentTab({ serviceId }) {
               onClick={add}
               disabled={saving || !draft.key.trim()}
               title="Save variable"
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-[7px]"
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-md"
               style={{ background: "var(--accent)", color: "var(--accent-contrast)" }}
             >
               {saving ? <Spinner /> : <Check className="h-4 w-4" />}
@@ -834,7 +834,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
           </SettingsRow>
           <SettingsRow label="Instance type" desc="Scaling is managed at the workspace level.">
             <div
-              className="flex items-center justify-between gap-3 rounded-[9px] border px-3.5 py-3"
+              className="flex items-center justify-between gap-3 rounded-md border px-3.5 py-3"
               style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
             >
               <div>
@@ -957,7 +957,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
         <SettingsSection id="networking" title="Networking">
           <SettingsRow label="Private networking" desc="Reach other services over an internal network.">
             <div
-              className="flex items-start gap-3 rounded-[9px] border px-3.5 py-3"
+              className="flex items-start gap-3 rounded-md border px-3.5 py-3"
               style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
             >
               <Lock className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
@@ -989,7 +989,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
         <SettingsSection id="log-stream" title="Log Stream">
           <SettingsRow label="Destination" desc="Ship logs to an external endpoint.">
             <div
-              className="flex flex-col gap-2 rounded-[9px] border px-3.5 py-3"
+              className="flex flex-col gap-2 rounded-md border px-3.5 py-3"
               style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
             >
               <div className="flex items-center justify-between gap-3">
@@ -1028,7 +1028,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
         {/* 12 · Delete or suspend */}
         <section
           id="danger"
-          className="scroll-mt-24 rounded-[13px] px-5 py-[18px]"
+          className="scroll-mt-24 rounded-lg px-5 py-[18px]"
           style={{ border: "1px solid var(--err)", background: "var(--err-soft)" }}
         >
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1057,7 +1057,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy }) {
 function ReadOnly({ value, mono }) {
   return (
     <div
-      className={`${mono ? "mono " : ""}truncate rounded-[9px] border px-3 py-[9px] text-[13px]`}
+      className={`${mono ? "mono " : ""}truncate rounded-md border px-3 py-[9px] text-[13px]`}
       style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text-muted)" }}
       title={value}
     >
@@ -1100,7 +1100,7 @@ function IconBtn({ children, title, onClick }) {
       type="button"
       title={title}
       onClick={onClick}
-      className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[9px] border transition-colors"
+      className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-md border transition-colors"
       style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text-muted)" }}
       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
@@ -1142,7 +1142,7 @@ function PathList({ label, items, onChange }) {
         {items.map((p, i) => (
           <span
             key={p + i}
-            className="mono inline-flex items-center gap-1.5 rounded-[7px] border px-2.5 py-1 text-[12px]"
+            className="mono inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[12px]"
             style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text)" }}
           >
             {p}
@@ -1159,7 +1159,7 @@ function PathList({ label, items, onChange }) {
               if (e.key === "Enter" && val.trim()) { e.preventDefault(); onChange([...items, val.trim()]); setVal(""); }
             }}
             placeholder="Add path…"
-            className="mono rounded-[7px] border border-dashed bg-transparent px-2.5 py-1 text-[12px] outline-none"
+            className="mono rounded-md border border-dashed bg-transparent px-2.5 py-1 text-[12px] outline-none"
             style={{ borderColor: "var(--border-strong)", color: "var(--text)", width: "140px" }}
           />
         )}

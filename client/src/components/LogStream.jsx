@@ -42,7 +42,7 @@ export default function LogStream({ serviceId, live }) {
 
   const done = shown >= all.length;
   return (
-    <div className="overflow-hidden rounded-xl border border-white/8 bg-[#0a0c10]">
+    <div className="overflow-hidden rounded-lg border border-white/8 bg-[#0a0c10]">
       <div className="flex items-center justify-between border-b border-white/6 px-4 py-2">
         <span className="text-xs font-medium text-zinc-400">Build &amp; deploy log</span>
         <span className="flex items-center gap-1.5 text-xs">

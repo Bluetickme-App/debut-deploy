@@ -126,7 +126,7 @@ export default function NewServiceGit() {
           </Card>
 
           {error && (
-            <div className="rounded-xl p-3 text-sm" style={{ border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)", background: "var(--err-soft)", color: "var(--err-text)" }}>
+            <div className="rounded-lg p-3 text-sm" style={{ border: "1px solid color-mix(in srgb, var(--err) 30%, transparent)", background: "var(--err-soft)", color: "var(--err-text)" }}>
               {error}
             </div>
           )}

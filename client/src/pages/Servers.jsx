@@ -49,7 +49,7 @@ export default function Servers() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
+    <div className="page space-y-8">
       <PageHeader
         title="Servers"
         subtitle={servers ? `${servers.length} server${servers.length !== 1 ? "s" : ""}` : undefined}

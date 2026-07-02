@@ -28,7 +28,7 @@ export default function NotificationSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page space-y-6">
       <PageHeader
         title="Notifications"
         subtitle="Get a webhook when your services go down or deploys finish."

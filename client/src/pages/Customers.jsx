@@ -20,7 +20,7 @@ export default function Customers() {
     (u.name || u.email || "?").split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join("");
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
+    <div className="page">
       <PageHeader title="Customers" subtitle="Everyone with access, and what each one owns." />
 
       {error && <p className="text-sm" style={{ color: "var(--err)" }}>Failed to load: {error.message}</p>}

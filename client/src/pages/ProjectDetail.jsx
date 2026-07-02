@@ -111,7 +111,7 @@ export default function ProjectDetail() {
       <div className="flex items-start justify-between gap-4 mb-6">
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
           <span style={{
-            width: 40, height: 40, borderRadius: 11, background: project.color, flexShrink: 0,
+            width: 40, height: 40, borderRadius: 8, background: project.color, flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "#fff", fontWeight: 700, fontSize: 17, fontFamily: "'Inter', sans-serif",
           }}>

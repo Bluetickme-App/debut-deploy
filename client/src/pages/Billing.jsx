@@ -16,7 +16,7 @@ export default function Billing() {
     return () => { cancelled = true; };
   }, []);
 
-  if (error) return <div className="mx-auto max-w-5xl px-7 pt-6"><p style={{ color: "var(--err)" }}>Failed to load billing: {error.message}</p></div>;
+  if (error) return <div className="page"><p style={{ color: "var(--err)" }}>Failed to load billing: {error.message}</p></div>;
   if (!data) return <div className="flex h-40 items-center justify-center" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2" /> Loading…</div>;
 
   const { infra, computePlans, dbPlans } = data;
@@ -24,7 +24,7 @@ export default function Billing() {
   const usd = (n) => `$${Number(n)}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
+    <div className="page">
       <PageHeader title="Billing & Plans" subtitle="What your infrastructure costs, and what you charge for it." />
 
       {/* Infra spend */}

@@ -58,7 +58,7 @@ function ProjectSwitcher() {
         onClick={() => setOpen((v) => !v)}
         style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          gap: 8, padding: "8px 10px", borderRadius: 9,
+          gap: 8, padding: "8px 10px", borderRadius: 6,
           border: "1px solid var(--border)", background: "var(--surface)",
           cursor: "pointer", width: "100%", transition: "background .15s, border-color .15s",
         }}
@@ -86,7 +86,7 @@ function ProjectSwitcher() {
         <div style={{
           position: "absolute", top: "100%", left: 12, right: 12, marginTop: 5,
           background: "var(--surface)", border: "1px solid var(--border)",
-          borderRadius: 11, boxShadow: "var(--shadow-lg)", padding: 6, zIndex: 40,
+          borderRadius: 8, boxShadow: "var(--shadow-lg)", padding: 6, zIndex: 40,
         }}>
           {projects.map((p) => (
             <button
@@ -94,7 +94,7 @@ function ProjectSwitcher() {
               onClick={() => { setActive(p.id); setOpen(false); }}
               style={{
                 display: "flex", alignItems: "center", gap: 9,
-                padding: "7px 8px", borderRadius: 8, cursor: "pointer",
+                padding: "7px 8px", borderRadius: 6, cursor: "pointer",
                 width: "100%", background: "transparent", border: "none",
                 transition: "background .15s",
               }}
@@ -117,7 +117,7 @@ function ProjectSwitcher() {
             onClick={() => { setOpen(false); navigate("/projects"); }}
             style={{
               display: "flex", alignItems: "center", gap: 9,
-              padding: "7px 8px", borderRadius: 8, cursor: "pointer",
+              padding: "7px 8px", borderRadius: 6, cursor: "pointer",
               width: "100%", background: "transparent", border: "none",
               color: "var(--accent-text)", fontSize: 13, fontWeight: 600,
               transition: "background .15s",
@@ -141,7 +141,7 @@ function Sidebar({ drawerOpen, onClose }) {
 
   const navLink = ({ isActive }) => ({
     display: "flex", alignItems: "center", gap: 11,
-    padding: "8px 11px", borderRadius: 8,
+    padding: "8px 11px", borderRadius: 6,
     textDecoration: "none", fontSize: 13.5, fontWeight: isActive ? 600 : 500,
     color: isActive ? "var(--accent-text)" : "var(--text-muted)",
     background: isActive ? "var(--accent-soft)" : "transparent",
@@ -180,7 +180,7 @@ function Sidebar({ drawerOpen, onClose }) {
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 18px 14px" }}>
         <div style={{
-          width: 30, height: 30, borderRadius: 8,
+          width: 30, height: 30, borderRadius: 6,
           background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: "0 1px 2px rgba(0,0,0,.18)",
         }}>
@@ -296,7 +296,7 @@ function Topbar({ onMenuClick }) {
           style={{
             display: "none", /* overridden to flex by CSS on ≤1024px */
             alignItems: "center", justifyContent: "center",
-            width: 40, height: 40, borderRadius: 8,
+            width: 40, height: 40, borderRadius: 6,
             border: "none", background: "transparent",
             cursor: "pointer", color: "var(--text-muted)",
             marginLeft: -6, flexShrink: 0,
@@ -340,7 +340,7 @@ function Topbar({ onMenuClick }) {
           onMouseEnter={() => setThemeHov(true)}
           onMouseLeave={() => setThemeHov(false)}
           style={{
-            width: 34, height: 34, borderRadius: 8,
+            width: 34, height: 34, borderRadius: 6,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", border: "1px solid transparent",
             background: themeHov ? "var(--surface-2)" : "transparent",
@@ -357,7 +357,7 @@ function Topbar({ onMenuClick }) {
             onClick={() => setMenuOpen((o) => !o)}
             style={{
               display: "flex", alignItems: "center", gap: 9,
-              padding: "4px 8px 4px 5px", borderRadius: 9, cursor: "pointer",
+              padding: "4px 8px 4px 5px", borderRadius: 6, cursor: "pointer",
               border: "1px solid transparent", background: menuOpen ? "var(--surface-2)" : "transparent",
               transition: "background .15s",
             }}
@@ -384,7 +384,7 @@ function Topbar({ onMenuClick }) {
           {menuOpen && (
             <div style={{
               position: "absolute", right: 0, top: "calc(100% + 8px)", width: 244, zIndex: 50,
-              background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 11,
+              background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8,
               boxShadow: "var(--shadow-lg)", overflow: "hidden",
             }}>
               <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
@@ -420,7 +420,7 @@ function Topbar({ onMenuClick }) {
           onMouseEnter={() => setLogoutHov(true)}
           onMouseLeave={() => setLogoutHov(false)}
           style={{
-            width: 34, height: 34, borderRadius: 8,
+            width: 34, height: 34, borderRadius: 6,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", border: "1px solid transparent",
             background: logoutHov ? "var(--err-soft)" : "transparent",

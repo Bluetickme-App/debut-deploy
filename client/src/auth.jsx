@@ -72,7 +72,7 @@ export function RequireAuth({ children }) {
   if (error) {
     return (
       <div className="grid h-full place-items-center p-6 text-center">
-        <div className="max-w-md rounded-2xl border border-white/8 bg-[#13161d] p-6">
+        <div className="max-w-md rounded-lg border border-white/8 bg-[#13161d] p-6">
           <div className="text-sm font-medium text-white">Session error</div>
           <p className="mt-2 text-sm text-zinc-400">{error.message}</p>
         </div>

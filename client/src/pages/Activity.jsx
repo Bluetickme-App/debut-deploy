@@ -21,7 +21,7 @@ export default function Activity() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="page space-y-6">
       <PageHeader
         title="Activity"
         subtitle="Recent events across your services."

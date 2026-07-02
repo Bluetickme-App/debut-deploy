@@ -159,7 +159,7 @@ export default function NewService() {
     return (
       <div className="mx-auto max-w-md px-6 py-16 text-center">
         <div
-          className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
+          className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-lg"
           style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
         >
           <Github className="h-6 w-6" style={{ color: "var(--text-muted)" }} />
@@ -405,7 +405,7 @@ export default function NewService() {
 
           {error && (
             <div
-              className="rounded-xl px-4 py-3 text-sm"
+              className="rounded-lg px-4 py-3 text-sm"
               style={{
                 border: "1px solid color-mix(in srgb, var(--err) 25%, transparent)",
                 background: "color-mix(in srgb, var(--err) 8%, transparent)",
