@@ -52,3 +52,10 @@ test("assign stamps both user_id and the resolved org_id", async () => {
   assert.equal(row.user_id, u.id);
   assert.equal(row.org_id, orgId);
 });
+
+test("decideOnboarding: existing member → skip; valid invite → join; else create", async () => {
+  const { decideOnboarding } = await import("./auth.js");
+  assert.deepEqual(decideOnboarding({ hasMembership: true, invite: null }), { action: "skip" });
+  assert.deepEqual(decideOnboarding({ hasMembership: false, invite: { role: "deployer" } }), { action: "join", role: "deployer" });
+  assert.deepEqual(decideOnboarding({ hasMembership: false, invite: null }), { action: "create" });
+});

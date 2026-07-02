@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as GitHubStrategy } from "passport-github2";
-import { createUser, getIdentity, getUserByEmail, getUserById, getUserByIdentity, seedUser, upsertIdentity } from "./db.js";
+import {
+  createUser, getIdentity, getUserByEmail, getUserById, getUserByIdentity, seedUser, upsertIdentity,
+  ensureUserOrg, getMembership, getValidInvite, addMembership, markInviteAccepted,
+} from "./db.js";
 import { record } from "./audit.js";
 
 const SQLiteStore = connectSqlite3(session);
@@ -21,6 +24,28 @@ function splitList(value) {
 
 function error(status, message) {
   return Object.assign(new Error(message), { status });
+}
+
+// Pure onboarding decision — unit-tested. `invite` is a valid invite row or null.
+export function decideOnboarding({ hasMembership, invite }) {
+  if (hasMembership) return { action: "skip" };
+  if (invite) return { action: "join", role: invite.role };
+  return { action: "create" };
+}
+
+// Apply the decision for a freshly-authenticated user. Consumes the session invite token.
+function applyOnboarding(req, user) {
+  const rawToken = req.session?.inviteToken || null;
+  const invite = rawToken ? getValidInvite(rawToken) : null;
+  const decision = decideOnboarding({ hasMembership: !!getMembership(user.id), invite });
+  if (decision.action === "join") {
+    addMembership(user.id, invite.org_id, invite.role);
+    markInviteAccepted(invite.id, user.id);
+    record(req, "invite.accept", { metadata: { org_id: invite.org_id, role: invite.role } });
+  } else if (decision.action === "create") {
+    ensureUserOrg(user.id);
+  }
+  if (req.session) req.session.inviteToken = null;
 }
 
 function userPayload(user) {
@@ -78,6 +103,7 @@ async function fetchGithubVerifiedEmail(accessToken) {
 
 async function finishLogin(req, res, user, clientOrigin) {
   const destination = req.session?.returnTo || clientOrigin || "/";
+  const pendingInvite = req.session?.inviteToken || null; // survive session.regenerate
   await new Promise((resolve, reject) => {
     req.session.regenerate((err) => {
       if (err) return reject(err);
@@ -87,6 +113,8 @@ async function finishLogin(req, res, user, clientOrigin) {
       });
     });
   });
+  if (pendingInvite) req.session.inviteToken = pendingInvite;
+  applyOnboarding(req, user);
   record(req, "login");
   res.redirect(destination);
 }
@@ -317,6 +345,16 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
 
   app.get("/api/me", requireAuth, (req, res) => {
     res.json(userPayload(req.user));
+  });
+
+  // Entry point for an invite link: stash the token, then send the user to sign in.
+  app.get("/accept-invite", setReturnTo, (req, res) => {
+    if (req.query.token) req.session.inviteToken = String(req.query.token);
+    if (req.user) {
+      applyOnboarding(req, req.user);
+      return res.redirect(clientOrigin || "/");
+    }
+    res.redirect(`${clientOrigin || ""}/login?invited=1`);
   });
 
   return { requireAuth, requireAdmin, demoMode, demoUser, userPayload };
