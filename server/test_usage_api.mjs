@@ -1,9 +1,12 @@
 // Usage API contract + isolation. Run: node --test server/test_usage_api.mjs
+// NOTE: set DATABASE_FILE before importing db.js. ESM hoists static imports and
+// evaluates them before the module body runs, so db.js must be loaded DYNAMICALLY
+// (after this assignment) — otherwise it opens the real DB, not :memory:.
 process.env.DATABASE_FILE = ":memory:";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createUser, ensureUserOrg, getOrgDetail } from "./db.js";
-import { usageSummary } from "./metering.js";
+const { createUser, ensureUserOrg, getOrgDetail } = await import("./db.js");
+const { usageSummary } = await import("./metering.js");
 
 test("a member's usage read is scoped to their own org_id", () => {
   const a = createUser({ email: "ua@x.com", role: "customer" });
