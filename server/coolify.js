@@ -5,6 +5,7 @@
 
 import * as fx from "./fixtures.js";
 import { randomBytes } from "node:crypto";
+import { rememberEnv, storedEnvs } from "./envstore.js";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
@@ -134,27 +135,38 @@ export async function listEnvs(uuid) {
   // Coolify mirrors EVERY var into a hidden is_preview:true copy (for preview
   // deployments), so /envs returns each key twice. The panel manages production
   // config only — drop the preview copies, else every key looks duplicated.
-  // Return the real value (masking is client-side, revealable) — the route is
-  // owner-scoped, so this matches Render's "reveal secret" behaviour. Previously
-  // secrets were masked here, which made the reveal toggle impossible.
-  return (Array.isArray(envs) ? envs : []).filter((e) => !e.is_preview).map((e) => ({
-    uuid: e.uuid,
-    key: e.key,
-    value: e.value,
-    is_secret: !!e.is_secret,
-  }));
+  //
+  // Coolify's API returns NO value and NO reliable is_secret, so we merge our own
+  // encrypted mirror (envstore) back over the key list: non-secret values shown
+  // directly, secrets left blank + revealable (fetched on demand via the reveal
+  // route). Keys set outside the panel aren't in the mirror → blank, revealable:false.
+  const stored = storedEnvs(uuid);
+  return (Array.isArray(envs) ? envs : []).filter((e) => !e.is_preview).map((e) => {
+    const s = stored.get(e.key);
+    const is_secret = s ? s.is_secret : false;
+    return {
+      uuid: e.uuid,
+      key: e.key,
+      value: s && !is_secret ? s.value : "",
+      is_secret,
+      revealable: !!s,
+    };
+  });
 }
 
 export async function upsertEnv(uuid, { key, value, is_secret }) {
   if (isDemo()) return { uuid: "demo-" + key, key, value, is_secret: !!is_secret };
   // Use the BULK endpoint — it upserts by key. Plain POST /envs 409s when the key
   // already exists (that was the "Save" failure); bulk create-or-updates cleanly.
-  // is_secret is omitted (Coolify's env endpoint rejects it — 422).
-  void is_secret;
+  // is_secret is omitted from the Coolify body (its env endpoint rejects it — 422),
+  // but we DO record it in our own encrypted mirror below.
   await cf(`/applications/${uuid}/envs/bulk`, {
     method: "PATCH",
     body: { data: [{ key, value, is_preview: false, is_literal: true }] },
   });
+  // Capture the plaintext (encrypted) so the editor can show it + reveal works —
+  // Coolify's API never hands values back. Best-effort: never fail the write on it.
+  try { rememberEnv(uuid, key, value, is_secret); } catch { /* mirror is non-critical */ }
   return { ok: true, key };
 }
 

@@ -36,6 +36,7 @@ import { runHealthCheck } from "./monitor.js";
 import * as dns from "./dns.js";
 import * as resources from "./resources.js";
 import * as volumes from "./volumes.js";
+import * as envstore from "./envstore.js";
 import * as sharedvars from "./sharedvars.js";
 import * as backups from "./backups.js";
 import * as hetzner from "./hetzner.js";
@@ -304,6 +305,19 @@ app.get(
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     return coolify.listEnvs(req.params.id);
+  })
+);
+
+// Reveal one stored secret value on demand (owner-scoped). Coolify's API never
+// returns env values, so this reads our encrypted mirror (envstore) — only keys
+// set through the panel/migration are revealable.
+app.get(
+  "/api/services/:id/envs/reveal",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const value = envstore.revealEnv(req.params.id, String(req.query.key || ""));
+    return { revealable: value != null, value: value ?? null };
   })
 );
 

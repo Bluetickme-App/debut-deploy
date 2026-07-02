@@ -588,6 +588,43 @@ function EnvironmentTab({ serviceId, onDeploy }) {
     setSaveMsg(null);
   }
 
+  // Reveal a secret's value. Coolify's API never returns values, so the list ships
+  // secrets blank + revealable; fetch the plaintext from our encrypted store on the
+  // first reveal, drop it into the row, and rebaseline so viewing ≠ editing.
+  async function toggleReveal(e) {
+    const willShow = !shown[e.uuid];
+    if (willShow && (e.value ?? "") === "" && e.revealable && !String(e.uuid).startsWith("new-")) {
+      try {
+        const r = await api.revealEnv(serviceId, e.key);
+        if (r?.revealable && r.value != null) {
+          setEnvs((rows) => rows.map((x) => (x.uuid === e.uuid ? { ...x, value: r.value } : x)));
+          setBaseline((b) => ({ ...b, [e.uuid]: `${e.key}\0${r.value}` }));
+        }
+      } catch { /* leave blank on failure */ }
+    }
+    setShown((s) => ({ ...s, [e.uuid]: willShow }));
+  }
+
+  // Reveal every secret at once: fetch each blank+revealable value, rebaseline, show all.
+  async function revealAll() {
+    const secrets = (envs || []).filter((e) => e.is_secret);
+    const toFetch = secrets.filter((e) => (e.value ?? "") === "" && e.revealable && !String(e.uuid).startsWith("new-"));
+    const results = await Promise.all(
+      toFetch.map((e) => api.revealEnv(serviceId, e.key).then((r) => ({ e, r })).catch(() => null))
+    );
+    const vals = {};
+    for (const it of results) if (it?.r?.revealable && it.r.value != null) vals[it.e.uuid] = it.r.value;
+    if (Object.keys(vals).length) {
+      setEnvs((rows) => rows.map((x) => (vals[x.uuid] != null ? { ...x, value: vals[x.uuid] } : x)));
+      setBaseline((b) => {
+        const n = { ...b };
+        for (const e of secrets) if (vals[e.uuid] != null) n[e.uuid] = `${e.key}\0${vals[e.uuid]}`;
+        return n;
+      });
+    }
+    setShown(Object.fromEntries(secrets.map((e) => [e.uuid, true])));
+  }
+
   async function remove(envId) {
     setEnvs((e) => e.filter((x) => x.uuid !== envId));
     if (!String(envId).startsWith("new-")) api.deleteEnv(serviceId, envId).catch(() => {});
@@ -693,7 +730,7 @@ function EnvironmentTab({ serviceId, onDeploy }) {
             return (
               <Button
                 variant="secondary"
-                onClick={() => setShown(anyShown ? {} : Object.fromEntries((envs || []).filter((e) => e.is_secret).map((e) => [e.uuid, true])))}
+                onClick={() => (anyShown ? setShown({}) : revealAll())}
               >
                 {anyShown ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 {anyShown ? "Hide values" : "Reveal values"}
@@ -823,7 +860,7 @@ function EnvironmentTab({ serviceId, onDeploy }) {
                 {secret && (
                   <button
                     type="button"
-                    onClick={() => setShown((s) => ({ ...s, [e.uuid]: !s[e.uuid] }))}
+                    onClick={() => toggleReveal(e)}
                     title={maskValue ? "Reveal value" : "Hide value"}
                     className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md transition-colors"
                     style={{ color: "var(--text-muted)", background: "transparent" }}
