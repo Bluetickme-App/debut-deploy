@@ -16,6 +16,10 @@ import { assign } from "./ownership.js";
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
 // so a value like "--foo" can't smuggle flags into pg_dump (argument injection).
+// Surface Coolify/Render validation bodies (err.detail) so a 4xx step says WHY it
+// failed, not just the bare status — e.g. "git_branch field is required" vs "→ 422".
+const errDetail = (err) => (err.detail ? `${err.message} — ${String(err.detail).slice(0, 400)}` : err.message);
+
 export function assertPgUrl(url) {
   if (typeof url !== "string" || !/^postgres(ql)?:\/\//i.test(url)) {
     throw Object.assign(new Error("Invalid Postgres connection URL"), { status: 400 });
@@ -71,7 +75,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     ]);
     steps.push({ step: "read-render", status: "ok", detail: { name: service.name } });
   } catch (err) {
-    steps.push({ step: "read-render", status: "error", detail: err.message });
+    steps.push({ step: "read-render", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
   }
 
@@ -92,7 +96,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     }
     steps.push({ step: "resolve-server", status: "ok", detail: { serverUuid } });
   } catch (err) {
-    steps.push({ step: "resolve-server", status: "error", detail: err.message });
+    steps.push({ step: "resolve-server", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
   }
 
@@ -104,7 +108,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     ({ uuid: keyUuid } = await d.ensureAccountKey());
     steps.push({ step: "resolve-key", status: "ok", detail: null });
   } catch (err) {
-    steps.push({ step: "resolve-key", status: "error", detail: err.message });
+    steps.push({ step: "resolve-key", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
   }
 
@@ -112,11 +116,14 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   // targets the freshly provisioned server; shared uses the default host.
   let appUuid;
   try {
+    // Render normalises a missing repo/branch to "" (not undefined), which defeats
+    // createDeployKeyApp's default params — an empty git_branch 422s at Coolify.
+    if (!service.repo) throw Object.assign(new Error("Render service has no git repository to migrate (image-based services aren't supported)"), { status: 422 });
     const dedicated = target.mode === "dedicated";
     const { uuid } = await d.createDeployKeyApp({
       keyUuid,
       repo: d.toSshUrl(service.repo),
-      branch: service.branch,
+      branch: service.branch || "main",
       name: service.name,
       port,
       buildCommand: service.buildCommand,
@@ -126,7 +133,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     appUuid = uuid;
     steps.push({ step: "create-app", status: "ok", detail: { appUuid } });
   } catch (err) {
-    steps.push({ step: "create-app", status: "error", detail: err.message });
+    steps.push({ step: "create-app", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
   }
 
@@ -155,7 +162,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       await d.upsertEnv(appUuid, { key: "DATABASE_URL", value: targetUrl, is_secret: true });
       steps.push({ step: "migrate-db", status: "ok", detail: null });
     } catch (err) {
-      steps.push({ step: "migrate-db", status: "error", detail: err.message });
+      steps.push({ step: "migrate-db", status: "error", detail: errDetail(err) });
       return { ok: false, appUuid: null, steps };
     }
   } else {
@@ -176,7 +183,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     }
     steps.push({ step: "push-env", status: "ok", detail: { count: envVars.length } });
   } catch (err) {
-    steps.push({ step: "push-env", status: "error", detail: err.message });
+    steps.push({ step: "push-env", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
   }
 
@@ -185,7 +192,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     await d.deployService(appUuid);
     steps.push({ step: "deploy", status: "ok", detail: null });
   } catch (err) {
-    steps.push({ step: "deploy", status: "error", detail: err.message });
+    steps.push({ step: "deploy", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
   }
 
@@ -194,7 +201,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     d.assign(appUuid, "application", userId);
     steps.push({ step: "assign-ownership", status: "ok", detail: null });
   } catch (err) {
-    steps.push({ step: "assign-ownership", status: "error", detail: err.message });
+    steps.push({ step: "assign-ownership", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
   }
 
