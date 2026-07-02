@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -24,6 +24,7 @@ import Team from "./pages/Team.jsx";
 import Clients from "./pages/Clients.jsx";
 import NewServiceGit from "./pages/NewServiceGit.jsx";
 import Billing from "./pages/Billing.jsx";
+import WalletPage from "./pages/Wallet.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
@@ -211,6 +212,10 @@ function Sidebar({ drawerOpen, onClose }) {
           <HoverNavLink to="/team"><Users size={18} /><span>Team</span></HoverNavLink>
         )}
 
+        {user?.orgRole && (
+          <HoverNavLink to="/wallet"><Wallet size={18} /><span>Wallet</span></HoverNavLink>
+        )}
+
         {user?.role === "admin" && (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 10px 6px" }}>
@@ -255,6 +260,7 @@ const CRUMB_MAP = {
   "/clients": "Clients",
   "/new-git": "Deploy from Git",
   "/billing": "Billing & Plans",
+  "/wallet": "Wallet",
 };
 
 function Topbar({ onMenuClick }) {
@@ -486,6 +492,7 @@ function AppShell() {
             <Route path="/clients" element={<Clients />} />
             <Route path="/new-git" element={<NewServiceGit />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/wallet" element={<WalletPage />} />
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
