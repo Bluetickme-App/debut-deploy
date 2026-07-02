@@ -159,6 +159,14 @@ export async function listDatabases() {
   return (Array.isArray(dbs) ? dbs : []).map(mapDb);
 }
 
+// Connection URL for a Coolify database by uuid — the migration restore target.
+// ponytail: // VERIFY LIVE — Coolify DB URL field names vary by version.
+export async function resolveDbUrl(uuid) {
+  if (isDemo()) return `postgres://demo:demo@demo-db.internal:5432/${uuid}`;
+  const db = await cf(`/databases/${encodeURIComponent(uuid)}`);
+  return db?.internal_db_url || db?.postgres_url || db?.external_db_url || null;
+}
+
 export async function listServers() {
   if (isDemo()) return fx.servers;
   const servers = await cf("/servers");

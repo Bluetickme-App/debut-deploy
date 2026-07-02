@@ -1,15 +1,20 @@
 // Render → DebutDeploy import orchestrator.
 // Returns a structured report; never throws — callers get ok:false on failure.
 
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { getService, getEnvVars, getConnectionInfo } from "./render.js";
 import { provisionServer } from "./provision.js";
 import { createDeployKeyApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import {
   getDefaultDestination,
+  resolveDbUrl,
   upsertEnv,
   deployService,
 } from "./coolify.js";
 import { assign } from "./ownership.js";
+
+const execFileP = promisify(execFile);
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
 // so a value like "--foo" can't smuggle flags into pg_dump (argument injection).
@@ -20,20 +25,32 @@ export function assertPgUrl(url) {
   return url;
 }
 
-// ponytail: local helper — overridable via deps for tests
-async function migratePostgres({ renderConn }) {
+// Real Postgres migration: dump the Render source and load it into the chosen
+// Coolify target using a pinned postgres:18 container (version-matches Render's
+// PG18, so no host pg tooling is needed). BOTH URLs are validated by assertPgUrl
+// and passed via ENV — never argv — so a value can't smuggle flags into the
+// command. Requires the Docker socket reachable by this process. Overridable via
+// deps for tests. // VERIFY LIVE: network name + Coolify DB URL field.
+async function migratePostgres({ source, target, _exec = execFileP }) {
   if (process.env.DEMO_MODE === "true") return { ok: true, note: "demo-skip" };
-  // Validate the source URL (also keeps assertPgUrl's argument-injection guard live).
-  assertPgUrl(renderConn);
-  // The previous live path restored to a hardcoded postgres://localhost/target and
-  // then wrote the SOURCE renderConn back as DATABASE_URL — i.e. it would wire the
-  // new app to Render's DB and restore nowhere useful. Fail loud rather than corrupt.
-  // TODO live: provision a Coolify Postgres → `pg_dump <source> | pg_restore` into it →
-  //   set DATABASE_URL to the COOLIFY db's connection string (never the Render source).
-  throw Object.assign(
-    new Error("Live Postgres migration not yet implemented: needs a Coolify-provisioned target DB + restore wiring"),
-    { status: 501 }
-  );
+  assertPgUrl(source);
+  assertPgUrl(target);
+  const net = process.env.PG_MIGRATE_DOCKER_NETWORK || "coolify";
+  try {
+    await _exec(
+      "docker",
+      ["run", "--rm", "--network", net, "-e", "SRC", "-e", "TGT", "postgres:18",
+       "sh", "-c", 'pg_dump --no-owner --no-privileges "$SRC" | psql -v ON_ERROR_STOP=1 "$TGT"'],
+      { env: { ...process.env, SRC: source, TGT: target }, maxBuffer: 64 * 1024 * 1024 }
+    );
+    return { ok: true };
+  } catch (err) {
+    const missing = /ENOENT|not found|Cannot connect to the Docker daemon/i.test(`${err.message}${err.stderr || ""}`);
+    const hint = missing
+      ? " — Docker CLI/socket not available to the server; mount /var/run/docker.sock and ensure docker is in the container"
+      : "";
+    throw Object.assign(new Error(`Postgres migration failed${hint}: ${String(err.stderr || err.message).slice(-400)}`), { status: 500 });
+  }
 }
 
 export async function importFromRender({ renderServiceId, target, userId, apiKey, deps = {} }) {
@@ -47,6 +64,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     toSshUrl,
     createDeployKeyApp,
     getDefaultDestination,
+    resolveDbUrl,
     upsertEnv,
     deployService,
     assign,
@@ -119,12 +137,22 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   }
 
 
-  // Step 5 — migrate database (optional)
+  // Step 5 — migrate database (optional). dbTarget picks/reuses the Coolify target.
+  const dbTarget = target.dbTarget || { mode: "none" };
   const datastoreId = service.datastoreId || target.datastoreId;
-  if (datastoreId) {
+  if (datastoreId && dbTarget.mode && dbTarget.mode !== "none") {
     try {
-      const renderConn = await d.getConnectionInfo(datastoreId, apiKey);
-      await d.migratePostgres({ renderConn, appUuid, _upsertEnv: d.upsertEnv });
+      const source = await d.getConnectionInfo(datastoreId, apiKey);
+      let targetUrl;
+      if (dbTarget.mode === "existing") {
+        targetUrl = await d.resolveDbUrl(dbTarget.uuid);
+      } else {
+        throw Object.assign(new Error(`Unsupported dbTarget mode "${dbTarget.mode}" — pick an existing Coolify database`), { status: 400 });
+      }
+      if (!targetUrl) throw Object.assign(new Error("Could not resolve the target database connection URL"), { status: 404 });
+      await d.migratePostgres({ source, target: targetUrl });
+      // Wire the migrated app at the COOLIFY target — never the Render source.
+      await d.upsertEnv(appUuid, { key: "DATABASE_URL", value: targetUrl, is_secret: true });
       steps.push({ step: "migrate-db", status: "ok", detail: null });
     } catch (err) {
       steps.push({ step: "migrate-db", status: "error", detail: err.message });

@@ -94,3 +94,32 @@ test("(c) steps includes read-render and deploy", async () => {
   assert.ok(names.includes("read-render"), "steps should include read-render");
   assert.ok(names.includes("deploy"), "steps should include deploy");
 });
+
+test("(d) dbTarget existing → migrate-db runs, resolves target, wires DATABASE_URL to the target", async () => {
+  let migrateArgs = null, dbUrlSet = null;
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "shared", datastoreId: "ds-1", dbTarget: { mode: "existing", uuid: "cool-db-1" } },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      getConnectionInfo: async () => "postgres://render:pw@ext:5432/app",
+      resolveDbUrl: async (uuid) => `postgres://cool:pw@db-${uuid}.internal:5432/app`,
+      migratePostgres: async ({ source, target }) => { migrateArgs = { source, target }; return { ok: true }; },
+      upsertEnv: async (_uuid, { key, value }) => { if (key === "DATABASE_URL") dbUrlSet = value; },
+    },
+  });
+  assert.equal(result.steps.find((s) => s.step === "migrate-db").status, "ok");
+  assert.equal(migrateArgs.source, "postgres://render:pw@ext:5432/app");
+  assert.equal(migrateArgs.target, "postgres://cool:pw@db-cool-db-1.internal:5432/app");
+  assert.equal(dbUrlSet, "postgres://cool:pw@db-cool-db-1.internal:5432/app", "DATABASE_URL must point at the Coolify target, never the Render source");
+});
+
+test("(e) dbTarget none → migrate-db skipped even when a datastore exists", async () => {
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "shared", datastoreId: "ds-1", dbTarget: { mode: "none" } },
+    userId: 1, apiKey: "x", deps: baseDeps,
+  });
+  assert.equal(result.steps.find((s) => s.step === "migrate-db").status, "skipped");
+});

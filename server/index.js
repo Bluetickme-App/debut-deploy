@@ -988,10 +988,44 @@ app.post(
         { status: 403 }
       );
     }
+    // Migrating INTO an existing Coolify DB reads its credentials and pg_restores
+    // over it — the caller must own that database (admins bypass in assertOwns).
+    if (target?.dbTarget?.mode === "existing") {
+      assertOwns(req.user, "database", target.dbTarget.uuid);
+    }
     const result = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
     // audit without the apiKey
     record(req, "import.render", { metadata: { renderServiceId, target } });
     return result;
+  })
+);
+
+// Migrate MULTIPLE selected services of a Render project in one pass, sharing one
+// database target. Same admin gate as single import for dedicated infra.
+app.post(
+  "/api/import/render/project",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    const { services, target, apiKey } = req.body || {};
+    if (!Array.isArray(services) || services.length === 0) {
+      throw Object.assign(new Error("services (array of Render service ids) is required"), { status: 400 });
+    }
+    if (target?.mode !== "shared" && req.user.role !== "admin") {
+      throw Object.assign(new Error("Admin role required to import onto dedicated/provisioned infrastructure"), { status: 403 });
+    }
+    // Same DB-ownership gate as the single-service route: restoring into an
+    // existing Coolify DB exposes its creds + overwrites it, so require ownership.
+    if (target?.dbTarget?.mode === "existing") {
+      assertOwns(req.user, "database", target.dbTarget.uuid);
+    }
+    const results = [];
+    for (const renderServiceId of services) {
+      const r = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
+      results.push({ renderServiceId, ok: r.ok, appUuid: r.appUuid, steps: r.steps });
+    }
+    record(req, "import.render.project", { metadata: { count: services.length, target } });
+    return { results };
   })
 );
 
