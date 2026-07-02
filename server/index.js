@@ -306,6 +306,16 @@ app.get(
   h(async (req) => filterByOwnership(await coolify.listDatabases(), req.user, "database"))
 );
 
+// Full detail for one database (Render-style DB page). Owner-scoped (admin bypasses).
+app.get(
+  "/api/databases/:uuid",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.uuid);
+    return coolify.getDatabase(req.params.uuid);
+  })
+);
+
 app.post(
   "/api/databases",
   requireAuth,

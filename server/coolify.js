@@ -167,6 +167,42 @@ export async function resolveDbUrl(uuid) {
   return db?.internal_db_url || db?.postgres_url || db?.external_db_url || null;
 }
 
+// Full detail for one Coolify database — powers the Render-style DB detail page.
+// Coolify's /databases/{uuid} exposes name/image/status/ssl/limits/postgres_* but
+// NOT the password or a ready connection URL, so we surface what's available.
+function mapDbDetail(d) {
+  const version = (d.image || "").match(/:(\d+)/)?.[1] || d.version || "";
+  const status = d.status?.split(":") || [];
+  return {
+    uuid: d.uuid,
+    name: d.name,
+    type: (d.database_type || d.type || "postgresql").replace("standalone-", ""),
+    version,
+    image: d.image || null,
+    status: status[0] || "unknown",
+    health: status[1] || "",
+    ssl: !!d.enable_ssl,
+    sslMode: d.ssl_mode || null,
+    server: d.destination?.server?.name || d.destination?.name || null,
+    createdAt: d.created_at || null,
+    lastOnlineAt: d.last_online_at || null,
+    postgresDb: d.postgres_db || null,
+    postgresUser: d.postgres_user || null,
+    host: d.uuid,
+    port: d.public_port || 5432,
+    isPublic: !!d.is_public,
+    limits: { cpus: d.limits_cpus ?? null, memory: d.limits_memory ?? null, cpuShares: d.limits_cpu_shares ?? null },
+    healthCheck: { enabled: !!d.health_check_enabled, interval: d.health_check_interval ?? null },
+    // No password in the API response; internal URL shown without it (host is the container name).
+    internalUrl: d.internal_db_url || (d.postgres_user ? `postgresql://${d.postgres_user}@${d.uuid}:5432/${d.postgres_db || "postgres"}` : null),
+  };
+}
+
+export async function getDatabase(uuid) {
+  if (isDemo()) return fx.databases.find((d) => d.uuid === uuid) || null;
+  return mapDbDetail(await cf(`/databases/${encodeURIComponent(uuid)}`));
+}
+
 export async function listServers() {
   if (isDemo()) return fx.servers;
   const servers = await cf("/servers");

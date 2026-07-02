@@ -129,7 +129,15 @@ export default function Databases() {
                 {/* Name + type badge */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold" style={{ color: "var(--text)" }}>{d.name}</span>
+                    <Link
+                      to={`/databases/${d.uuid}`}
+                      className="font-semibold transition-colors"
+                      style={{ color: "var(--text)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-text)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text)")}
+                    >
+                      {d.name}
+                    </Link>
                     <span className="pill pill-muted text-[10px] uppercase tracking-wider">
                       {DB_LABEL[d.type] || d.type}{d.version ? ` ${d.version}` : ""}
                     </span>

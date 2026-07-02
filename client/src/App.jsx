@@ -9,6 +9,7 @@ import { api } from "./lib/api.js";
 import Dashboard from "./pages/Dashboard.jsx";
 import ServiceDetail from "./pages/ServiceDetail.jsx";
 import Databases from "./pages/Databases.jsx";
+import DatabaseDetail from "./pages/DatabaseDetail.jsx";
 import NewService from "./pages/NewService.jsx";
 import NewDatabase from "./pages/NewDatabase.jsx";
 import Activity from "./pages/Activity.jsx";
@@ -271,6 +272,7 @@ function Topbar({ onMenuClick }) {
 
   const crumb = CRUMB_MAP[location.pathname] ??
     (location.pathname.startsWith("/services/") ? "Service Detail" :
+     location.pathname.startsWith("/databases/") ? "Database" :
      location.pathname.startsWith("/projects/") ? "Project Detail" : "");
 
   const isLive = mode === "live";
@@ -464,6 +466,7 @@ function AppShell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
             <Route path="/databases" element={<Databases />} />
+            <Route path="/databases/:uuid" element={<DatabaseDetail />} />
             <Route path="/new" element={<NewService />} />
             <Route path="/new-database" element={<NewDatabase />} />
             <Route path="/activity" element={<Activity />} />
