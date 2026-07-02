@@ -4,7 +4,11 @@ import { db } from "./db.js";
 import net from "node:net";
 import dns from "node:dns";
 
-const DEFAULT = (userId) => ({ user_id: userId, webhook_url: null, enabled: 0 });
+// Catalog of subscribable event types. A null/empty subscription = receive ALL
+// (back-compat with settings saved before event filtering existed).
+export const EVENT_TYPES = ["deploy.started", "deploy.succeeded", "deploy.failed", "service.down", "service.up"];
+
+const DEFAULT = (userId) => ({ user_id: userId, webhook_url: null, enabled: 0, events: null });
 
 const bad = (msg) => Object.assign(new Error(msg), { status: 400 });
 
@@ -81,15 +85,23 @@ async function assertPublicWebhook(rawUrl, { lookup = dns.promises.lookup } = {}
 // --- settings ----------------------------------------------------------------
 
 export function getNotificationSettings(userId) {
-  return db.prepare("SELECT * FROM notification_settings WHERE user_id = ?").get(userId) ?? DEFAULT(userId);
+  const row = db.prepare("SELECT * FROM notification_settings WHERE user_id = ?").get(userId);
+  if (!row) return DEFAULT(userId);
+  let events = null;
+  try { events = row.events ? JSON.parse(row.events) : null; } catch { events = null; }
+  return { ...row, events: Array.isArray(events) ? events : null };
 }
 
-export function setNotificationSettings({ userId, webhookUrl, enabled }) {
+export function setNotificationSettings({ userId, webhookUrl, enabled, events }) {
   if (enabled) assertStructurallyValid(webhookUrl); // throws 400 on bad/private literal
+  // null = subscribe to all; otherwise store only recognised event types.
+  const eventsJson = Array.isArray(events) && events.length
+    ? JSON.stringify(events.filter((e) => EVENT_TYPES.includes(e)))
+    : null;
   db.prepare(
-    "INSERT INTO notification_settings (user_id, webhook_url, enabled, created_at) VALUES (?,?,?,?) " +
-    "ON CONFLICT(user_id) DO UPDATE SET webhook_url = excluded.webhook_url, enabled = excluded.enabled, created_at = excluded.created_at"
-  ).run(userId, webhookUrl ?? null, enabled ? 1 : 0, new Date().toISOString());
+    "INSERT INTO notification_settings (user_id, webhook_url, enabled, events, created_at) VALUES (?,?,?,?,?) " +
+    "ON CONFLICT(user_id) DO UPDATE SET webhook_url = excluded.webhook_url, enabled = excluded.enabled, events = excluded.events, created_at = excluded.created_at"
+  ).run(userId, webhookUrl ?? null, enabled ? 1 : 0, eventsJson, new Date().toISOString());
   return getNotificationSettings(userId);
 }
 
@@ -98,6 +110,10 @@ export function setNotificationSettings({ userId, webhookUrl, enabled }) {
 export async function notify({ userId, event }, { httpClient = fetch, lookup } = {}) {
   const settings = getNotificationSettings(userId);
   if (!settings.enabled || !settings.webhook_url) return { sent: false, reason: "disabled" };
+
+  // Event-type subscription: null/empty = all; otherwise only subscribed types.
+  const subs = Array.isArray(settings.events) && settings.events.length ? settings.events : null;
+  if (subs && !subs.includes(event.type)) return { sent: false, reason: "unsubscribed" };
 
   // SSRF guard before any network call.
   try {

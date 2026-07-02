@@ -114,6 +114,10 @@ const MIGRATIONS = [
       );
     `);
   },
+  // -> user_version 7: which event types a webhook subscribes to (JSON array; null = all)
+  (d) => {
+    d.exec(`ALTER TABLE notification_settings ADD COLUMN events TEXT`);
+  },
 ];
 
 function resolveDbFile() {

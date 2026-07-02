@@ -31,7 +31,7 @@ import {
 } from "./db.js";
 import { record, recordSystem } from "./audit.js";
 import { listEvents, listEventsForResource } from "./events.js";
-import { getNotificationSettings, setNotificationSettings, notify } from "./notifications.js";
+import { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } from "./notifications.js";
 import { runHealthCheck } from "./monitor.js";
 import * as dns from "./dns.js";
 import * as resources from "./resources.js";
@@ -185,6 +185,34 @@ app.get(
   })
 );
 
+// Notify a resource's OWNER (not the actor) of an event — fire-and-forget.
+function notifyOwner(uuid, event) {
+  const owner = db.prepare("SELECT user_id FROM resource_ownership WHERE coolify_uuid = ?").get(uuid);
+  if (owner?.user_id) notify({ userId: owner.user_id, event: { ...event, resource_uuid: event.resource_uuid ?? uuid } }).catch(() => {});
+}
+
+// Poll a deployment to a terminal state, then notify deploy.succeeded/failed.
+// Fire-and-forget; off in demo/test. ponytail: short bounded poll (~5min), not a queue.
+async function watchDeploy(serviceUuid, deploymentUuid) {
+  if (demoMode || process.env.NODE_ENV === "test") return;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let i = 0; i < 20; i++) {
+    await sleep(15_000);
+    let status;
+    try {
+      const deps = await coolify.listDeployments(serviceUuid);
+      status = (Array.isArray(deps) ? deps : []).find((d) => d.uuid === deploymentUuid)?.status;
+    } catch { continue; }
+    if (!status) continue;
+    if (["finished", "success", "successful"].includes(status)) {
+      return notifyOwner(serviceUuid, { type: "deploy.succeeded", message: "Deploy succeeded" });
+    }
+    if (["failed", "error", "cancelled", "canceled"].includes(status)) {
+      return notifyOwner(serviceUuid, { type: "deploy.failed", message: `Deploy ${status}` });
+    }
+  }
+}
+
 app.post(
   "/api/services/:id/deploy",
   requireAuth,
@@ -192,7 +220,11 @@ app.post(
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, "deploy", { resourceType: "application", resourceUuid: req.params.id });
-    return coolify.deployService(req.params.id);
+    const result = await coolify.deployService(req.params.id);
+    notifyOwner(req.params.id, { type: "deploy.started", message: "Deploy triggered" });
+    const depUuid = result?.deployments?.[0]?.deployment_uuid;
+    if (depUuid) watchDeploy(req.params.id, depUuid); // → deploy.succeeded/failed
+    return result;
   })
 );
 
@@ -1057,11 +1089,12 @@ app.get(
   })
 );
 
-// --- notification settings ---
+// --- notification / webhook settings ---
 app.get(
   "/api/notifications",
   requireAuth,
-  h((req) => getNotificationSettings(req.user.id))
+  // Include the event catalog so the Webhooks UI can render the event checkboxes.
+  h((req) => ({ ...getNotificationSettings(req.user.id), catalog: EVENT_TYPES }))
 );
 
 app.put(
@@ -1069,10 +1102,10 @@ app.put(
   requireAuth,
   mutateGuard,
   h((req) => {
-    const { webhookUrl, enabled } = req.body || {};
-    const saved = setNotificationSettings({ userId: req.user.id, webhookUrl, enabled });
-    record(req, "notification.update", { metadata: { enabled: !!enabled } });
-    return saved;
+    const { webhookUrl, enabled, events } = req.body || {};
+    const saved = setNotificationSettings({ userId: req.user.id, webhookUrl, enabled, events });
+    record(req, "notification.update", { metadata: { enabled: !!enabled, events: saved.events } });
+    return { ...saved, catalog: EVENT_TYPES };
   })
 );
 

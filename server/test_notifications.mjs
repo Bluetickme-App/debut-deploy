@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const { db, seedUser } = await import("./db.js");
-const { getNotificationSettings, setNotificationSettings, notify } = await import("./notifications.js");
+const { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } = await import("./notifications.js");
 
 // (a) set then get round-trips correctly
 test("setNotificationSettings persists and getNotificationSettings returns it", () => {
@@ -82,4 +82,27 @@ test("notify() blocks webhook host resolving to a private IP (SSRF)", async () =
   );
   assert.deepEqual(result, { sent: false, reason: "blocked" });
   assert.equal(called, false, "must not POST to a private target");
+});
+
+// (h) event subscription: only subscribed types are sent
+test("notify() respects the event-type subscription", async () => {
+  const user = seedUser({ email: "subs@x.com", role: "customer" });
+  setNotificationSettings({ userId: user.id, webhookUrl: "https://hooks.example.com/s", enabled: 1, events: ["deploy.failed"] });
+  const pub = async () => [{ address: "93.184.216.34" }];
+  let calls = 0;
+  const client = async () => { calls++; return { status: 200 }; };
+  assert.deepEqual(await notify({ userId: user.id, event: { type: "deploy.succeeded" } }, { httpClient: client, lookup: pub }), { sent: false, reason: "unsubscribed" });
+  assert.deepEqual(await notify({ userId: user.id, event: { type: "deploy.failed" } }, { httpClient: client, lookup: pub }), { sent: true });
+  assert.equal(calls, 1, "only the subscribed event should POST");
+});
+
+// (i) events round-trip; unknown types filtered; empty = null (subscribe all)
+test("events subscription round-trips and filters unknown types", () => {
+  const user = seedUser({ email: "subs2@x.com", role: "customer" });
+  const saved = setNotificationSettings({ userId: user.id, webhookUrl: "https://hooks.example.com/e", enabled: 1, events: ["deploy.failed", "bogus.event", "service.down"] });
+  assert.deepEqual(saved.events, ["deploy.failed", "service.down"], "unknown types dropped");
+  assert.deepEqual(getNotificationSettings(user.id).events, ["deploy.failed", "service.down"]);
+  assert.ok(EVENT_TYPES.includes("deploy.succeeded"));
+  const all = setNotificationSettings({ userId: user.id, webhookUrl: "https://hooks.example.com/e", enabled: 1, events: [] });
+  assert.equal(all.events, null, "empty selection = subscribe to all");
 });
