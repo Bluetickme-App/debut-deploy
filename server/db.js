@@ -204,6 +204,37 @@ const MIGRATIONS = [
       throw new Error(`migration 10 backfill incomplete: ${noMem} users without org, ${nullOrg} ownership rows without org`);
     }
   },
+  // -> user_version 11: org billing columns, credit ledger, resource plan_id
+  (d) => {
+    d.exec(`
+      ALTER TABLE organizations ADD COLUMN stripe_customer_id TEXT;   -- cus_…, nullable until first top-up
+      ALTER TABLE organizations ADD COLUMN billing_status TEXT NOT NULL DEFAULT 'ok'
+                                 CHECK(billing_status IN ('ok','arrears'));
+
+      -- Append-only wallet ledger. balance = SUM(amount_pence). topup/refund rows
+      -- are positive; hardware_charge/usage/adjustment rows may be negative.
+      CREATE TABLE credit_ledger (
+        id                       INTEGER PRIMARY KEY,
+        org_id                   INTEGER NOT NULL REFERENCES organizations(id),
+        amount_pence             INTEGER NOT NULL,        -- signed; GBP minor units
+        type                     TEXT NOT NULL CHECK(type IN ('topup','hardware_charge','usage','refund','adjustment')),
+        stripe_session_id        TEXT UNIQUE,             -- checkout.session.id; idempotency guard
+        stripe_payment_intent_id TEXT UNIQUE,             -- pi_…; idempotency guard (unused in prepaid-only MVP; kept for refunds)
+        period                   TEXT,                    -- 'YYYY-MM' for hardware_charge/usage; null otherwise
+        notes                    TEXT,
+        created_at               TEXT NOT NULL
+      );
+      CREATE INDEX idx_credit_ledger_org ON credit_ledger(org_id, created_at);
+
+      -- Lets the monthly charge be computed without calling Coolify. NULL → £0 until set.
+      ALTER TABLE resource_ownership ADD COLUMN plan_id TEXT;
+    `);
+
+    // Validation — throw (rolls back the migration transaction) if the ALTERs didn't apply.
+    d.prepare("SELECT COUNT(*) FROM credit_ledger").get(); // table exists, 0 rows is fine
+    const bad = d.prepare("SELECT COUNT(*) c FROM organizations WHERE billing_status NOT IN ('ok','arrears')").get().c;
+    if (bad) throw new Error(`migration 11: ${bad} orgs with invalid billing_status`);
+  },
 ];
 
 function resolveDbFile() {
