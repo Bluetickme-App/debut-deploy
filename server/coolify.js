@@ -141,13 +141,15 @@ export async function listEnvs(uuid) {
 
 export async function upsertEnv(uuid, { key, value, is_secret }) {
   if (isDemo()) return { uuid: "demo-" + key, key, value, is_secret: !!is_secret };
-  // Coolify's env POST rejects is_secret ("This field is not allowed", 422) — omit
-  // it (verified live). Values are stored regardless; the flag is Coolify-side only.
+  // Use the BULK endpoint — it upserts by key. Plain POST /envs 409s when the key
+  // already exists (that was the "Save" failure); bulk create-or-updates cleanly.
+  // is_secret is omitted (Coolify's env endpoint rejects it — 422).
   void is_secret;
-  return cf(`/applications/${uuid}/envs`, {
-    method: "POST",
-    body: { key, value, is_preview: false },
+  await cf(`/applications/${uuid}/envs/bulk`, {
+    method: "PATCH",
+    body: { data: [{ key, value, is_preview: false, is_literal: true }] },
   });
+  return { ok: true, key };
 }
 
 export async function deleteEnv(uuid, envUuid) {

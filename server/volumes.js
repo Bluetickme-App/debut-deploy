@@ -15,6 +15,6 @@ export async function addVolume(appUuid, { mountPath } = {}) {
   return coolifydb.addServiceVolume(appUuid, { mountPath: mountPath.trim() });
 }
 
-export async function deleteVolume(_appUuid, volumeUuid) {
-  return coolifydb.deleteServiceVolume(volumeUuid);
+export async function deleteVolume(appUuid, volumeUuid) {
+  return coolifydb.deleteServiceVolume(appUuid, volumeUuid);
 }

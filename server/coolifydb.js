@@ -48,10 +48,15 @@ export async function addServiceVolume(appUuid, { mountPath }) {
   return { uuid: volUuid, name, mountPath: mp };
 }
 
-export async function deleteServiceVolume(volUuid) {
+// Delete a volume, constrained to the given app — so a caller authorized against
+// their own app can't delete another app's volume by guessing its uuid (IDOR).
+export async function deleteServiceVolume(appUuid, volUuid) {
   if (DEMO) return { ok: true };
+  const u = String(appUuid).replace(/[^a-z0-9]/gi, "");
   const v = String(volUuid).replace(/[^A-Za-z0-9]/gi, "");
-  if (!v) throw Object.assign(new Error("volume uuid required"), { status: 400 });
-  await coolifySql(`DELETE FROM local_persistent_volumes WHERE uuid='${v}'`);
+  if (!u || !v) throw Object.assign(new Error("app + volume uuid required"), { status: 400 });
+  await coolifySql(
+    `DELETE FROM local_persistent_volumes WHERE uuid='${v}' AND resource_type='App\\Models\\Application' AND resource_id=(SELECT id FROM applications WHERE uuid='${u}')`
+  );
   return { ok: true };
 }

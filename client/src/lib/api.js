@@ -41,6 +41,10 @@ export const api = {
   envs: (id) => req(`/services/${id}/envs`),
   saveEnv: (id, body) => req(`/services/${id}/envs`, { method: "POST", body }),
   deleteEnv: (id, envId) => req(`/services/${id}/envs/${envId}`, { method: "DELETE" }),
+  // Persistent disks (redeploys the service)
+  serviceVolumes: (id) => req(`/services/${id}/volumes`),
+  addServiceVolume: (id, mountPath) => req(`/services/${id}/volumes`, { method: "POST", body: { mountPath } }),
+  deleteServiceVolume: (id, vid) => req(`/services/${id}/volumes/${vid}`, { method: "DELETE" }),
   databases: () => req("/databases"),
   database: (uuid) => req(`/databases/${uuid}`),
   renameDatabase: (uuid, name) => req(`/databases/${uuid}/rename`, { method: "PATCH", body: { name } }),

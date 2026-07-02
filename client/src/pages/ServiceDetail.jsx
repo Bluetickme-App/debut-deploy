@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
   Trash2, Check, X, Eye, EyeOff, Copy, Lock, Plus, RefreshCw,
-  ChevronDown, KeyRound, FileText, Database,
+  ChevronDown, KeyRound, FileText, Database, HardDrive,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { actionLabel } from "../lib/eventLabels.js";
@@ -884,6 +884,7 @@ const NAV = [
   { id: "notifications", label: "Notifications" },
   { id: "log-stream", label: "Log Stream" },
   { id: "health", label: "Health Checks" },
+  { id: "disk", label: "Disk" },
   { id: "maintenance", label: "Maintenance Mode" },
   { id: "danger", label: "Delete or suspend" },
 ];
@@ -1207,6 +1208,9 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           </SettingsRow>
         </SettingsSection>
 
+        {/* 10b · Disk */}
+        <DiskSection serviceId={serviceId} />
+
         {/* 11 · Maintenance Mode */}
         <SettingsSection id="maintenance" title="Maintenance Mode">
           <SettingsRow label="Enable maintenance mode" desc="Serve a maintenance page instead of your service.">
@@ -1241,6 +1245,112 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
         <AnchorNav items={NAV} active={activeSection} onJump={jump} />
       </div>
     </div>
+  );
+}
+
+// ── Disk (persistent volumes) ───────────────────────────────────────────────────
+
+function DiskSection({ serviceId }) {
+  const [disks, setDisks] = useState(null);   // null = loading
+  const [err, setErr] = useState(null);
+  const [path, setPath] = useState("");
+  const [busy, setBusy] = useState(false);    // true while adding/removing (redeploying)
+
+  function load() {
+    setErr(null);
+    api.serviceVolumes(serviceId)
+      .then((d) => setDisks(Array.isArray(d) ? d : []))
+      .catch((e) => { setDisks([]); setErr(e.message || "Failed to load disks"); });
+  }
+  useEffect(load, [serviceId]);
+
+  const valid = path.trim().startsWith("/");
+
+  async function add() {
+    if (!valid || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      await api.addServiceVolume(serviceId, path.trim());
+      setPath("");
+      load();
+    } catch (e) {
+      setErr(e.message || "Failed to add disk");
+    } finally { setBusy(false); }
+  }
+
+  async function remove(vid) {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try {
+      await api.deleteServiceVolume(serviceId, vid);
+      load();
+    } catch (e) {
+      setErr(e.message || "Failed to remove disk");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <SettingsSection id="disk" title="Disk">
+      <SettingsRow label="Persistent disks" desc="Attach a persistent disk to keep filesystem data across deploys.">
+        <div className="flex flex-col gap-3">
+          <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+            Adding or removing a disk redeploys the service.
+          </p>
+
+          {busy && (
+            <p className="inline-flex items-center gap-2 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+              <Spinner /> Redeploying…
+            </p>
+          )}
+
+          {!disks && (
+            <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+              <Spinner className="mr-2 inline" /> Loading disks…
+            </p>
+          )}
+
+          {disks && disks.length === 0 && (
+            <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>No disks attached.</p>
+          )}
+
+          {disks && disks.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {disks.map((d) => (
+                <div
+                  key={d.uuid}
+                  className="flex items-center gap-3 rounded-md border px-3 py-2"
+                  style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+                >
+                  <HardDrive className="h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
+                  <div className="min-w-0 flex-1">
+                    <Mono>{d.mountPath}</Mono>
+                    {d.name && <span className="ml-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>{d.name}</span>}
+                  </div>
+                  <Button variant="secondary" onClick={() => remove(d.uuid)} disabled={busy}>
+                    <Trash2 className="h-3.5 w-3.5" /> Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* add disk form */}
+          <div className="flex items-center gap-2">
+            <TextInput
+              mono
+              value={path}
+              onChange={setPath}
+              placeholder="/data"
+            />
+            <Button variant="primary" onClick={add} disabled={!valid || busy}>
+              {busy ? <Spinner /> : <Plus className="h-3.5 w-3.5" />} Add Disk
+            </Button>
+          </div>
+
+          {err && <p className="text-xs" style={{ color: "var(--err-text)" }}>{err}</p>}
+        </div>
+      </SettingsRow>
+    </SettingsSection>
   );
 }
 
