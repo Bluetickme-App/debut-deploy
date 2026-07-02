@@ -10,7 +10,7 @@ import * as githubApp from "./github-app.js";
 import * as databases from "./databases.js";
 import * as lifecycle from "./lifecycle.js";
 import { setupAuth } from "./auth.js";
-import { assertOwns, assign, ownedUuids } from "./ownership.js";
+import { assertOwns, assign, ownedUuids, release } from "./ownership.js";
 import {
   db,
   listUsers,
@@ -28,8 +28,27 @@ import {
   deleteApiToken,
   addUserInstallation,
   listUserInstallations,
+  getMembership,
+  listOrgMembers,
+  countOrgOwners,
+  setMemberRole,
+  removeMembership,
+  createInvite,
+  getValidInvite,
+  addMembership,
+  markInviteAccepted,
+  listPendingInvites,
+  deleteInvite,
+  listOrgsWithCounts,
+  getOrgDetail,
 } from "./db.js";
+import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
+import {
+  walletBalance, recentLedger, createTopupSession, handleWebhookEvent, stripeClient,
+  getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod,
+} from "./billing.js";
+import { planPriceUsd } from "./plans.js";
 import { listEvents, listEventsForResource } from "./events.js";
 import { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } from "./notifications.js";
 import { runHealthCheck } from "./monitor.js";
@@ -50,6 +69,7 @@ import { repoKey, verifyWebhookSig } from "./webhook.js";
 import { createRenderCredential, listRenderCredentials, getRenderCredential, deleteRenderCredential } from "./db.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
+import { meterResources, usageSummary } from "./metering.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -144,6 +164,24 @@ function mutateGuard(req, res, next) {
   next();
 }
 
+// Attach the caller's org context. Admin is cross-org (no membership required).
+function attachOrgContext(req, res, next) {
+  if (req.user?.role === "admin") { req.org = null; return next(); }
+  const m = req.user ? getMembership(req.user.id) : null;
+  if (!m) return res.status(403).json({ error: "No organization" });
+  req.org = { id: m.org_id, role: m.role };
+  next();
+}
+
+// Gate a route on a capability level. Must run AFTER attachOrgContext.
+function requireCapability(level) {
+  return (req, res, next) => {
+    if (req.user?.role === "admin") return next();
+    if (req.org && hasCapability(req.org.role, level)) return next();
+    return res.status(403).json({ error: "Insufficient permissions" });
+  };
+}
+
 function ownedList(user, type) {
   return user?.role === "admin" ? null : new Set(ownedUuids(user.id, type));
 }
@@ -166,13 +204,18 @@ app.get("/api/health", (_req, res) =>
   res.json({ ok: true, mode: demoMode ? "demo" : "live" })
 );
 
-app.get("/api/me", requireAuth, h((req) => ({
-  id: req.user.id,
-  email: req.user.email,
-  name: req.user.name,
-  avatar_url: req.user.avatar_url,
-  role: req.user.role,
-})));
+app.get("/api/me", requireAuth, h((req) => {
+  const m = req.user.role === "admin" ? null : getMembership(req.user.id);
+  return {
+    id: req.user.id,
+    email: req.user.email,
+    name: req.user.name,
+    avatar_url: req.user.avatar_url,
+    role: req.user.role,
+    orgId: m?.org_id ?? null,
+    orgRole: m?.role ?? null,
+  };
+}));
 
 // --- services ---
 app.get(
@@ -222,6 +265,8 @@ app.post(
   "/api/services/:id/deploy",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, "deploy", { resourceType: "application", resourceUuid: req.params.id });
@@ -237,6 +282,8 @@ app.post(
   "/api/services/:id/:action(start|stop|restart)",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, req.params.action, { resourceType: "application", resourceUuid: req.params.id });
@@ -264,6 +311,8 @@ app.patch(
   "/api/services/:id/rename",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const name = String(req.body?.name ?? "").trim();
@@ -348,6 +397,8 @@ app.post(
   "/api/services/:id/envs",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, "env_upsert", {
@@ -366,6 +417,8 @@ app.delete(
   "/api/services/:id/envs/:envId",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     record(req, "env_delete", { resourceType: "application", resourceUuid: req.params.id, metadata: { envId: req.params.envId } });
@@ -395,6 +448,8 @@ app.patch(
   "/api/databases/:uuid/rename",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.uuid);
     const name = String(req.body?.name ?? "").trim();
@@ -408,6 +463,8 @@ app.post(
   "/api/databases",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     const userId = req.user.id;
     const { type, name } = req.body || {};
@@ -416,6 +473,11 @@ app.post(
     // project could be stale in Coolify and 404 the create). Ownership via assign().
     const { uuid } = await databases.createDatabase({ type, name });
     assign(uuid, "database", userId);
+    const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
+    if (planId && planPriceUsd(planId) > 0) {
+      db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?")
+        .run(planId, "database", uuid);
+    }
     record(req, "db.create", { resourceType: "database", resourceUuid: uuid });
     return { uuid };
   })
@@ -425,6 +487,8 @@ app.post(
   "/api/databases/:id/:action(start|stop)",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     return req.params.action === "start"
@@ -437,9 +501,12 @@ app.delete(
   "/api/databases/:id",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     await databases.deleteDatabase(req.params.id);
+    release("database", req.params.id);
     record(req, "db.delete", { resourceType: "database", resourceUuid: req.params.id });
     return { ok: true };
   })
@@ -449,9 +516,12 @@ app.delete(
   "/api/services/:id",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     await lifecycle.deleteApp(req.params.id);
+    release("application", req.params.id);
     record(req, "app.delete", { resourceType: "application", resourceUuid: req.params.id });
     return { ok: true };
   })
@@ -470,6 +540,8 @@ app.post(
   "/api/services/:id/domain",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await lifecycle.setDomain(req.params.id, req.body?.fqdn);
@@ -502,26 +574,45 @@ app.get(
   h(() => listUsers())
 );
 
-// Customers/clients with a count of the resources each owns (admin view).
-app.get(
-  "/api/customers",
-  requireAuth,
-  requireAdmin,
-  h(() =>
-    listUsers().map((u) => ({
-      id: u.id,
-      email: u.email,
-      name: u.name,
-      role: u.role,
-      avatar_url: u.avatar_url ?? null,
-      created_at: u.created_at ?? null,
-      owned: {
-        applications: ownedUuids(u.id, "application").length,
-        databases: ownedUuids(u.id, "database").length,
-      },
-    }))
-  )
+// Master Admin: all client orgs with counts.
+app.get("/api/admin/orgs", requireAuth, requireAdmin, h(() => listOrgsWithCounts()));
+
+app.get("/api/admin/orgs/:id", requireAuth, requireAdmin, h((req) => {
+  const detail = getOrgDetail(Number(req.params.id));
+  if (!detail) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  return detail;
+}));
+
+// ponytail: legacy alias — Clients page will call /api/admin/orgs; keep one release.
+app.get("/api/customers", requireAuth, requireAdmin, h(() => listOrgsWithCounts()));
+
+// --- usage metering (read-only; produced by the health tick) ---
+app.get("/api/org/usage", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => {
+    // Admin has no single org; a targeted org must go through the admin route.
+    if (req.user.role === "admin") {
+      throw Object.assign(new Error("Use /api/admin/orgs/:id/usage"), { status: 400 });
+    }
+    const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
+    return usageSummary(req.org.id, period);
+  })
 );
+
+app.get("/api/org/usage/current", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => {
+    if (req.user.role === "admin") {
+      throw Object.assign(new Error("Use /api/admin/orgs/:id/usage"), { status: 400 });
+    }
+    return usageSummary(req.org.id, currentPeriod());
+  })
+);
+
+app.get("/api/admin/orgs/:id/usage", requireAuth, requireAdmin, h((req) => {
+  const detail = getOrgDetail(Number(req.params.id));
+  if (!detail) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
+  return usageSummary(Number(req.params.id), period, detail.org.name);
+}));
 
 // Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.
 app.get(
@@ -733,6 +824,33 @@ app.post("/github/webhook", async (req, res) => {
   }
 });
 
+// --- Stripe webhook: inbound Stripe call, no session/cookie ------------------
+// Outside requireAuth + mutateGuard, same as /github/webhook.
+// Signature-verified against the exact raw bytes (req.rawBody captured at the
+// express.json verify callback above). Without this check, forged webhooks
+// could credit wallets.
+app.post("/api/stripe/webhook", (req, res) => {
+  const stripe = stripeClient();
+  if (!stripe) return res.status(503).json({ error: "Stripe not configured" });
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody, req.get("stripe-signature"), process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    recordSystem("billing.webhook_bad_signature", { metadata: { error: err.message } });
+    return res.status(400).json({ error: "bad signature" });
+  }
+  try {
+    handleWebhookEvent(event); // idempotent credit (INSERT OR IGNORE) — safe to retry
+  } catch (err) {
+    // 500 so Stripe retries; handler is idempotent so a retry is always safe.
+    console.error("stripe webhook handler error:", err.message);
+    return res.status(500).json({ error: "handler error" });
+  }
+  res.json({ received: true });
+});
+
 // --- GitHub API routes -------------------------------------------------------
 
 // Resolve the user's GitHub App installation. If we haven't recorded one,
@@ -789,7 +907,7 @@ app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, re
 
 // --- App creation ------------------------------------------------------------
 
-app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
+app.post("/api/apps", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"), h(async (req, res) => {
   const userId = req.user.id;
   const { repo, branch, name, port, envs, buildPack, installCommand, buildCommand, startCommand } = req.body || {};
 
@@ -836,6 +954,11 @@ app.post("/api/apps", requireAuth, mutateGuard, h(async (req, res) => {
 
   // 3. Assign ownership + audit (only after a successful create).
   assign(uuid, "application", userId);
+  const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
+  if (planId && planPriceUsd(planId) > 0) {
+    db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?")
+      .run(planId, "application", uuid);
+  }
   record(req, "app.create", { resourceType: "application", resourceUuid: uuid });
 
   // 4. Auto-assign <name>.debutdepoly.com — wildcard DNS + on-demand Traefik cert.
@@ -905,6 +1028,8 @@ app.patch(
   "/api/services/:id/limits",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await resources.setLimits(req.params.id, req.body || {});
@@ -917,6 +1042,8 @@ app.patch(
   "/api/services/:id/healthcheck",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await resources.setHealthcheck(req.params.id, req.body || {});
@@ -938,6 +1065,8 @@ app.post(
   "/api/services/:id/rollback",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const { commit } = req.body || {};
@@ -962,6 +1091,8 @@ app.post(
   "/api/services/:id/volumes",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await volumes.addVolume(req.params.id, req.body || {});
@@ -975,6 +1106,8 @@ app.delete(
   "/api/services/:id/volumes/:vid",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const result = await volumes.deleteVolume(req.params.id, req.params.vid);
@@ -1030,6 +1163,8 @@ app.post(
   "/api/databases/:id/backups",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     const result = await backups.setBackupSchedule(req.params.id, req.body || {});
@@ -1042,6 +1177,8 @@ app.post(
   "/api/databases/:id/backups/run",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     const result = await backups.triggerBackup(req.params.id);
@@ -1129,6 +1266,8 @@ app.post(
   "/api/import/render/services",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   // POST (not GET) because the API key travels in the body; never logged.
   h((req) => render.listServices(resolveRenderKey(req)))
 );
@@ -1138,6 +1277,8 @@ app.post(
   "/api/import/render/databases",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h((req) => render.listDatabases(resolveRenderKey(req)))
 );
 
@@ -1145,6 +1286,8 @@ app.post(
   "/api/import/render",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     const { renderServiceId, target } = req.body || {};
     const apiKey = resolveRenderKey(req);
@@ -1175,6 +1318,8 @@ app.post(
   "/api/import/render/project",
   requireAuth,
   mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
   h(async (req) => {
     const { services, target } = req.body || {};
     const apiKey = resolveRenderKey(req);
@@ -1247,6 +1392,159 @@ app.put(
   })
 );
 
+// --- organization + team ---
+app.get("/api/org", requireAuth, attachOrgContext, h((req) =>
+  req.user.role === "admin" ? { id: null, role: "admin" } : { id: req.org.id, role: req.org.role }
+));
+
+app.get("/api/org/members", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => listOrgMembers(req.org.id))
+);
+
+app.post("/api/org/invites", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const { email = null, role } = req.body || {};
+    if (!["owner", "manager", "deployer", "viewer"].includes(role)) {
+      throw Object.assign(new Error("valid role is required"), { status: 400 });
+    }
+    const { id, token } = createInvite({ orgId: req.org.id, email, role, invitedBy: req.user.id });
+    record(req, "invite.create", { metadata: { org_id: req.org.id, role, email } });
+    // ponytail: return the link for copy-paste; email delivery slots in here later.
+    return { id, link: `${clientOrigin}/accept-invite?token=${token}` };
+  })
+);
+
+app.get("/api/org/invites", requireAuth, attachOrgContext, requireCapability("owner"),
+  h((req) => listPendingInvites(req.org.id))
+);
+
+app.delete("/api/org/invites/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const changes = deleteInvite(req.org.id, Number(req.params.id));
+    if (!changes) throw Object.assign(new Error("Invite not found"), { status: 404 });
+    record(req, "invite.revoke", { metadata: { invite_id: Number(req.params.id) } });
+    return { ok: true };
+  })
+);
+
+app.post("/api/org/invites/accept", requireAuth, mutateGuard, h((req) => {
+  const { token } = req.body || {};
+  const invite = getValidInvite(token);
+  if (!invite) throw Object.assign(new Error("Invalid or expired invite"), { status: 400 });
+  if (getMembership(req.user.id)) {
+    throw Object.assign(new Error("You already belong to an organization"), { status: 409 });
+  }
+  if (invite.email && invite.email.toLowerCase() !== (req.user.email || "").toLowerCase()) {
+    throw Object.assign(new Error("This invite was issued to a different email"), { status: 403 });
+  }
+  addMembership(req.user.id, invite.org_id, invite.role);
+  markInviteAccepted(invite.id, req.user.id);
+  record(req, "invite.accept", { metadata: { org_id: invite.org_id, role: invite.role } });
+  return { ok: true, role: invite.role };
+}));
+
+app.patch("/api/org/members/:userId", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const userId = Number(req.params.userId);
+    const { role } = req.body || {};
+    if (!["owner", "manager", "deployer", "viewer"].includes(role)) {
+      throw Object.assign(new Error("valid role is required"), { status: 400 });
+    }
+    const target = getMembership(userId);
+    if (!target || target.org_id !== req.org.id) throw Object.assign(new Error("Member not found"), { status: 404 });
+    if (target.role === "owner" && role !== "owner" && countOrgOwners(req.org.id) <= 1) {
+      throw Object.assign(new Error("An organization must keep at least one owner"), { status: 409 });
+    }
+    setMemberRole(userId, role);
+    record(req, "member.role_change", { metadata: { user_id: userId, role } });
+    return { ok: true };
+  })
+);
+
+app.delete("/api/org/members/:userId", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const userId = Number(req.params.userId);
+    const target = getMembership(userId);
+    if (!target || target.org_id !== req.org.id) throw Object.assign(new Error("Member not found"), { status: 404 });
+    if (target.role === "owner" && countOrgOwners(req.org.id) <= 1) {
+      throw Object.assign(new Error("An organization must keep at least one owner"), { status: 409 });
+    }
+    removeMembership(userId);
+    record(req, "member.remove", { metadata: { user_id: userId } });
+    return { ok: true };
+  })
+);
+
+// --- billing (prepaid wallet) ---
+app.get("/api/billing/wallet", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => {
+    const org = db.prepare("SELECT billing_status FROM organizations WHERE id = ?").get(req.org.id);
+    return {
+      balance_pence: walletBalance(req.org.id),
+      billing_status: org?.billing_status || "ok",
+      recent_ledger: recentLedger(req.org.id),
+    };
+  })
+);
+
+app.post("/api/billing/topup", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h(async (req) => {
+    const amountPence = Number(req.body?.amount_pence);
+    if (!Number.isInteger(amountPence) || amountPence < 100) {
+      throw Object.assign(new Error("amount_pence must be an integer >= 100"), { status: 400 });
+    }
+    record(req, "billing.topup_initiated", { metadata: { org_id: req.org.id, amount_pence: amountPence } });
+    return createTopupSession({
+      orgId: req.org.id, amountPence,
+      successUrl: `${clientOrigin}/wallet?topup=success`,
+      cancelUrl: `${clientOrigin}/wallet?topup=cancel`,
+    });
+  })
+);
+
+app.post("/api/billing/portal", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h(async (req) => {
+    const stripe = stripeClient();
+    if (!stripe) throw Object.assign(new Error("Stripe is not configured"), { status: 503 });
+    record(req, "billing.portal_accessed", {});
+    const customer = await getOrCreateStripeCustomer(req.org.id);
+    const session = await stripe.billingPortal.sessions.create({ customer, return_url: `${clientOrigin}/billing` });
+    return { url: session.url };
+  })
+);
+
+// Plan assignment — manage-gated. Sets resource_ownership.plan_id (drives monthly charge).
+function setResourcePlan(req, type) {
+  const uuid = req.params.id;
+  assertOwns(req.user, type, uuid); // org-scoped 404 on cross-org
+  const planId = req.body?.plan_id === null ? null : String(req.body?.plan_id || "");
+  if (planId && planPriceUsd(planId) === 0) {
+    throw Object.assign(new Error("Unknown plan_id"), { status: 400 });
+  }
+  const changes = db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?")
+    .run(planId || null, type, uuid).changes;
+  if (!changes) throw Object.assign(new Error("Resource not found"), { status: 404 });
+  record(req, "billing.plan_assigned", { resourceType: type, resourceUuid: uuid, metadata: { plan_id: planId || null } });
+  return { ok: true, plan_id: planId || null };
+}
+
+app.patch("/api/services/:id/plan", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h((req) => setResourcePlan(req, "application")));
+
+app.patch("/api/databases/:id/plan", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h((req) => setResourcePlan(req, "database")));
+
+// Master-Admin external-cron entry point for the monthly charge. Idempotent per (org, period).
+app.post("/api/admin/billing/run-monthly", requireAuth, requireAdmin, h(async () => {
+  const { chargeMonthlyHardware, currentPeriod } = await import("./billing.js");
+  const period = currentPeriod();
+  const orgs = db.prepare("SELECT id FROM organizations").all();
+  let charged = 0;
+  for (const o of orgs) { if (chargeMonthlyHardware(o.id, period).charged > 0) charged += 1; }
+  recordSystem("billing.run_monthly", { metadata: { period, orgs: orgs.length, charged } });
+  return { period, orgs: orgs.length, charged };
+}));
+
 // --- serve the built client (single-process hosting) ---
 // When client/dist exists (prod build), serve it + SPA fallback so client-side
 // routes like /activity resolve. In local dev the client is served by Vite, so
@@ -1304,6 +1602,24 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
         },
       });
       healthSnapshot = snapshot;
+
+      // --- usage metering (best-effort; must never crash the health monitor) ---
+      // ponytail: metering INSERT is best-effort inside the health tick; a failed
+      // write skips one sample, never throws. Compute-only (uptime); disk/bandwidth
+      // are plan-derived at rollup, not sampled here.
+      try {
+        const [apps, dbs] = await Promise.all([
+          coolify.listServices(),
+          coolify.listDatabases(),
+        ]);
+        const resources = [
+          ...apps.map((a) => ({ uuid: a.uuid, type: "application", status: a.status })),
+          ...dbs.map((d) => ({ uuid: d.uuid, type: "database", status: d.status })),
+        ];
+        meterResources(resources, new Date().toISOString(), 60);
+      } catch (meterErr) {
+        console.error("usage metering:", meterErr.message);
+      }
     } catch (err) {
       console.error("health monitor:", err.message);
     } finally {
@@ -1311,6 +1627,23 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
     }
   }, 60_000); // VERIFY LIVE: cadence
   timer.unref?.();
+}
+
+// --- monthly hardware charge: hourly tick, idempotent per (org, period) ---
+// ponytail: single-process setInterval; the (org, period) guard makes double-fire safe,
+// but if the server is down for ALL of the billing day the charge is deferred until it
+// next runs (any later tick in the same month still charges once). Reliable upgrade path:
+// the admin POST /api/admin/billing/run-monthly hit by an external cron (Hetzner/GitHub Actions).
+if (!demoMode && process.env.NODE_ENV !== "test") {
+  const runMonthly = () => {
+    const period = currentPeriod();
+    for (const o of db.prepare("SELECT id FROM organizations").all()) {
+      try { chargeMonthlyHardware(o.id, period); }
+      catch (err) { console.error("monthly charge:", o.id, err.message); }
+    }
+  };
+  const billingTimer = setInterval(runMonthly, 60 * 60_000); // hourly; guard makes it idempotent
+  billingTimer.unref?.();
 }
 
 const PORT = process.env.PORT || 8787;

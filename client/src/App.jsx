@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -20,8 +20,12 @@ import ImportRender from "./pages/ImportRender.jsx";
 import Projects from "./pages/Projects.jsx";
 import ProjectDetail from "./pages/ProjectDetail.jsx";
 import Customers from "./pages/Customers.jsx";
+import Team from "./pages/Team.jsx";
+import Clients from "./pages/Clients.jsx";
 import NewServiceGit from "./pages/NewServiceGit.jsx";
 import Billing from "./pages/Billing.jsx";
+import WalletPage from "./pages/Wallet.jsx";
+import Usage from "./pages/Usage.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
@@ -205,13 +209,25 @@ function Sidebar({ drawerOpen, onClose }) {
         <HoverNavLink to="/activity"><ActivityIcon size={18} /><span>Activity</span></HoverNavLink>
         <HoverNavLink to="/notifications"><Bell size={18} /><span>Notifications</span></HoverNavLink>
 
+        {(user?.orgRole === "owner" || user?.orgRole === "manager") && (
+          <HoverNavLink to="/team"><Users size={18} /><span>Team</span></HoverNavLink>
+        )}
+
+        {user?.orgRole && (
+          <HoverNavLink to="/wallet"><Wallet size={18} /><span>Wallet</span></HoverNavLink>
+        )}
+
+        {user?.orgRole && (
+          <HoverNavLink to="/usage"><Gauge size={18} /><span>Usage</span></HoverNavLink>
+        )}
+
         {user?.role === "admin" && (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 10px 6px" }}>
               <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.09em", color: "var(--text-muted)", textTransform: "uppercase" }}>Admin</span>
               <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
-            <HoverNavLink to="/customers"><Users size={18} /><span>Customers</span></HoverNavLink>
+            <HoverNavLink to="/clients"><Users size={18} /><span>Clients</span></HoverNavLink>
             <HoverNavLink to="/billing"><CreditCard size={18} /><span>Billing &amp; Plans</span></HoverNavLink>
             <HoverNavLink to="/new-git"><GitBranch size={18} /><span>Deploy from Git</span></HoverNavLink>
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
@@ -245,8 +261,12 @@ const CRUMB_MAP = {
   "/shared-vars": "Variable Groups",
   "/import": "Import from Render",
   "/customers": "Customers",
+  "/team": "Team",
+  "/clients": "Clients",
   "/new-git": "Deploy from Git",
   "/billing": "Billing & Plans",
+  "/wallet": "Wallet",
+  "/usage": "Usage",
 };
 
 function Topbar({ onMenuClick }) {
@@ -474,8 +494,12 @@ function AppShell() {
             <Route path="/shared-vars" element={<SharedVars />} />
             <Route path="/servers" element={<Servers />} />
             <Route path="/customers" element={<Customers />} />
+            <Route path="/team" element={<Team />} />
+            <Route path="/clients" element={<Clients />} />
             <Route path="/new-git" element={<NewServiceGit />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/wallet" element={<WalletPage />} />
+            <Route path="/usage" element={<Usage />} />
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />

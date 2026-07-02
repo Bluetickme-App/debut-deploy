@@ -95,4 +95,26 @@ export const api = {
   serviceEvents:    (id) => req(`/services/${id}/events`),
   getNotifications: () => req("/notifications"),
   saveNotifications:(body) => req("/notifications", { method: "PUT", body }),
+  // Org + team
+  org: () => req("/org"),
+  orgMembers: () => req("/org/members"),
+  createInvite: (body) => req("/org/invites", { method: "POST", body }),
+  orgInvites: () => req("/org/invites"),
+  revokeInvite: (id) => req(`/org/invites/${id}`, { method: "DELETE" }),
+  acceptInvite: (token) => req("/org/invites/accept", { method: "POST", body: { token } }),
+  setMemberRole: (userId, role) => req(`/org/members/${userId}`, { method: "PATCH", body: { role } }),
+  removeMember: (userId) => req(`/org/members/${userId}`, { method: "DELETE" }),
+  // Master Admin orgs
+  adminOrgs: () => req("/admin/orgs"),
+  adminOrg: (id) => req(`/admin/orgs/${id}`),
+  // Billing (prepaid wallet)
+  wallet: () => req("/billing/wallet"),
+  topup: (amount_pence) => req("/billing/topup", { method: "POST", body: { amount_pence } }),
+  billingPortal: () => req("/billing/portal", { method: "POST" }),
+  setServicePlan: (id, planId) => req(`/services/${id}/plan`, { method: "PATCH", body: { planId } }),
+  setDatabasePlan: (id, planId) => req(`/databases/${id}/plan`, { method: "PATCH", body: { planId } }),
+  // Usage metering
+  usage: (period) => req(`/org/usage${period ? `?period=${period}` : ""}`),
+  usageCurrent: () => req("/org/usage/current"),
+  adminOrgUsage: (id, period) => req(`/admin/orgs/${id}/usage${period ? `?period=${period}` : ""}`),
 };
