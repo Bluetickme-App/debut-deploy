@@ -1,8 +1,7 @@
 // Render → DebutDeploy import orchestrator.
 // Returns a structured report; never throws — callers get ok:false on failure.
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { dockerPg } from "./hostexec.js";
 import { getService, getEnvVars, getConnectionInfo } from "./render.js";
 import { provisionServer } from "./provision.js";
 import { createDeployKeyApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
@@ -14,8 +13,6 @@ import {
 } from "./coolify.js";
 import { createProjectDatabase } from "./sharedcluster.js";
 import { assign } from "./ownership.js";
-
-const execFileP = promisify(execFile);
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
 // so a value like "--foo" can't smuggle flags into pg_dump (argument injection).
@@ -32,26 +29,14 @@ export function assertPgUrl(url) {
 // and passed via ENV — never argv — so a value can't smuggle flags into the
 // command. Requires the Docker socket reachable by this process. Overridable via
 // deps for tests. // VERIFY LIVE: network name + Coolify DB URL field.
-async function migratePostgres({ source, target, _exec = execFileP }) {
+async function migratePostgres({ source, target }) {
   if (process.env.DEMO_MODE === "true") return { ok: true, note: "demo-skip" };
   assertPgUrl(source);
   assertPgUrl(target);
-  const net = process.env.PG_MIGRATE_DOCKER_NETWORK || "coolify";
-  try {
-    await _exec(
-      "docker",
-      ["run", "--rm", "--network", net, "-e", "SRC", "-e", "TGT", "postgres:18",
-       "sh", "-c", 'pg_dump --no-owner --no-privileges "$SRC" | psql -v ON_ERROR_STOP=1 "$TGT"'],
-      { env: { ...process.env, SRC: source, TGT: target }, maxBuffer: 64 * 1024 * 1024 }
-    );
-    return { ok: true };
-  } catch (err) {
-    const missing = /ENOENT|not found|Cannot connect to the Docker daemon/i.test(`${err.message}${err.stderr || ""}`);
-    const hint = missing
-      ? " — Docker CLI/socket not available to the server; mount /var/run/docker.sock and ensure docker is in the container"
-      : "";
-    throw Object.assign(new Error(`Postgres migration failed${hint}: ${String(err.stderr || err.message).slice(-400)}`), { status: 500 });
-  }
+  // pg_dump the Render source and load into the Coolify target, run on the host in
+  // a pinned postgres:18 container (version-matches Render PG18). URLs pass base64.
+  await dockerPg({ vars: { SRC: source, TGT: target }, script: 'pg_dump --no-owner --no-privileges "$SRC" | psql -v ON_ERROR_STOP=1 "$TGT"' });
+  return { ok: true };
 }
 
 export async function importFromRender({ renderServiceId, target, userId, apiKey, deps = {} }) {
