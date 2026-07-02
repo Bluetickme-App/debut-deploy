@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 // Dynamic imports so process.env.DATABASE_FILE is set before db.js opens.
-const { planById, planRatePencePerHour, planStorageGb, ownedPlan, insertUsageEvent, meterResources } = await import("./metering.js");
+const { planById, planRatePencePerHour, planStorageGb, ownedPlan, insertUsageEvent, meterResources, rollupCompute, usageSummary } = await import("./metering.js");
 const { db, ensureUserOrg, createUser } = await import("./db.js");
 const { assign } = await import("./ownership.js");
 
@@ -69,4 +69,51 @@ test("meterResources writes one row per running+owned+planned resource, with fro
   assert.equal(rows[0].coolify_uuid, "svc-run");
   assert.equal(rows[0].org_id, orgId);
   assert.equal(rows[0].price_pence_per_hour, 2); // pro, frozen
+});
+
+test("rollupCompute sums compute-hours and pence over a period", () => {
+  const u = createUser({ email: "roll@x.com", role: "customer" });
+  const orgId = ensureUserOrg(u.id);
+  own("roll-app", "application", u.id, "pro"); // 2 pence/hr
+  // 60 ticks of 60s = 3600s = 1.0 compute-hour at 2p/hr = 2 pence.
+  const base = Date.UTC(2026, 6, 5, 0, 0, 0); // 2026-07-05
+  for (let i = 0; i < 60; i++) {
+    insertUsageEvent({
+      orgId, uuid: "roll-app", type: "application", planId: "pro",
+      sampledAt: new Date(base + i * 60_000).toISOString(), intervalSec: 60,
+    });
+  }
+  const [line] = rollupCompute(orgId, "2026-07-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z");
+  assert.equal(line.coolify_uuid, "roll-app");
+  assert.equal(Math.round(line.compute_hours), 1);
+  assert.equal(Math.round(line.pence), 2);
+});
+
+test("mid-period plan change bills each segment at its own frozen rate", () => {
+  const u = createUser({ email: "reprice@x.com", role: "customer" });
+  const orgId = ensureUserOrg(u.id);
+  own("rp-app", "application", u.id, "pro");
+  const base = Date.UTC(2026, 6, 10, 0, 0, 0);
+  // 36 ticks on pro (rate 2), then 36 on scale (rate 12) — frozen per row.
+  for (let i = 0; i < 36; i++)
+    insertUsageEvent({ orgId, uuid: "rp-app", type: "application", planId: "pro",
+      sampledAt: new Date(base + i * 60_000).toISOString(), intervalSec: 60 });
+  for (let i = 36; i < 72; i++)
+    insertUsageEvent({ orgId, uuid: "rp-app", type: "application", planId: "scale",
+      sampledAt: new Date(base + i * 60_000).toISOString(), intervalSec: 60 });
+  const lines = rollupCompute(orgId, "2026-07-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z");
+  // Two lines: one per plan_id, each at its own frozen rate — proves no retroactive reprice.
+  const byPlan = Object.fromEntries(lines.map((l) => [l.plan_id, l]));
+  assert.ok(byPlan.pro && byPlan.scale);
+  // 0.6h each; pro pence = 0.6*2=1.2, scale pence = 0.6*12=7.2 → summary rounds later.
+  assert.ok(byPlan.scale.pence > byPlan.pro.pence);
+});
+
+test("zero-usage org yields a £0 summary, not an error", () => {
+  const u = createUser({ email: "zero@x.com", role: "customer" });
+  const orgId = ensureUserOrg(u.id);
+  const s = usageSummary(orgId, "2026-07");
+  assert.equal(s.totalPence, 0);
+  assert.deepEqual(s.lines, []);
+  assert.equal(s.currency, "GBP");
 });

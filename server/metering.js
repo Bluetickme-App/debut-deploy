@@ -45,6 +45,85 @@ export function insertUsageEvent({ orgId, uuid, type, planId, sampledAt, interva
   ).run(orgId, uuid, type, planId, planRatePencePerHour(planId), sampledAt, intervalSec);
 }
 
+// Allocated-disk rate: pence per GB-hour. No storage price in plans.js, so this is
+// one documented constant. ponytail: flat allocated-disk rate; make per-plan if
+// tiers get distinct storage pricing. ~ £0.10/GB-mo ≈ 10p/730.5h ≈ 0.0137p/GB-hr.
+const DISK_PENCE_PER_GB_HOUR = 10 / HOURS_PER_MONTH; // pence per GB-hour (GBP)
+
+// Bandwidth allowance per plan (GB/mo). plans.js has no field yet, so map by id.
+// ponytail: flat allowance table; move onto plans.js when a bandwidth column lands.
+const BANDWIDTH_GB = {
+  hobby: 100, starter: 100, pro: 500, proplus: 1000, scale: 2000,
+  "db-hobby": 50, "db-starter": 100, "db-pro": 250, "db-scale": 500,
+};
+
+export function rollupCompute(orgId, start, end) {
+  return db.prepare(`
+    SELECT coolify_uuid, plan_id,
+           SUM(interval_sec) / 3600.0                        AS compute_hours,
+           SUM(interval_sec / 3600.0 * price_pence_per_hour) AS pence
+    FROM usage_events
+    WHERE org_id = ? AND sampled_at >= ? AND sampled_at < ?
+    GROUP BY coolify_uuid, plan_id
+    ORDER BY coolify_uuid
+  `).all(orgId, start, end);
+}
+
+// [start, end) for a YYYY-MM period. end = first day of the next month.
+function periodBounds(period) {
+  const [y, m] = String(period).split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, 1));
+  const end = new Date(Date.UTC(y, m, 1));
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+// Live hours of a resource within [start,end), from its created_at (clamped).
+function resourceHoursInPeriod(createdAt, startMs, endMs, nowMs) {
+  const born = createdAt ? Date.parse(createdAt) : startMs;
+  const from = Math.max(born, startMs);
+  const to = Math.min(endMs, nowMs);
+  return from >= to ? 0 : (to - from) / 3_600_000;
+}
+
+// The Render-style per-org summary. Zero-usage ⇒ { lines: [], totalPence: 0 }.
+export function usageSummary(orgId, period, name = null) {
+  const { start, end } = periodBounds(period);
+  const startMs = Date.parse(start), endMs = Date.parse(end), nowMs = Date.now();
+  const lines = [];
+
+  // Compute lines from metered uptime.
+  for (const c of rollupCompute(orgId, start, end)) {
+    lines.push({
+      type: "compute",
+      uuid: c.coolify_uuid,
+      plan: c.plan_id,
+      computeHours: +c.compute_hours.toFixed(2),
+      pence: Math.round(c.pence),
+    });
+  }
+
+  // Allocated-disk + bandwidth lines from currently-owned+planned resources.
+  const owned = db.prepare(
+    "SELECT coolify_uuid, type, plan_id, created_at FROM resource_ownership " +
+      "WHERE org_id = ? AND plan_id IS NOT NULL"
+  ).all(orgId);
+  for (const r of owned) {
+    const hours = resourceHoursInPeriod(r.created_at, startMs, endMs, nowMs);
+    const gb = planStorageGb(r.plan_id);
+    const diskPence = Math.round(gb * hours * DISK_PENCE_PER_GB_HOUR);
+    if (gb > 0) {
+      lines.push({ type: "disk", uuid: r.coolify_uuid, plan: r.plan_id, allocatedGb: gb, hours: +hours.toFixed(2), pence: diskPence });
+    }
+    lines.push({
+      type: "bandwidth", uuid: r.coolify_uuid, plan: r.plan_id,
+      allowanceGb: BANDWIDTH_GB[r.plan_id] ?? 0, usedGb: 0, pence: 0, // ponytail: bandwidth metering not implemented — flat allowance per plan.
+    });
+  }
+
+  const totalPence = lines.reduce((sum, l) => sum + l.pence, 0);
+  return { period, currency: "GBP", name, lines, totalPence };
+}
+
 // Pure core of the metering tick. `resources` = [{ uuid, type, status }].
 // Writes one event per running + owned + planned resource; returns the count.
 export function meterResources(resources, sampledAt, intervalSec = 60) {
