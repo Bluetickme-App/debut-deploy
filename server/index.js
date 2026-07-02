@@ -10,7 +10,7 @@ import * as githubApp from "./github-app.js";
 import * as databases from "./databases.js";
 import * as lifecycle from "./lifecycle.js";
 import { setupAuth } from "./auth.js";
-import { assertOwns, assign, ownedUuids } from "./ownership.js";
+import { assertOwns, assign, ownedUuids, release } from "./ownership.js";
 import {
   db,
   listUsers,
@@ -506,6 +506,7 @@ app.delete(
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
     await databases.deleteDatabase(req.params.id);
+    release("database", req.params.id);
     record(req, "db.delete", { resourceType: "database", resourceUuid: req.params.id });
     return { ok: true };
   })
@@ -520,6 +521,7 @@ app.delete(
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     await lifecycle.deleteApp(req.params.id);
+    release("application", req.params.id);
     record(req, "app.delete", { resourceType: "application", resourceUuid: req.params.id });
     return { ok: true };
   })
@@ -1494,8 +1496,8 @@ app.post("/api/billing/topup", requireAuth, mutateGuard, attachOrgContext, requi
     record(req, "billing.topup_initiated", { metadata: { org_id: req.org.id, amount_pence: amountPence } });
     return createTopupSession({
       orgId: req.org.id, amountPence,
-      successUrl: `${clientOrigin}/billing?topup=success`,
-      cancelUrl: `${clientOrigin}/billing?topup=cancel`,
+      successUrl: `${clientOrigin}/wallet?topup=success`,
+      cancelUrl: `${clientOrigin}/wallet?topup=cancel`,
     });
   })
 );

@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 const db = await import("./db.js");
 const { planPriceUsd } = await import("./plans.js");
 const billing = await import("./billing.js");
+const { assign, release } = await import("./ownership.js");
+const { usageSummary } = await import("./metering.js");
 
 // Seed user for resource_ownership FK (user_id NOT NULL REFERENCES users(id))
 db.createUser({ email: "seed@test.com", role: "customer" }); // gets id=1
@@ -137,6 +139,28 @@ test("webhook credits a paid topup session once, idempotently", () => {
   assert.equal(r1.credited, true);
   assert.equal(r2.credited, false); // idempotent: INSERT OR IGNORE no-op
   assert.equal(billing.walletBalance(org), 5000); // amount_total, not metadata.amount_pence
+});
+
+test("CRITICAL: release() stops billing — charge and disk lines gone after delete", () => {
+  const now = new Date().toISOString();
+  const org = db.db.prepare("INSERT INTO organizations (name,slug,created_at) VALUES (?,?,?)")
+    .run("Release Co", "release-co", now).lastInsertRowid;
+  const u = db.createUser({ email: "rel@release.co", role: "customer" });
+  db.db.prepare("INSERT INTO memberships (user_id,org_id,role,created_at) VALUES (?,?,?,?)").run(u.id, org, "owner", now);
+
+  assign("del-app", "application", u.id);
+  db.db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?").run("pro", "application", "del-app");
+
+  assert.ok(billing.computeMonthlyCharge(org) > 0, "charge > 0 before delete");
+  const before = usageSummary(org, "2026-07");
+  assert.ok(before.lines.some((l) => l.uuid === "del-app"), "disk line present before delete");
+
+  const deleted = release("application", "del-app");
+  assert.equal(deleted, 1, "release deleted 1 row");
+
+  assert.equal(billing.computeMonthlyCharge(org), 0, "charge = 0 after delete");
+  const after = usageSummary(org, "2026-07");
+  assert.ok(!after.lines.some((l) => l.uuid === "del-app"), "no disk line after delete");
 });
 
 test("webhook ignores unpaid / non-payment sessions", () => {

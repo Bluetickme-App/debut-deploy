@@ -51,6 +51,13 @@ export function assign(uuid, type, userId) {
   `).run(uuid, type, userId, orgId, new Date().toISOString());
 }
 
+// Release ownership when a resource is deleted (stops all billing for it).
+// usage_events rows are historical and intentionally kept.
+export function release(type, uuid) {
+  assertType(type);
+  return db.prepare("DELETE FROM resource_ownership WHERE type = ? AND coolify_uuid = ?").run(type, uuid).changes;
+}
+
 export function listOwnedTypesForUser(userId) {
   const orgId = orgIdForUser(userId);
   if (orgId == null) return [];
