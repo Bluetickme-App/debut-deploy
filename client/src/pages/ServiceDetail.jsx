@@ -9,6 +9,7 @@ import { api } from "../lib/api.js";
 import { actionLabel } from "../lib/eventLabels.js";
 import { StatusPill, Spinner, Button, Mono, timeAgo } from "../components/ui.jsx";
 import { SettingsSection, SettingsRow, AnchorNav } from "../components/SettingsSection.jsx";
+import ConfirmDelete from "../components/ConfirmDelete.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
 
@@ -1096,13 +1097,17 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
     } finally { setVerifyBusy(false); }
   }
 
+  const [confirmDel, setConfirmDel] = useState(false);
   async function deleteSvc() {
-    if (!window.confirm(`Delete service "${svc.name}"? This cannot be undone.`)) return;
-    await fetch(`/api/services/${serviceId}`, {
+    const res = await fetch(`/api/services/${serviceId}`, {
       method: "DELETE",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
     });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || `Delete failed (${res.status})`);
+    }
     navigate("/");
   }
 
@@ -1350,12 +1355,21 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
                 Permanently removes the container, domain and build history. This cannot be undone.
               </p>
             </div>
-            <Button variant="danger" onClick={deleteSvc}>
+            <Button variant="danger" onClick={() => setConfirmDel(true)}>
               <Trash2 className="h-3.5 w-3.5" /> Delete web service
             </Button>
           </div>
         </section>
       </div>
+
+      {confirmDel && (
+        <ConfirmDelete
+          name={svc.name}
+          kind="service"
+          onConfirm={deleteSvc}
+          onCancel={() => setConfirmDel(false)}
+        />
+      )}
 
       <div className="w-[172px] shrink-0">
         <AnchorNav items={NAV} active={activeSection} onJump={jump} />
