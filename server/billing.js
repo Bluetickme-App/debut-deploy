@@ -50,3 +50,38 @@ export const recentLedger = (orgId, limit = 20) =>
     "SELECT id, amount_pence, type, period, notes, created_at FROM credit_ledger " +
       "WHERE org_id = ? ORDER BY created_at DESC, id DESC LIMIT ?"
   ).all(orgId, limit);
+
+// --- monthly hardware charge ------------------------------------------------
+
+export const currentPeriod = (d = new Date()) =>
+  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+// Sum the org's owned resources' plan price. Convert USD→pence once, after summing
+// (round once, not per-resource). NULL plan_id → 0 (free until assigned).
+export function computeMonthlyCharge(orgId) {
+  const rows = db.prepare("SELECT plan_id FROM resource_ownership WHERE org_id = ?").all(orgId);
+  const usd = rows.reduce((sum, r) => sum + planPriceUsd(r.plan_id), 0);
+  return usdToPence(usd);
+}
+
+// Idempotent per (org, period). Debits the wallet (prepaid-only — NEVER calls Stripe).
+// A negative resulting balance is tracked as arrears; the advisory banner asks the owner
+// to top up. Nothing is suspended.
+// better-sqlite3 is synchronous + single-connection, so the guard-check + insert below
+// is race-free without an explicit BEGIN.
+// ponytail: subsystem B usage drawdown lands here — an additional type='usage' debit
+// computed from B's metering, same wallet, same shape. Wire after B ships.
+export function chargeMonthlyHardware(orgId, period) {
+  const already = db.prepare(
+    "SELECT 1 FROM credit_ledger WHERE org_id = ? AND type = 'hardware_charge' AND period = ?"
+  ).get(orgId, period);
+  if (already) return { charged: 0, skipped: "already_charged" };
+
+  const charge = computeMonthlyCharge(orgId);
+  if (charge === 0) return { charged: 0, skipped: "no_priced_resources" };
+
+  creditWallet({ orgId, amountPence: -charge, type: "hardware_charge", period, notes: `Hardware ${period}` });
+  const status = walletBalance(orgId) < 0 ? "arrears" : "ok";
+  db.prepare("UPDATE organizations SET billing_status = ? WHERE id = ?").run(status, orgId);
+  return { charged: charge };
+}
