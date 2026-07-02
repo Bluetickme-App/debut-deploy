@@ -69,6 +69,7 @@ import { repoKey, verifyWebhookSig } from "./webhook.js";
 import { createRenderCredential, listRenderCredentials, getRenderCredential, deleteRenderCredential } from "./db.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
+import { meterResources } from "./metering.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -1571,6 +1572,24 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
         },
       });
       healthSnapshot = snapshot;
+
+      // --- usage metering (best-effort; must never crash the health monitor) ---
+      // ponytail: metering INSERT is best-effort inside the health tick; a failed
+      // write skips one sample, never throws. Compute-only (uptime); disk/bandwidth
+      // are plan-derived at rollup, not sampled here.
+      try {
+        const [apps, dbs] = await Promise.all([
+          coolify.listServices(),
+          coolify.listDatabases(),
+        ]);
+        const resources = [
+          ...apps.map((a) => ({ uuid: a.uuid, type: "application", status: a.status })),
+          ...dbs.map((d) => ({ uuid: d.uuid, type: "database", status: d.status })),
+        ];
+        meterResources(resources, new Date().toISOString(), 60);
+      } catch (meterErr) {
+        console.error("usage metering:", meterErr.message);
+      }
     } catch (err) {
       console.error("health monitor:", err.message);
     } finally {
