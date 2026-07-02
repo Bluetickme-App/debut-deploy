@@ -279,6 +279,12 @@ app.get(
   requireAuth,
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
+    // Prefer durable history from Coolify's DB (persists finished deploys); fall
+    // back to the REST /deployments list (active-only) if the SSH channel is down.
+    try {
+      const hist = await coolifydb.getDeploymentHistory(req.params.id);
+      if (hist.length) return hist;
+    } catch { /* SSH/host issue → fall back */ }
     return coolify.listDeployments(req.params.id);
   })
 );
