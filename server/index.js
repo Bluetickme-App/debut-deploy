@@ -28,7 +28,9 @@ import {
   deleteApiToken,
   addUserInstallation,
   listUserInstallations,
+  getMembership,
 } from "./db.js";
+import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
 import { listEvents, listEventsForResource } from "./events.js";
 import { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } from "./notifications.js";
@@ -142,6 +144,24 @@ function mutateGuard(req, res, next) {
   next();
 }
 
+// Attach the caller's org context. Admin is cross-org (no membership required).
+function attachOrgContext(req, res, next) {
+  if (req.user?.role === "admin") { req.org = null; return next(); }
+  const m = req.user ? getMembership(req.user.id) : null;
+  if (!m) return res.status(403).json({ error: "No organization" });
+  req.org = { id: m.org_id, role: m.role };
+  next();
+}
+
+// Gate a route on a capability level. Must run AFTER attachOrgContext.
+function requireCapability(level) {
+  return (req, res, next) => {
+    if (req.user?.role === "admin") return next();
+    if (req.org && hasCapability(req.org.role, level)) return next();
+    return res.status(403).json({ error: "Insufficient permissions" });
+  };
+}
+
 function ownedList(user, type) {
   return user?.role === "admin" ? null : new Set(ownedUuids(user.id, type));
 }
@@ -164,13 +184,18 @@ app.get("/api/health", (_req, res) =>
   res.json({ ok: true, mode: demoMode ? "demo" : "live" })
 );
 
-app.get("/api/me", requireAuth, h((req) => ({
-  id: req.user.id,
-  email: req.user.email,
-  name: req.user.name,
-  avatar_url: req.user.avatar_url,
-  role: req.user.role,
-})));
+app.get("/api/me", requireAuth, h((req) => {
+  const m = req.user.role === "admin" ? null : getMembership(req.user.id);
+  return {
+    id: req.user.id,
+    email: req.user.email,
+    name: req.user.name,
+    avatar_url: req.user.avatar_url,
+    role: req.user.role,
+    orgId: m?.org_id ?? null,
+    orgRole: m?.role ?? null,
+  };
+}));
 
 // --- services ---
 app.get(
