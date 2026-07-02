@@ -396,3 +396,113 @@ export const findUserInstallationByAccount = (userId, accountId) =>
 
 export const findUserInstallationByLogin = (userId, accountLogin) =>
   db.prepare("SELECT * FROM user_installations WHERE user_id = ? AND account_login = ? COLLATE NOCASE").get(userId, accountLogin);
+
+// --- organizations, memberships, invites ------------------------------------
+
+const nowIso = () => new Date().toISOString();
+
+function uniqueSlug(base) {
+  const taken = db.prepare("SELECT 1 FROM organizations WHERE slug = ?");
+  let slug = base, n = 1;
+  while (taken.get(slug)) { n += 1; slug = `${base}-${n}`; }
+  return slug;
+}
+
+// Idempotent: returns the user's org_id, creating org + owner membership +
+// backfilling their ownership rows on first call. Mirrors migration 10's backfill
+// for the runtime (new-signup) path. ponytail: two backfill sites (migration is
+// one-shot, this is runtime) — kept separate because `db` isn't assigned yet during migration.
+export function ensureUserOrg(userId) {
+  const existing = getMembership(userId);
+  if (existing) return existing.org_id;
+  const user = getUserById(userId);
+  const base = slugify(user?.name || (user?.email || "").split("@")[0] || `user-${userId}`);
+  const slug = uniqueSlug(base);
+  const orgId = db
+    .prepare("INSERT INTO organizations (name, slug, created_at) VALUES (?,?,?)")
+    .run(user?.name || user?.email || `User ${userId}`, slug, nowIso()).lastInsertRowid;
+  addMembership(userId, orgId, "owner");
+  db.prepare("UPDATE resource_ownership SET org_id = ? WHERE user_id = ? AND org_id IS NULL").run(orgId, userId);
+  return orgId;
+}
+
+export const getMembership = (userId) =>
+  db.prepare("SELECT user_id, org_id, role FROM memberships WHERE user_id = ?").get(userId);
+
+export function addMembership(userId, orgId, role) {
+  db.prepare("INSERT INTO memberships (user_id, org_id, role, created_at) VALUES (?,?,?,?)")
+    .run(userId, orgId, role, nowIso());
+}
+
+export const listOrgMembers = (orgId) =>
+  db.prepare(
+    "SELECT u.id, u.email, u.name, u.avatar_url, m.role, m.created_at " +
+      "FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.org_id = ? ORDER BY m.created_at"
+  ).all(orgId);
+
+export const countOrgOwners = (orgId) =>
+  db.prepare("SELECT COUNT(*) c FROM memberships WHERE org_id = ? AND role = 'owner'").get(orgId).c;
+
+export const setMemberRole = (userId, role) =>
+  db.prepare("UPDATE memberships SET role = ? WHERE user_id = ?").run(role, userId).changes;
+
+export const removeMembership = (userId) =>
+  db.prepare("DELETE FROM memberships WHERE user_id = ?").run(userId).changes;
+
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Returns the RAW token once; only its hash is stored.
+export function createInvite({ orgId, email = null, role, invitedBy }) {
+  const token = "in_" + randomBytes(24).toString("hex");
+  const expires = new Date(Date.now() + INVITE_TTL_MS).toISOString();
+  const id = db
+    .prepare(
+      "INSERT INTO org_invites (org_id, email, token_hash, role, invited_by, expires_at, created_at) " +
+        "VALUES (?,?,?,?,?,?,?)"
+    )
+    .run(orgId, email, hashToken(token), role, invitedBy, expires, nowIso()).lastInsertRowid;
+  return { id, token };
+}
+
+export const getValidInvite = (rawToken) => {
+  if (!rawToken) return undefined;
+  return db
+    .prepare(
+      "SELECT * FROM org_invites WHERE token_hash = ? AND accepted_at IS NULL AND expires_at > ?"
+    )
+    .get(hashToken(rawToken), nowIso());
+};
+
+export const markInviteAccepted = (inviteId, userId) =>
+  db.prepare("UPDATE org_invites SET accepted_by = ?, accepted_at = ? WHERE id = ?")
+    .run(userId, nowIso(), inviteId);
+
+export const listPendingInvites = (orgId) =>
+  db.prepare(
+    "SELECT id, email, role, created_at, expires_at FROM org_invites " +
+      "WHERE org_id = ? AND accepted_at IS NULL AND expires_at > ? ORDER BY created_at DESC"
+  ).all(orgId, nowIso());
+
+export const deleteInvite = (orgId, id) =>
+  db.prepare("DELETE FROM org_invites WHERE id = ? AND org_id = ?").run(id, orgId).changes;
+
+export const listOrgsWithCounts = () =>
+  db.prepare(`
+    SELECT o.id, o.name, o.slug, o.created_at,
+      (SELECT COUNT(*) FROM memberships m WHERE m.org_id = o.id) AS members,
+      (SELECT COUNT(*) FROM memberships m WHERE m.org_id = o.id AND m.role = 'owner') AS owners,
+      (SELECT COUNT(*) FROM resource_ownership r WHERE r.org_id = o.id AND r.type = 'application') AS applications,
+      (SELECT COUNT(*) FROM resource_ownership r WHERE r.org_id = o.id AND r.type = 'database') AS databases
+    FROM organizations o ORDER BY o.created_at DESC
+  `).all();
+
+export const getOrgDetail = (orgId) => {
+  const org = db.prepare("SELECT id, name, slug, created_at FROM organizations WHERE id = ?").get(orgId);
+  if (!org) return undefined;
+  return {
+    org,
+    members: listOrgMembers(orgId),
+    ownedApplications: db.prepare("SELECT coolify_uuid FROM resource_ownership WHERE org_id = ? AND type = 'application'").all(orgId).map((r) => r.coolify_uuid),
+    ownedDatabases: db.prepare("SELECT coolify_uuid FROM resource_ownership WHERE org_id = ? AND type = 'database'").all(orgId).map((r) => r.coolify_uuid),
+  };
+};
