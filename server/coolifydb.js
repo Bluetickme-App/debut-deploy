@@ -39,6 +39,34 @@ async function runSql(sql) {
 
 const coolifyUuid = () => randomBytes(12).toString("hex").slice(0, 24);
 
+// Persistent deploy HISTORY from Coolify's own DB. The REST /deployments endpoint
+// only lists ACTIVE deployments, so finished ones "disappear" from the panel — read
+// application_deployment_queue directly for durable history with real detail.
+// Fields are Coolify-internal (no user input) so interpolation is injection-safe.
+export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
+  if (DEMO) return [];
+  const u = String(appUuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) return [];
+  const n = Math.min(50, Math.max(1, Number(limit) || 20));
+  const raw = await runSql(
+    `SELECT deployment_uuid||'|'||status||'|'||coalesce(commit,'')||'|'||replace(split_part(coalesce(commit_message,''),chr(10),1),'|','/')||'|'||coalesce(is_webhook::text,'f')||'|'||created_at||'|'||coalesce(updated_at,'') ` +
+    `FROM application_deployment_queue WHERE application_id=(SELECT id FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT ${n}`
+  );
+  return String(raw || "").trim().split("\n").filter(Boolean).map((line) => {
+    const [uuid, status, commit, message, webhook, created, updated] = line.split("|");
+    const dur = created && updated ? Math.max(0, Math.round((Date.parse(updated) - Date.parse(created)) / 1000)) : null;
+    return {
+      uuid, status,
+      commit: (commit || "").slice(0, 7),
+      message: message || "",
+      branch: "main",
+      startedAt: created || null,
+      durationSec: dur,
+      trigger: (webhook === "t" || webhook === "true") ? "git push" : "manual",
+    };
+  });
+}
+
 // Coolify keeps build/deploy logs ONLY in its own DB (the REST API never returns
 // them) — a JSON array in application_deployment_queue.logs. Read the latest
 // deployment's logs for an app over the SSH channel so the panel can show WHY a
