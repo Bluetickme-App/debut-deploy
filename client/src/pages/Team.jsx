@@ -83,7 +83,7 @@ export default function Team() {
                 </td>
                 <td className="px-4 py-3">
                   {isOwner ? (
-                    <select className="input" value={m.role} onChange={async (e) => { await api.setMemberRole(m.id, e.target.value); load(); }}>
+                    <select className="input" value={m.role} onChange={async (e) => { const newRole = e.target.value; if (newRole === "owner" && !confirm("Owners can invite users, change roles, remove members, and access billing controls. Continue?")) return; await api.setMemberRole(m.id, newRole); load(); }}>
                       {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
                   ) : (
