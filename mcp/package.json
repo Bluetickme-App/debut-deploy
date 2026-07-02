@@ -1,0 +1,16 @@
+{
+  "name": "debutdeploy-mcp",
+  "version": "1.0.0",
+  "description": "MCP server exposing DebutDeploy's REST API as tools.",
+  "type": "module",
+  "bin": {
+    "debutdeploy-mcp": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.1",
+    "zod": "^3.25.76"
+  }
+}
