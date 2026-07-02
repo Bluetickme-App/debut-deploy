@@ -251,6 +251,16 @@ export async function renameService(uuid, name) {
   await cf(`/applications/${uuid}`, { method: "PATCH", body: { name } });
   return { ok: true, uuid, name };
 }
+
+// Patch an application's build/runtime config (build/start commands, health-check
+// path, base directory). Used to apply a Render blueprint to a freshly-created app.
+export async function patchApp(uuid, fields) {
+  if (isDemo()) return { ok: true };
+  const clean = Object.fromEntries(Object.entries(fields || {}).filter(([, v]) => v != null && v !== ""));
+  if (!Object.keys(clean).length) return { ok: true, noop: true };
+  await cf(`/applications/${uuid}`, { method: "PATCH", body: clean });
+  return { ok: true };
+}
 export async function renameDatabase(uuid, name) {
   if (isDemo()) return { ok: true, uuid, name };
   await cf(`/databases/${uuid}`, { method: "PATCH", body: { name } });

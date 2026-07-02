@@ -10,7 +10,9 @@ import {
   resolveDbUrl,
   upsertEnv,
   deployService,
+  patchApp,
 } from "./coolify.js";
+import { fetchBlueprint, applyBlueprint, ownerRepo } from "./renderyaml.js";
 import { createProjectDatabase, provisionDedicatedDatabase } from "./sharedcluster.js";
 import { assign } from "./ownership.js";
 
@@ -61,6 +63,10 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     deployService,
     assign,
     migratePostgres,
+    patchApp,
+    fetchBlueprint,
+    applyBlueprint,
+    ownerRepo,
     ...deps,
   };
 
@@ -135,6 +141,23 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   } catch (err) {
     steps.push({ step: "create-app", status: "error", detail: errDetail(err) });
     return { ok: false, appUuid: null, steps };
+  }
+
+  // Step 4b — apply the repo's Render blueprint (render.yaml) if present. It carries
+  // what the Render API doesn't fully expose — health-check path, root dir, and the
+  // exact build/start + env defaults — so Nixpacks builds the app the way Render did.
+  // Best-effort: a missing/broken blueprint never fails the migration.
+  try {
+    const or = d.ownerRepo(service.repo);
+    const svc = or ? await d.fetchBlueprint({ owner: or.owner, repo: or.repo, ref: service.branch || "main" }) : null;
+    if (svc) {
+      const summary = await d.applyBlueprint(appUuid, svc, { patchApp: d.patchApp, upsertEnv: d.upsertEnv });
+      steps.push({ step: "blueprint", status: "ok", detail: summary });
+    } else {
+      steps.push({ step: "blueprint", status: "skipped", detail: null });
+    }
+  } catch (err) {
+    steps.push({ step: "blueprint", status: "skipped", detail: errDetail(err) });
   }
 
 

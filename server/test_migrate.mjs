@@ -22,9 +22,11 @@ test("assertPgUrl rejects flag-smuggling / non-postgres values with 400", () => 
   }
 });
 
-// Shared stubs
+// Shared stubs. fetchBlueprint stubbed to null so the blueprint step stays offline
+// (no GitHub call) and deterministic unless a test overrides it.
 const baseDeps = {
   assign: () => {},
+  fetchBlueprint: async () => null,
 };
 
 // Real db helper: login-keyed lookup must be case-insensitive (the bug was
@@ -175,6 +177,43 @@ test("(h) empty Render repo → create-app errors clearly, assign never runs", a
   });
   // TODO(you): assert result.ok === false, the create-app step is "error", its detail
   // mentions the repo problem, and `assigned` stayed false.
+});
+
+// Render blueprint (render.yaml) → applies health/rootDir/build/start + non-secret
+// env to the created app; secrets are surfaced, not set.
+test("(i) blueprint present → patchApp + non-secret env applied, secrets surfaced", async () => {
+  let patched = null; const envSet = [];
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "shared" },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      fetchBlueprint: async () => ({
+        buildCommand: "pip install -r requirements.txt", startCommand: "python dashboard.py",
+        healthCheckPath: "/healthz", rootDir: "",
+        env: [{ key: "DASH_HOST", value: "0.0.0.0" }], secretKeys: ["DASH_USER", "DASH_PASS"],
+      }),
+      patchApp: async (_uuid, fields) => { patched = fields; return { ok: true }; },
+      upsertEnv: async (_uuid, { key, value }) => { envSet.push([key, value]); return { ok: true }; },
+    },
+  });
+  const step = result.steps.find((s) => s.step === "blueprint");
+  assert.equal(step.status, "ok");
+  assert.equal(patched.health_check_path, "/healthz");
+  assert.equal(patched.start_command, "python dashboard.py");
+  assert.ok(envSet.some(([k, v]) => k === "DASH_HOST" && v === "0.0.0.0"), "non-secret env applied");
+  assert.ok(!envSet.some(([k]) => k === "DASH_USER"), "secret NOT auto-set");
+  assert.deepEqual(step.detail.secretsNeeded, ["DASH_USER", "DASH_PASS"]);
+});
+
+test("(j) no blueprint → step skipped, migration still succeeds", async () => {
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1", target: { mode: "shared" }, userId: 1, apiKey: "x",
+    deps: { ...baseDeps, fetchBlueprint: async () => null },
+  });
+  assert.equal(result.steps.find((s) => s.step === "blueprint").status, "skipped");
+  assert.equal(result.ok, true);
 });
 
 test("(e) dbTarget none → migrate-db skipped even when a datastore exists", async () => {
