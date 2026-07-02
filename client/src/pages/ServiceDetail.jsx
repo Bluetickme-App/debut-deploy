@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
   Trash2, Check, X, Eye, EyeOff, Copy, Lock, Plus, RefreshCw,
+  ChevronDown, KeyRound, FileText, Database,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { actionLabel } from "../lib/eventLabels.js";
@@ -172,7 +173,7 @@ export default function ServiceDetail() {
         <Deployments deploys={deploys} serviceId={id} onRedeploy={() => action("deploy")} onDeploysChange={setDeploys} />
       )}
       {tab === "Logs" && <LogsTab serviceId={id} name={svc.name} />}
-      {tab === "Environment" && <EnvironmentTab serviceId={id} />}
+      {tab === "Environment" && <EnvironmentTab serviceId={id} onDeploy={() => action("deploy")} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
       {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} onRename={(name) => setSvc((s) => ({ ...s, name }))} />}
     </div>
@@ -399,60 +400,119 @@ function LogsTab({ serviceId, name }) {
 
 // ── Environment tab ─────────────────────────────────────────────────────────────
 
-function EnvironmentTab({ serviceId }) {
+// Strong random secret: 32-char base64url. ponytail: getRandomValues, no crypto lib.
+function genSecret() {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Parse pasted .env text → [{key,value}] (ignore blanks/#comments, split on first =, strip quotes).
+function parseEnvText(text) {
+  return text.split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#") && l.includes("="))
+    .map((l) => {
+      const idx = l.indexOf("=");
+      return { key: l.slice(0, idx).trim(), value: l.slice(idx + 1).trim().replace(/^["']|["']$/g, "") };
+    })
+    .filter((r) => r.key);
+}
+
+function EnvironmentTab({ serviceId, onDeploy }) {
   const [envs, setEnvs] = useState(null);
+  const [baseline, setBaseline] = useState({});   // uuid → serialized "key\0value" at last load/save
   const [groups, setGroups] = useState(null);
   const [reveal, setReveal] = useState(false);
-  const [draft, setDraft] = useState({ key: "", value: "", is_secret: false });
-  const [saving, setSaving] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [menu, setMenu] = useState(null);         // null | "root" | "datastore"
   const [paste, setPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
+  const [databases, setDatabases] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState(null);   // { ok, text }
 
   useEffect(() => {
     let cancelled = false;
-    api.envs(serviceId).then((d) => { if (!cancelled) setEnvs(d || []); });
+    api.envs(serviceId).then((d) => {
+      if (cancelled) return;
+      const rows = (d || []).map((e) => ({ ...e }));
+      setEnvs(rows);
+      setBaseline(snapshot(rows));
+    });
     // sharedVars is admin-only; ignore failures and render the card empty.
     api.sharedVars().then((d) => { if (!cancelled) setGroups(Array.isArray(d) ? d : []); }).catch(() => { if (!cancelled) setGroups([]); });
     return () => { cancelled = true; };
   }, [serviceId]);
 
-  async function add() {
-    if (!draft.key.trim()) return;
-    setSaving(true);
-    try {
-      await api.saveEnv(serviceId, draft);
-      setEnvs((e) => [...e, { uuid: "new-" + Date.now(), ...draft }]);
-      setDraft({ key: "", value: "", is_secret: false });
-      setAdding(false);
-    } finally { setSaving(false); }
+  // build a key\0value map keyed by uuid for dirty comparison
+  function snapshot(rows) {
+    return Object.fromEntries(rows.map((r) => [r.uuid, `${r.key}\0${r.value ?? ""}`]));
+  }
+
+  // a row is dirty if new (uuid starts "new-") or its key/value differs from baseline
+  function isDirtyRow(r) {
+    return String(r.uuid).startsWith("new-") || baseline[r.uuid] !== `${r.key}\0${r.value ?? ""}`;
+  }
+  const dirty = !!envs && envs.some((r) => isDirtyRow(r) && r.key.trim());
+
+  function addRow(row) {
+    setEnvs((e) => [...(e || []), { uuid: "new-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), key: "", value: "", is_secret: false, ...row }]);
+    setSaveMsg(null);
+  }
+
+  function editRow(uuid, patch) {
+    setEnvs((e) => e.map((r) => (r.uuid === uuid ? { ...r, ...patch } : r)));
+    setSaveMsg(null);
   }
 
   async function remove(envId) {
     setEnvs((e) => e.filter((x) => x.uuid !== envId));
-    api.deleteEnv(serviceId, envId).catch(() => {});
+    if (!String(envId).startsWith("new-")) api.deleteEnv(serviceId, envId).catch(() => {});
   }
 
-  async function applyPaste() {
-    const rows = pasteText.split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith("#") && l.includes("="))
-      .map((l) => {
-        const idx = l.indexOf("=");
-        return { key: l.slice(0, idx).trim(), value: l.slice(idx + 1).trim().replace(/^["']|["']$/g, "") };
-      })
-      .filter((r) => r.key);
-    setSaving(true);
+  function importPaste() {
+    parseEnvText(pasteText).forEach((r) => addRow(r));
+    setPasteText("");
+    setPaste(false);
+  }
+
+  function openDatastore() {
+    setMenu("datastore");
+    if (databases == null) api.databases().then((d) => setDatabases(Array.isArray(d) ? d : [])).catch(() => setDatabases([]));
+  }
+
+  async function pickDatabase(db) {
+    setMenu(null);
     try {
-      const added = [];
-      for (const r of rows) {
-        await api.saveEnv(serviceId, { ...r, is_secret: false });
-        added.push({ uuid: "new-" + Date.now() + "-" + r.key, ...r, is_secret: false });
+      const detail = await api.database(db.uuid);
+      addRow({ key: "DATABASE_URL", value: detail?.internalUrl || "" });
+    } catch {
+      addRow({ key: "DATABASE_URL", value: "" });
+    }
+  }
+
+  // Save every row with a non-empty key that changed (or is new). Returns true on success.
+  async function save() {
+    setSaving(true); setSaveMsg(null);
+    try {
+      for (const r of envs) {
+        if (r.key.trim() && isDirtyRow(r)) {
+          await api.saveEnv(serviceId, { key: r.key.trim(), value: r.value ?? "", is_secret: !!r.is_secret });
+        }
       }
-      setEnvs((e) => [...e, ...added]);
-      setPasteText("");
-      setPaste(false);
+      setBaseline(snapshot(envs));
+      setSaveMsg({ ok: true, text: "Saved." });
+      return true;
+    } catch (err) {
+      setSaveMsg({ ok: false, text: err.message || "Save failed" });
+      return false;
     } finally { setSaving(false); }
+  }
+
+  async function saveAndRedeploy() {
+    if (await save()) {
+      setSaveMsg({ ok: true, text: "Saved — redeploying…" });
+      onDeploy?.();
+    }
   }
 
   const inputCell = "mono w-full rounded-md border border-transparent bg-transparent px-2.5 py-[7px] text-[12px] outline-none transition-colors focus:border-[var(--accent)]";
@@ -508,10 +568,46 @@ function EnvironmentTab({ serviceId }) {
             {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             {reveal ? "Hide values" : "Reveal values"}
           </Button>
-          <Button variant="secondary" onClick={() => setPaste((p) => !p)}>Paste .env</Button>
-          <Button variant="primary" onClick={() => setAdding((a) => !a)}>
-            <Plus className="h-3.5 w-3.5" /> Add variable
-          </Button>
+
+          {/* + Add variable dropdown (Render-style) */}
+          <div className="relative">
+            <Button variant="primary" onClick={() => setMenu((m) => (m ? null : "root"))}>
+              <Plus className="h-3.5 w-3.5" /> Add variable <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+            {menu && (
+              <>
+                {/* click-away backdrop */}
+                <div className="fixed inset-0 z-10" onClick={() => setMenu(null)} />
+                <div
+                  className="absolute right-0 z-20 mt-1.5 w-[230px] overflow-hidden rounded-lg border py-1 text-[13px]"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}
+                >
+                  {menu === "root" && (
+                    <>
+                      <MenuItem icon={Plus} label="Add a variable" onClick={() => { addRow({}); setMenu(null); }} />
+                      <MenuItem icon={KeyRound} label="Generated secret" onClick={() => { addRow({ value: genSecret(), is_secret: true }); setMenu(null); }} />
+                      <MenuItem icon={FileText} label="Import from .env" onClick={() => { setPaste(true); setMenu(null); }} />
+                      <MenuItem icon={Database} label="Datastore URL" chevron onClick={openDatastore} />
+                    </>
+                  )}
+                  {menu === "datastore" && (
+                    <>
+                      <MenuItem icon={ArrowLeft} label="Back" onClick={() => setMenu("root")} />
+                      <div className="my-1 border-t" style={{ borderColor: "var(--border)" }} />
+                      {databases == null && <div className="px-3 py-2 text-xs" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading…</div>}
+                      {databases && databases.length === 0 && <div className="px-3 py-2 text-xs" style={{ color: "var(--text-muted)" }}>No databases found.</div>}
+                      {databases && databases.map((db) => (
+                        <MenuItem key={db.uuid} icon={Database} label={db.name || db.uuid} onClick={() => pickDatabase(db)} />
+                      ))}
+                      <p className="px-3 pb-1.5 pt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        Password isn't exposed by Coolify — you may need to fill it in.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -527,8 +623,8 @@ function EnvironmentTab({ serviceId }) {
           />
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => { setPaste(false); setPasteText(""); }}>Cancel</Button>
-            <Button variant="primary" onClick={applyPaste} disabled={saving || !pasteText.trim()}>
-              {saving ? <Spinner /> : "Import variables"}
+            <Button variant="primary" onClick={importPaste} disabled={!pasteText.trim()}>
+              Import variables
             </Button>
           </div>
         </div>
@@ -552,21 +648,47 @@ function EnvironmentTab({ serviceId }) {
           </div>
         )}
 
+        {envs && envs.length === 0 && (
+          <div className="px-4 py-6 text-center text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+            No variables yet. Use “Add variable” to create one.
+          </div>
+        )}
+
         {envs && envs.map((e) => {
-          const masked = !reveal;
+          const secret = !!e.is_secret;
+          const maskValue = secret && !reveal;
           return (
             <div
               key={e.uuid}
               className="grid items-center gap-3 border-t px-4 py-[9px]"
-              style={{ gridTemplateColumns: "1fr 1.5fr 40px", borderColor: "var(--border)" }}
+              style={{ gridTemplateColumns: "1fr 1.5fr 40px", borderColor: "var(--border)", background: isDirtyRow(e) && e.key.trim() ? "var(--surface-2)" : undefined }}
             >
-              <input value={e.key} readOnly className={inputCell} style={{ color: "var(--text)", fontWeight: 500 }} />
               <input
-                value={masked ? "•".repeat(Math.min((e.value || "").length || 12, 28)) : (e.value || "")}
-                readOnly
+                value={e.key}
+                onChange={(ev) => editRow(e.uuid, { key: ev.target.value.toUpperCase() })}
+                placeholder="KEY"
                 className={inputCell}
-                style={{ color: "var(--text-muted)" }}
+                style={{ color: "var(--text)", fontWeight: 500 }}
               />
+              <div className="flex items-center gap-2">
+                <input
+                  value={e.value ?? ""}
+                  onChange={(ev) => editRow(e.uuid, { value: ev.target.value })}
+                  placeholder="value"
+                  type={maskValue ? "password" : "text"}
+                  className={inputCell}
+                  style={{ color: "var(--text-muted)" }}
+                />
+                <label className="flex shrink-0 items-center gap-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  <input
+                    type="checkbox"
+                    checked={secret}
+                    onChange={(ev) => editRow(e.uuid, { is_secret: ev.target.checked })}
+                    style={{ accentColor: "var(--accent)" }}
+                  />
+                  secret
+                </label>
+              </div>
               <button
                 onClick={() => remove(e.uuid)}
                 title="Remove"
@@ -580,48 +702,35 @@ function EnvironmentTab({ serviceId }) {
             </div>
           );
         })}
+      </div>
 
-        {adding && (
-          <div
-            className="grid items-center gap-3 border-t px-4 py-[9px]"
-            style={{ gridTemplateColumns: "1fr 1.5fr 40px", borderColor: "var(--border)", background: "var(--surface-2)" }}
-          >
-            <input
-              value={draft.key}
-              onChange={(e) => setDraft({ ...draft, key: e.target.value.toUpperCase() })}
-              placeholder="KEY"
-              className="mono input"
-            />
-            <div className="flex items-center gap-2">
-              <input
-                value={draft.value}
-                onChange={(e) => setDraft({ ...draft, value: e.target.value })}
-                placeholder="value"
-                className="mono input flex-1"
-              />
-              <label className="flex items-center gap-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                <input
-                  type="checkbox"
-                  checked={draft.is_secret}
-                  onChange={(e) => setDraft({ ...draft, is_secret: e.target.checked })}
-                  style={{ accentColor: "var(--accent)" }}
-                />
-                secret
-              </label>
-            </div>
-            <button
-              onClick={add}
-              disabled={saving || !draft.key.trim()}
-              title="Save variable"
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-md"
-              style={{ background: "var(--accent)", color: "var(--accent-contrast)" }}
-            >
-              {saving ? <Spinner /> : <Check className="h-4 w-4" />}
-            </button>
-          </div>
-        )}
+      {/* save controls */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-end gap-3">
+        {saveMsg && <span className="text-xs" style={{ color: saveMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{saveMsg.text}</span>}
+        <Button variant="secondary" onClick={save} disabled={!dirty || saving}>
+          {saving ? <Spinner /> : <Check className="h-3.5 w-3.5" />} Save
+        </Button>
+        <Button variant="primary" onClick={saveAndRedeploy} disabled={!dirty || saving}>
+          {saving ? <Spinner /> : <Rocket className="h-3.5 w-3.5" />} Save &amp; Redeploy
+        </Button>
       </div>
     </div>
+  );
+}
+
+function MenuItem({ icon: Icon, label, onClick, chevron }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors"
+      style={{ color: "var(--text)" }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      <Icon className="h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
+      <span className="flex-1 truncate">{label}</span>
+      {chevron && <ChevronDown className="h-3.5 w-3.5 -rotate-90" style={{ color: "var(--text-muted)" }} />}
+    </button>
   );
 }
 
