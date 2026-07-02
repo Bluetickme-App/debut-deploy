@@ -69,7 +69,7 @@ import { repoKey, verifyWebhookSig } from "./webhook.js";
 import { createRenderCredential, listRenderCredentials, getRenderCredential, deleteRenderCredential } from "./db.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
-import { meterResources } from "./metering.js";
+import { meterResources, usageSummary } from "./metering.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -583,6 +583,34 @@ app.get("/api/admin/orgs/:id", requireAuth, requireAdmin, h((req) => {
 
 // ponytail: legacy alias — Clients page will call /api/admin/orgs; keep one release.
 app.get("/api/customers", requireAuth, requireAdmin, h(() => listOrgsWithCounts()));
+
+// --- usage metering (read-only; produced by the health tick) ---
+app.get("/api/org/usage", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => {
+    // Admin has no single org; a targeted org must go through the admin route.
+    if (req.user.role === "admin") {
+      throw Object.assign(new Error("Use /api/admin/orgs/:id/usage"), { status: 400 });
+    }
+    const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
+    return usageSummary(req.org.id, period);
+  })
+);
+
+app.get("/api/org/usage/current", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => {
+    if (req.user.role === "admin") {
+      throw Object.assign(new Error("Use /api/admin/orgs/:id/usage"), { status: 400 });
+    }
+    return usageSummary(req.org.id, currentPeriod());
+  })
+);
+
+app.get("/api/admin/orgs/:id/usage", requireAuth, requireAdmin, h((req) => {
+  const detail = getOrgDetail(Number(req.params.id));
+  if (!detail) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
+  return usageSummary(Number(req.params.id), period, detail.org.name);
+}));
 
 // Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.
 app.get(
