@@ -10,6 +10,7 @@ import { actionLabel } from "../lib/eventLabels.js";
 import { StatusPill, Spinner, Button, Mono, timeAgo } from "../components/ui.jsx";
 import { SettingsSection, SettingsRow, AnchorNav } from "../components/SettingsSection.jsx";
 import ConfirmDelete from "../components/ConfirmDelete.jsx";
+import MoveToProject from "../components/MoveToProject.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
 
@@ -1176,6 +1177,9 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           </SettingsRow>
           <SettingsRow label="Region" desc="The region this service runs in.">
             <ReadOnly value={region} />
+          </SettingsRow>
+          <SettingsRow label="Project" desc="Group this service under a Coolify project.">
+            <MoveToProject kind="service" resourceId={serviceId} current={svc.project} />
           </SettingsRow>
           <SettingsRow label="Instance type" desc="Scaling is managed at the workspace level.">
             <div

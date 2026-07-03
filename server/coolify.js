@@ -99,6 +99,18 @@ export async function listServices() {
   return (Array.isArray(apps) ? apps : []).map((a) => mapApp(a, region));
 }
 
+// Coolify projects, for the "Move to project" picker.
+export async function listProjects() {
+  if (isDemo()) return [{ uuid: "demo-proj", name: "Apps" }];
+  const ps = await cf("/projects");
+  return (Array.isArray(ps) ? ps : []).map((p) => ({ uuid: p.uuid, name: p.name }));
+}
+
+// Move an app or database into another Coolify project (via the DB — no REST route).
+export async function moveToProject(resourceUuid, projectUuid, kind) {
+  return coolifydb.moveToProject(resourceUuid, projectUuid, kind);
+}
+
 export async function getService(uuid) {
   if (isDemo()) return fx.services.find((s) => s.uuid === uuid) || null;
   const [app, region] = await Promise.all([cf(`/applications/${uuid}`), sharedRegion()]);

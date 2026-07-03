@@ -73,6 +73,31 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   });
 }
 
+// Move a resource (app or postgres) into another Coolify project by repointing its
+// environment_id — Coolify has no REST endpoint for this. Structured as UPDATE …
+// FROM (subquery): if the target project has no environment the subquery is empty
+// and ZERO rows change (never nulls environment_id → never breaks the resource).
+// `kind` picks the table; only these two are supported (validated by the caller).
+const MOVE_TABLES = { app: "applications", postgres: "standalone_postgresqls" };
+export async function moveToProject(resourceUuid, projectUuid, kind = "app") {
+  if (DEMO) return { ok: true };
+  const table = MOVE_TABLES[kind];
+  if (!table) throw Object.assign(new Error("Unsupported resource kind"), { status: 400 });
+  const r = String(resourceUuid).replace(/[^a-z0-9]/gi, "");
+  const p = String(projectUuid).replace(/[^a-z0-9]/gi, "");
+  if (!r || !p) throw Object.assign(new Error("resource + project uuid required"), { status: 400 });
+  const out = await runSql(
+    `UPDATE ${table} SET environment_id = env.id FROM ` +
+    `(SELECT e.id FROM environments e JOIN projects pr ON e.project_id = pr.id ` +
+    `WHERE pr.uuid = '${p}' ORDER BY (e.name = 'production') DESC, e.id LIMIT 1) AS env ` +
+    `WHERE ${table}.uuid = '${r}' RETURNING ${table}.uuid`
+  );
+  if (!String(out || "").trim()) {
+    throw Object.assign(new Error("Move did not apply — check the project has a production environment and the resource exists"), { status: 404 });
+  }
+  return { ok: true };
+}
+
 // A server's standalone-docker destination (needed to create an app on a freshly
 // provisioned dedicated server). Coolify's REST API has NO destinations endpoint
 // (GET /destinations → 404) and the server detail omits them, so read the

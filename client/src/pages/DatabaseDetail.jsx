@@ -4,6 +4,7 @@ import { ArrowLeft, Trash2, Eye, EyeOff, Copy } from "lucide-react";
 import { api } from "../lib/api.js";
 import { StatusPill, Spinner, Button, timeAgo } from "../components/ui.jsx";
 import { SettingsSection, SettingsRow } from "../components/SettingsSection.jsx";
+import MoveToProject from "../components/MoveToProject.jsx";
 
 const DB_LABEL = {
   postgresql: "PostgreSQL",
@@ -132,6 +133,9 @@ export default function DatabaseDetail() {
           </SettingsRow>
           <SettingsRow label="Region" desc="The server this database runs on.">
             <ReadOnly value={region} />
+          </SettingsRow>
+          <SettingsRow label="Project" desc="Group this database under a Coolify project.">
+            <MoveToProject kind="database" resourceId={db.uuid} current={null} />
           </SettingsRow>
         </SettingsSection>
 
