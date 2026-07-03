@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</helmet>
+<div style="{{ rootStyle }}">
+  <aside style="width:240px; flex-shrink:0; height:100%; display:flex; flex-direction:column; background:var(--surface); border-right:1px solid var(--border)">
+    <div style="display:flex; align-items:center; gap:10px; padding:18px 18px 14px">
+      <div style="width:30px; height:30px; border-radius:8px; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,.18)">
+        <span style="font-family:'Geist',sans-serif; font-weight:700; font-size:18px; color:var(--accent-contrast); line-height:1">D</span>
+      </div>
+      <span style="font-family:'Geist',sans-serif; font-weight:700; font-size:17px; letter-spacing:-.01em; color:var(--text)">Debut<span style="color:var(--accent-text)">Deploy</span></span>
+    </div>
+
+    <div style="position:relative; padding:0 12px 12px">
+      <div role="button" onClick="{{ toggleSwitcher }}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:9px; border:1px solid var(--border); background:var(--surface); cursor:pointer; transition:background .15s, border-color .15s" style-hover="{borderColor:'var(--border-strong)', background:'var(--surface-2)'}">
+        <div style="display:flex; align-items:center; gap:9px; min-width:0">
+          <span style="{{ switcher.tileStyle }}">{{ switcher.letter }}</span>
+          <div style="display:flex; flex-direction:column; line-height:1.2; min-width:0">
+            <span style="font-size:9.5px; font-weight:600; letter-spacing:.08em; color:var(--text-muted); text-transform:uppercase">Project</span>
+            <span style="font-size:13px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ switcher.name }}</span>
+          </div>
+        </div>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </div>
+      <sc-if value="{{ switcherOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:100%; left:12px; right:12px; margin-top:5px; background:var(--surface); border:1px solid var(--border); border-radius:11px; box-shadow:var(--shadow-lg); padding:6px; z-index:40">
+          <sc-for list="{{ projectList }}" as="p" hint-placeholder-count="4">
+            <div role="button" onClick="{{ p.on }}" style="display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:8px; cursor:pointer" style-hover="{background:'var(--surface-2)'}">
+              <span style="{{ p.tileStyle }}">{{ p.letter }}</span>
+              <span style="flex:1; font-size:13px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ p.name }}</span>
+              <sc-if value="{{ p.isActive }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if>
+            </div>
+          </sc-for>
+          <div style="height:1px; background:var(--border); margin:6px 4px"></div>
+          <div role="button" style="display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:8px; cursor:pointer; color:var(--accent-text); font-size:13px; font-weight:600" style-hover="{background:'var(--accent-soft)'}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>New project
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <nav style="flex:1; overflow-y:auto; padding:6px 12px; display:flex; flex-direction:column; gap:2px">
+      <div style="{{ nav.projects }}" style-hover="{{ hov.projects }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span>Projects</span>
+      </div>
+      <div style="{{ nav.services }}" style-hover="{{ hov.services }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+        <span>Services</span>
+      </div>
+      <div style="{{ nav.databases }}" style-hover="{{ hov.databases }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
+        <span>Infrastructure</span>
+      </div>
+      <div style="{{ nav.newservice }}" style-hover="{{ hov.newservice }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg>
+        <span>New Service</span>
+      </div>
+      <div style="{{ nav.newdatabase }}" style-hover="{{ hov.newdatabase }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.5 3.58 2.7 8 2.7"/><path d="M4 12v6c0 1.5 3.58 2.7 8 2.7"/><path d="M18 14v8M22 18h-8" transform="translate(-1 -1)"/></svg>
+        <span>New Database</span>
+      </div>
+      <div style="{{ nav.activity }}" style-hover="{{ hov.activity }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>Activity</span>
+      </div>
+      <div style="{{ nav.notifications }}" style-hover="{{ hov.notifications }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span>Notifications</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px; padding:16px 10px 6px">
+        <span style="font-size:10.5px; font-weight:600; letter-spacing:.09em; color:var(--text-muted); text-transform:uppercase">Admin</span>
+        <span style="flex:1; height:1px; background:var(--border)"></span>
+      </div>
+      <div style="{{ nav.servers }}" style-hover="{{ hov.servers }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="7" rx="2"/><rect x="2" y="13" width="20" height="7" rx="2"/><path d="M6 7.5h.01M6 16.5h.01"/></svg>
+        <span>Servers</span>
+      </div>
+      <div style="{{ nav.sharedvars }}" style-hover="{{ hov.sharedvars }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg>
+        <span>Shared Vars</span>
+      </div>
+      <div style="{{ nav.import }}" style-hover="{{ hov.import }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+        <span>Import from Render</span>
+      </div>
+    </nav>
+
+    <div style="padding:12px 18px; border-top:1px solid var(--border); display:flex; align-items:center; gap:7px">
+      <span style="font-size:11.5px; color:var(--text-muted); font-variant-numeric:tabular-nums">v1.4.2</span>
+      <span style="width:3px; height:3px; border-radius:50%; background:var(--text-muted); opacity:.6"></span>
+      <span style="font-size:11.5px; color:var(--text-muted)">Coolify 4.0</span>
+    </div>
+  </aside>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column; height:100%">
+    <header style="height:56px; flex-shrink:0; border-bottom:1px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:space-between; padding:0 18px 0 24px">
+      <div style="display:flex; align-items:center; gap:9px; color:var(--text-muted); font-size:13px">
+        <span style="font-weight:500; color:var(--text)">{{ crumb }}</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px">
+        <div style="{{ envPill }}">
+          <span style="{{ envDot }}"></span>{{ envLabel }}<span style="opacity:.6; font-weight:450"> · Coolify</span>
+        </div>
+        <span style="width:1px; height:22px; background:var(--border); margin:0 2px"></span>
+        <div role="button" onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-muted); border:1px solid transparent" style-hover="{background:'var(--surface-2)', color:'var(--text)'}">
+          <sc-if value="{{ isDark }}" hint-placeholder-val="{{ true }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          </sc-if>
+          <sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          </sc-if>
+        </div>
+        <div role="button" style="display:flex; align-items:center; gap:9px; padding:4px 8px 4px 5px; border-radius:9px; cursor:pointer; border:1px solid transparent" style-hover="{background:'var(--surface-2)'}">
+          <span style="width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,#6366f1,#2563eb); display:flex; align-items:center; justify-content:center; color:#fff; font-size:11.5px; font-weight:600; letter-spacing:.02em">{{ userInitials }}</span>
+          <div style="display:flex; flex-direction:column; line-height:1.25">
+            <span style="font-size:12.5px; font-weight:600; color:var(--text)">{{ userName }}</span>
+            <span style="font-size:10.5px; color:var(--text-muted)">{{ userRole }}</span>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:1px"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <button title="Log out" style="width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-muted); background:transparent; border:1px solid transparent" style-hover="{background:'var(--err-soft)', color:'var(--err-text)'}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        </button>
+      </div>
+    </header>
+    <main style="flex:1; min-height:0; overflow-y:auto; background:var(--bg)">{{ children }}</main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:820},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;activeNav&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;services&quot;,&quot;databases&quot;,&quot;newservice&quot;,&quot;newdatabase&quot;,&quot;activity&quot;,&quot;notifications&quot;,&quot;servers&quot;,&quot;sharedvars&quot;,&quot;import&quot;],&quot;default&quot;:&quot;services&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;crumb&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Services&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;env&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;demo&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;userName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Maya Flores&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;userRole&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Owner&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;admin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { theme: this.props.theme === 'dark' ? 'dark' : 'light', switcherOpen:false, project:0 };
+
+  projectsData = [
+    { name:'mflh', color:'#2563eb' },
+    { name:'internal-tools', color:'#8b5cf6' },
+    { name:'data-platform', color:'#d9822b' },
+    { name:'marketing-site', color:'#0d9488' }
+  ];
+
+  tokens(t){
+    return t === 'dark' ? {
+      '--bg':'#0a0c11','--surface':'#11141b','--surface-2':'#171b24','--border':'#222734','--border-strong':'#2d3442','--text':'#e7eaf0','--text-muted':'#8b94a3','--accent':'#3b82f6','--accent-hover':'#5b9bff','--accent-contrast':'#ffffff','--accent-soft':'rgba(59,130,246,.16)','--accent-text':'#7eb0ff','--ok':'#22c55e','--ok-soft':'rgba(34,197,94,.15)','--ok-text':'#4ade80','--warn':'#f59e0b','--warn-soft':'rgba(245,158,11,.15)','--warn-text':'#fbbf24','--err':'#ef4444','--err-soft':'rgba(239,68,68,.15)','--err-text':'#f87171','--neutral-soft':'rgba(255,255,255,.07)','--neutral-text':'#9aa3b2','--ring':'rgba(59,130,246,.45)','--shadow':'0 1px 2px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.5)','--shadow-lg':'0 16px 40px -12px rgba(0,0,0,.6)','--mono-bg':'#0b0e14','--mono-text':'#d6deeb'
+    } : {
+      '--bg':'#f5f6f8','--surface':'#ffffff','--surface-2':'#f3f5f7','--border':'#e6e8ec','--border-strong':'#d6dae0','--text':'#0d1117','--text-muted':'#5a6573','--accent':'#2563eb','--accent-hover':'#1d4ed8','--accent-contrast':'#ffffff','--accent-soft':'#eaf0fe','--accent-text':'#1d4ed8','--ok':'#16a34a','--ok-soft':'#e7f6ec','--ok-text':'#15803d','--warn':'#d97706','--warn-soft':'#fdf1dc','--warn-text':'#b45309','--err':'#dc2626','--err-soft':'#fdeaea','--err-text':'#b91c1c','--neutral-soft':'#eef0f3','--neutral-text':'#475569','--ring':'rgba(37,99,235,.35)','--shadow':'0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.10)','--shadow-lg':'0 10px 30px -10px rgba(16,24,40,.18)','--mono-bg':'#0b0e14','--mono-text':'#d6deeb'
+    };
+  }
+
+  renderVals(){
+    const active = this.props.activeNav || '';
+    const base = { display:'flex', alignItems:'center', gap:'11px', padding:'8px 11px', borderRadius:'8px', textDecoration:'none', fontSize:'13.5px', fontWeight:500, color:'var(--text-muted)', cursor:'pointer', transition:'background .15s, color .15s', userSelect:'none' };
+    const activeStyle = { ...base, color:'var(--accent-text)', background:'var(--accent-soft)', fontWeight:600 };
+    const hoverStyle = { ...base, background:'var(--surface-2)', color:'var(--text)' };
+    const keys = ['projects','services','databases','newservice','newdatabase','activity','notifications','servers','sharedvars','import'];
+    const nav = {}, hov = {};
+    keys.forEach(k => { const on = active === k; nav[k] = on ? activeStyle : base; hov[k] = on ? activeStyle : hoverStyle; });
+
+    const t = this.state.theme;
+    const rootStyle = { position:'relative', display:'flex', width:'100%', height:'820px', border:'1px solid var(--border)', borderRadius:'14px', overflow:'hidden', boxShadow:'var(--shadow-lg)', background:'var(--bg)', color:'var(--text)', fontFamily:"'Geist', system-ui, sans-serif", ...this.tokens(t) };
+
+    const env = this.props.env || 'live';
+    const envIsLive = env !== 'demo';
+    const envPill = { display:'inline-flex', alignItems:'center', gap:'7px', padding:'5px 11px', borderRadius:'999px', fontSize:'12px', fontWeight:600, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)' };
+    const envDot = { width:'7px', height:'7px', borderRadius:'50%', background: envIsLive ? 'var(--ok)' : 'var(--warn)', boxShadow: envIsLive ? '0 0 0 3px var(--ok-soft)' : '0 0 0 3px var(--warn-soft)' };
+
+    const name = this.props.userName || 'Maya Flores';
+    const initials = name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+
+    const tile = (c) => ({ width:'22px', height:'22px', borderRadius:'6px', background:c, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:700, flexShrink:0, fontFamily:"'Geist',sans-serif" });
+    const pd = this.projectsData, pi = this.state.project;
+    const switcher = { name: pd[pi].name, letter: pd[pi].name[0].toUpperCase(), tileStyle: tile(pd[pi].color) };
+    const projectList = pd.map((p,i) => ({ name:p.name, letter:p.name[0].toUpperCase(), tileStyle:tile(p.color), isActive:i===pi, on:()=>this.setState({ project:i, switcherOpen:false }) }));
+
+    return {
+      rootStyle, nav, hov,
+      switcher, projectList, switcherOpen:this.state.switcherOpen,
+      toggleSwitcher:()=>this.setState(s=>({ switcherOpen:!s.switcherOpen })),
+      isDark: t === 'dark', isLight: t !== 'dark',
+      toggleTheme: () => this.setState(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+      crumb: this.props.crumb || '',
+      envPill, envDot, envLabel: envIsLive ? 'Live' : 'Demo',
+      userName: name, userInitials: initials, userRole: this.props.userRole || (this.props.admin ? 'Admin' : 'Owner'),
+      children: this.props.children
+    };
+  }
+}
+</script>
+</body>
+</html>

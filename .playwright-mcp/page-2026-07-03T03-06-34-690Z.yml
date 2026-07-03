@@ -1,0 +1,215 @@
+- generic [ref=f7e7]:
+  - complementary [ref=f7e8]:
+    - generic [ref=f7e9]:
+      - generic [ref=f7e11]: D
+      - generic [ref=f7e12]: DebutDeploy
+    - button "A Project Apps" [ref=f7e14] [cursor=pointer]:
+      - generic [ref=f7e15]:
+        - generic [ref=f7e16]: A
+        - generic [ref=f7e17]:
+          - generic [ref=f7e18]: Project
+          - generic [ref=f7e19]: Apps
+      - img [ref=f7e20]
+    - navigation [ref=f7e23]:
+      - link "Projects" [ref=f7e24] [cursor=pointer]:
+        - /url: /projects
+        - img [ref=f7e25]
+        - generic [ref=f7e27]: Projects
+      - link "Services" [ref=f7e28] [cursor=pointer]:
+        - /url: /
+        - img [ref=f7e29]
+        - generic [ref=f7e33]: Services
+      - link "Infrastructure" [ref=f7e34] [cursor=pointer]:
+        - /url: /databases
+        - img [ref=f7e35]
+        - generic [ref=f7e39]: Infrastructure
+      - link "New Service" [ref=f7e40] [cursor=pointer]:
+        - /url: /new
+        - img [ref=f7e41]
+        - generic [ref=f7e43]: New Service
+      - link "New Database" [ref=f7e44] [cursor=pointer]:
+        - /url: /new-database
+        - img [ref=f7e45]
+        - generic [ref=f7e49]: New Database
+      - link "Activity" [ref=f7e50] [cursor=pointer]:
+        - /url: /activity
+        - img [ref=f7e51]
+        - generic [ref=f7e53]: Activity
+      - link "Notifications" [ref=f7e54] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=f7e55]
+        - generic [ref=f7e58]: Notifications
+      - generic [ref=f7e60]: Admin
+      - link "Clients" [ref=f7e62] [cursor=pointer]:
+        - /url: /clients
+        - img [ref=f7e63]
+        - generic [ref=f7e68]: Clients
+      - link "Billing & Plans" [ref=f7e69] [cursor=pointer]:
+        - /url: /billing
+        - img [ref=f7e70]
+        - generic [ref=f7e72]: Billing & Plans
+      - link "Deploy from Git" [ref=f7e73] [cursor=pointer]:
+        - /url: /new-git
+        - img [ref=f7e74]
+        - generic [ref=f7e78]: Deploy from Git
+      - link "Servers" [ref=f7e79] [cursor=pointer]:
+        - /url: /servers
+        - img [ref=f7e80]
+        - generic [ref=f7e92]: Servers
+      - link "Variable Groups" [ref=f7e93] [cursor=pointer]:
+        - /url: /shared-vars
+        - img [ref=f7e94]
+        - generic [ref=f7e97]: Variable Groups
+      - link "Import from Render" [ref=f7e98] [cursor=pointer]:
+        - /url: /import
+        - img [ref=f7e99]
+        - generic [ref=f7e103]: Import from Render
+    - generic [ref=f7e104]:
+      - generic [ref=f7e105]: v1.4.2
+      - generic [ref=f7e107]: Coolify 4.0
+  - generic [ref=f7e108]:
+    - banner [ref=f7e109]:
+      - generic [ref=f7e112]: Import from Render
+      - generic [ref=f7e113]:
+        - generic [ref=f7e114]:
+          - text: Live
+          - generic [ref=f7e116]: · Coolify
+        - button "Toggle theme" [ref=f7e118] [cursor=pointer]:
+          - img [ref=f7e119]
+        - button "DW Debut Web Consultants admin" [ref=f7e122] [cursor=pointer]:
+          - generic [ref=f7e123]: DW
+          - generic [ref=f7e124]:
+            - generic [ref=f7e125]: Debut Web Consultants
+            - generic [ref=f7e126]: admin
+          - img [ref=f7e127]
+        - button "Log out" [ref=f7e129] [cursor=pointer]:
+          - img [ref=f7e130]
+    - main [ref=f7e133]:
+      - generic [ref=f7e134]:
+        - generic [ref=f7e136]:
+          - heading "Import from Render" [level=1] [ref=f7e137]
+          - paragraph [ref=f7e138]: Migrate a Render service to Coolify on Hetzner.
+        - generic [ref=f7e140]:
+          - generic [ref=f7e141]:
+            - generic [ref=f7e142]: Render API key
+            - combobox [ref=f7e143]:
+              - option "Use a new key"
+              - option "TCB" [selected]
+          - list [ref=f7e144]:
+            - listitem [ref=f7e145]:
+              - text: TCB
+              - button "Delete key" [ref=f7e146]:
+                - img [ref=f7e147]
+          - button "List services" [ref=f7e159] [cursor=pointer]:
+            - img [ref=f7e163]
+            - text: List services
+        - generic [ref=f7e166]:
+          - generic [ref=f7e167]: Select services to migrate
+          - list [ref=f7e168]:
+            - listitem [ref=f7e169] [cursor=pointer]:
+              - checkbox [ref=f7e170]
+              - generic [ref=f7e171]:
+                - generic [ref=f7e172]: DebutWebConsultantsWebsite
+                - generic [ref=f7e173]: https://github.com/Bluetickme-App/DebutWebConsultantsWebsite @ main · web_service
+            - listitem [ref=f7e174] [cursor=pointer]:
+              - checkbox [ref=f7e175]
+              - generic [ref=f7e176]:
+                - generic [ref=f7e177]: mtproto-kourtney_kortez
+                - generic [ref=f7e178]: https://github.com/Bluetickme-App/fans-automation @ main · web_service
+            - listitem [ref=f7e179] [cursor=pointer]:
+              - checkbox [ref=f7e180]
+              - generic [ref=f7e181]:
+                - generic [ref=f7e182]: flyer-render
+                - generic [ref=f7e183]: https://github.com/Bluetickme-App/fans-automation @ main · web_service
+            - listitem [ref=f7e184] [cursor=pointer]:
+              - checkbox [ref=f7e185]
+              - generic [ref=f7e186]:
+                - generic [ref=f7e187]: nodriver-simone_kara
+                - generic [ref=f7e188]: https://github.com/Bluetickme-App/fans-automation @ main · web_service
+            - listitem [ref=f7e189] [cursor=pointer]:
+              - checkbox [ref=f7e190]
+              - generic [ref=f7e191]:
+                - generic [ref=f7e192]: tiktok-live-ai-youtube-ingest
+                - generic [ref=f7e193]: https://github.com/Bluetickme-App/tiktok-live-ai-avatar @ main · web_service
+            - listitem [ref=f7e194] [cursor=pointer]:
+              - checkbox [ref=f7e195]
+              - generic [ref=f7e196]:
+                - generic [ref=f7e197]: tiktok-live-ai-avatar-svc
+                - generic [ref=f7e198]: https://github.com/Bluetickme-App/tiktok-live-ai-avatar @ main · web_service
+            - listitem [ref=f7e199] [cursor=pointer]:
+              - checkbox [ref=f7e200]
+              - generic [ref=f7e201]:
+                - generic [ref=f7e202]: research-browser
+                - generic [ref=f7e203]: https://github.com/Bluetickme-App/fans-automation @ main · web_service
+            - listitem [ref=f7e204] [cursor=pointer]:
+              - checkbox [ref=f7e205]
+              - generic [ref=f7e206]:
+                - generic [ref=f7e207]: tiktok-live-ai-orch
+                - generic [ref=f7e208]: https://github.com/Bluetickme-App/tiktok-live-ai-avatar @ main · web_service
+            - listitem [ref=f7e209] [cursor=pointer]:
+              - checkbox [ref=f7e210]
+              - generic [ref=f7e211]:
+                - generic [ref=f7e212]: tiktok-live-ai-avatar
+                - generic [ref=f7e213]: https://github.com/Bluetickme-App/tiktok-live-ai-avatar @ main · web_service
+            - listitem [ref=f7e214] [cursor=pointer]:
+              - checkbox [ref=f7e215]
+              - generic [ref=f7e216]:
+                - generic [ref=f7e217]: nodriver-testfan-f2057184-b154-49e3-bc54-8228ce66369b
+                - generic [ref=f7e218]: https://github.com/Bluetickme-App/fans-automation @ main · web_service
+            - listitem [ref=f7e219] [cursor=pointer]:
+              - checkbox [ref=f7e220]
+              - generic [ref=f7e221]:
+                - generic [ref=f7e222]: face-rec
+                - generic [ref=f7e223]: https://github.com/Bluetickme-App/fans-automation @ main · private_service
+            - listitem [ref=f7e224] [cursor=pointer]:
+              - checkbox [ref=f7e225]
+              - generic [ref=f7e226]:
+                - generic [ref=f7e227]: nodriver-kourtney_kortez
+                - generic [ref=f7e228]: https://github.com/Bluetickme-App/fans-automation @ main · web_service
+            - listitem [ref=f7e229] [cursor=pointer]:
+              - checkbox [checked] [ref=f7e230]
+              - generic [ref=f7e231]:
+                - generic [ref=f7e232]: Premium-Agent-Hub
+                - generic [ref=f7e233]: https://github.com/Bluetickme-App/Premium-Agent-Hub @ main · web_service
+            - listitem [ref=f7e234] [cursor=pointer]:
+              - checkbox [ref=f7e235]
+              - generic [ref=f7e236]:
+                - generic [ref=f7e237]: QuickTrade
+                - generic [ref=f7e238]: https://github.com/Bluetickme-App/quick-trade @ main · web_service
+            - listitem [ref=f7e239] [cursor=pointer]:
+              - checkbox [ref=f7e240]
+              - generic [ref=f7e241]:
+                - generic [ref=f7e242]: Main Web Server
+                - generic [ref=f7e243]: https://github.com/Bluetickme-App/fans-automation @ main · web_service
+          - generic [ref=f7e244]:
+            - generic [ref=f7e245]:
+              - generic [ref=f7e246]: Deployment target
+              - generic [ref=f7e247]:
+                - generic [ref=f7e248] [cursor=pointer]:
+                  - radio "Shared" [checked] [ref=f7e249]
+                  - text: Shared
+                - generic [ref=f7e250] [cursor=pointer]:
+                  - radio "Dedicated" [ref=f7e251]
+                  - text: Dedicated
+            - generic [ref=f7e252]:
+              - generic [ref=f7e253]: Migrate a database?
+              - generic [ref=f7e254] [cursor=pointer]:
+                - checkbox "Migrate a database" [checked] [ref=f7e255]
+                - text: Migrate a database
+              - generic [ref=f7e259]:
+                - generic [ref=f7e260]:
+                  - generic [ref=f7e261]: Source (Render)
+                  - combobox [ref=f7e262]:
+                    - option "Select…"
+                    - option "Fansauto_DB (basic_256mb)"
+                    - option "Qucik-Trade-DB (free)"
+                    - option "Premium-Agent-DB (basic_256mb)" [selected]
+                    - option "tiktok_db (basic_256mb)"
+                    - option "DWC - WS DB (basic_256mb)"
+                - generic [ref=f7e263]:
+                  - generic [ref=f7e264]: Target
+                  - paragraph [ref=f7e265]: A new isolated database on the shared cluster (provisioned automatically).
+              - paragraph [ref=f7e256]: A fresh, isolated Postgres is created on the shared cluster and your data is restored into it via pg_dump — your existing databases are never touched.
+            - button "Migrating…" [disabled] [ref=f7e266]:
+              - img [ref=f7e267]
+              - text: Migrating…

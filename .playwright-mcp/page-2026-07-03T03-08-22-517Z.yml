@@ -1,0 +1,136 @@
+- generic [ref=f8e7]:
+  - complementary [ref=f8e8]:
+    - generic [ref=f8e9]:
+      - generic [ref=f8e11]: D
+      - generic [ref=f8e12]: DebutDeploy
+    - button "A Project Apps" [ref=f8e14] [cursor=pointer]:
+      - generic [ref=f8e15]:
+        - generic [ref=f8e16]: A
+        - generic [ref=f8e17]:
+          - generic [ref=f8e18]: Project
+          - generic [ref=f8e19]: Apps
+      - img [ref=f8e20]
+    - navigation [ref=f8e23]:
+      - link "Projects" [ref=f8e24] [cursor=pointer]:
+        - /url: /projects
+        - img [ref=f8e25]
+        - generic [ref=f8e27]: Projects
+      - link "Services" [ref=f8e28] [cursor=pointer]:
+        - /url: /
+        - img [ref=f8e29]
+        - generic [ref=f8e33]: Services
+      - link "Infrastructure" [ref=f8e34] [cursor=pointer]:
+        - /url: /databases
+        - img [ref=f8e35]
+        - generic [ref=f8e39]: Infrastructure
+      - link "New Service" [ref=f8e40] [cursor=pointer]:
+        - /url: /new
+        - img [ref=f8e41]
+        - generic [ref=f8e43]: New Service
+      - link "New Database" [ref=f8e44] [cursor=pointer]:
+        - /url: /new-database
+        - img [ref=f8e45]
+        - generic [ref=f8e49]: New Database
+      - link "Activity" [ref=f8e50] [cursor=pointer]:
+        - /url: /activity
+        - img [ref=f8e51]
+        - generic [ref=f8e53]: Activity
+      - link "Notifications" [ref=f8e54] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=f8e55]
+        - generic [ref=f8e58]: Notifications
+      - generic [ref=f8e60]: Admin
+      - link "Clients" [ref=f8e62] [cursor=pointer]:
+        - /url: /clients
+        - img [ref=f8e63]
+        - generic [ref=f8e68]: Clients
+      - link "Billing & Plans" [ref=f8e69] [cursor=pointer]:
+        - /url: /billing
+        - img [ref=f8e70]
+        - generic [ref=f8e72]: Billing & Plans
+      - link "Deploy from Git" [ref=f8e73] [cursor=pointer]:
+        - /url: /new-git
+        - img [ref=f8e74]
+        - generic [ref=f8e78]: Deploy from Git
+      - link "Servers" [ref=f8e79] [cursor=pointer]:
+        - /url: /servers
+        - img [ref=f8e80]
+        - generic [ref=f8e92]: Servers
+      - link "Variable Groups" [ref=f8e93] [cursor=pointer]:
+        - /url: /shared-vars
+        - img [ref=f8e94]
+        - generic [ref=f8e97]: Variable Groups
+      - link "Import from Render" [ref=f8e98] [cursor=pointer]:
+        - /url: /import
+        - img [ref=f8e99]
+        - generic [ref=f8e103]: Import from Render
+    - generic [ref=f8e104]:
+      - generic [ref=f8e105]: v1.4.2
+      - generic [ref=f8e107]: Coolify 4.0
+  - generic [ref=f8e108]:
+    - banner [ref=f8e109]:
+      - generic [ref=f8e112]: Service Detail
+      - generic [ref=f8e113]:
+        - generic [ref=f8e114]:
+          - text: Live
+          - generic [ref=f8e116]: · Coolify
+        - button "Toggle theme" [ref=f8e118] [cursor=pointer]:
+          - img [ref=f8e119]
+        - button "DW Debut Web Consultants admin" [ref=f8e122] [cursor=pointer]:
+          - generic [ref=f8e123]: DW
+          - generic [ref=f8e124]:
+            - generic [ref=f8e125]: Debut Web Consultants
+            - generic [ref=f8e126]: admin
+          - img [ref=f8e127]
+        - button "Log out" [ref=f8e129] [cursor=pointer]:
+          - img [ref=f8e130]
+    - main [ref=f8e133]:
+      - generic [ref=f8e134]:
+        - link "Services" [ref=f8e135] [cursor=pointer]:
+          - /url: /
+          - img [ref=f8e136]
+          - text: Services
+        - generic [ref=f8e138]:
+          - generic [ref=f8e139]:
+            - generic [ref=f8e140]:
+              - heading "Premium-Agent-Hub" [level=1] [ref=f8e141]
+              - generic [ref=f8e142]: exited
+            - link "rjp1cg4fbcn223fpu50qg1rg.167.233.206.184.sslip.io" [ref=f8e144] [cursor=pointer]:
+              - /url: https://rjp1cg4fbcn223fpu50qg1rg.167.233.206.184.sslip.io
+              - text: rjp1cg4fbcn223fpu50qg1rg.167.233.206.184.sslip.io
+              - img [ref=f8e145]
+          - generic [ref=f8e149]:
+            - button "Deploy" [ref=f8e150] [cursor=pointer]:
+              - img [ref=f8e151]
+              - text: Deploy
+            - button "Stop" [ref=f8e156] [cursor=pointer]:
+              - img [ref=f8e157]
+              - text: Stop
+            - button "Restart" [ref=f8e159] [cursor=pointer]:
+              - img [ref=f8e160]
+              - text: Restart
+        - generic [ref=f8e163]:
+          - generic [ref=f8e164]: git@github.com:Bluetickme-App/Premium-Agent-Hub.git · main
+          - generic [ref=f8e165]: Node 20
+          - generic [ref=f8e166]: Falkenstein
+          - generic [ref=f8e167]: Last deploy 1m ago
+        - generic [ref=f8e168]:
+          - button "Deployments" [ref=f8e169]
+          - button "Logs" [ref=f8e170]
+          - button "Metrics" [ref=f8e171]
+          - button "Environment" [ref=f8e172]
+          - button "Events" [ref=f8e173]
+          - button "Settings" [ref=f8e174]
+        - generic [ref=f8e175]:
+          - generic [ref=f8e176]:
+            - generic [ref=f8e177]: Showing latest 1 deploy
+            - button "Redeploy latest" [ref=f8e178] [cursor=pointer]:
+              - img [ref=f8e179]
+              - text: Redeploy latest
+          - generic [ref=f8e183]:
+            - img [ref=f8e185]
+            - generic [ref=f8e187]:
+              - generic [ref=f8e188]: "fix: /availability showed empty for all visitors; consolidate tracking-code helper"
+              - generic [ref=f8e189]: d84afee · main · manual
+            - generic [ref=f8e190]: 87s
+            - generic [ref=f8e191]: 1h ago

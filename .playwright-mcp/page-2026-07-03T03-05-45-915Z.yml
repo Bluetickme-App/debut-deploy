@@ -1,0 +1,105 @@
+- generic [ref=f7e7]:
+  - complementary [ref=f7e8]:
+    - generic [ref=f7e9]:
+      - generic [ref=f7e11]: D
+      - generic [ref=f7e12]: DebutDeploy
+    - button "A Project Apps" [ref=f7e14] [cursor=pointer]:
+      - generic [ref=f7e15]:
+        - generic [ref=f7e16]: A
+        - generic [ref=f7e17]:
+          - generic [ref=f7e18]: Project
+          - generic [ref=f7e19]: Apps
+      - img [ref=f7e20]
+    - navigation [ref=f7e23]:
+      - link "Projects" [ref=f7e24] [cursor=pointer]:
+        - /url: /projects
+        - img [ref=f7e25]
+        - generic [ref=f7e27]: Projects
+      - link "Services" [ref=f7e28] [cursor=pointer]:
+        - /url: /
+        - img [ref=f7e29]
+        - generic [ref=f7e33]: Services
+      - link "Infrastructure" [ref=f7e34] [cursor=pointer]:
+        - /url: /databases
+        - img [ref=f7e35]
+        - generic [ref=f7e39]: Infrastructure
+      - link "New Service" [ref=f7e40] [cursor=pointer]:
+        - /url: /new
+        - img [ref=f7e41]
+        - generic [ref=f7e43]: New Service
+      - link "New Database" [ref=f7e44] [cursor=pointer]:
+        - /url: /new-database
+        - img [ref=f7e45]
+        - generic [ref=f7e49]: New Database
+      - link "Activity" [ref=f7e50] [cursor=pointer]:
+        - /url: /activity
+        - img [ref=f7e51]
+        - generic [ref=f7e53]: Activity
+      - link "Notifications" [ref=f7e54] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=f7e55]
+        - generic [ref=f7e58]: Notifications
+      - generic [ref=f7e60]: Admin
+      - link "Clients" [ref=f7e62] [cursor=pointer]:
+        - /url: /clients
+        - img [ref=f7e63]
+        - generic [ref=f7e68]: Clients
+      - link "Billing & Plans" [ref=f7e69] [cursor=pointer]:
+        - /url: /billing
+        - img [ref=f7e70]
+        - generic [ref=f7e72]: Billing & Plans
+      - link "Deploy from Git" [ref=f7e73] [cursor=pointer]:
+        - /url: /new-git
+        - img [ref=f7e74]
+        - generic [ref=f7e78]: Deploy from Git
+      - link "Servers" [ref=f7e79] [cursor=pointer]:
+        - /url: /servers
+        - img [ref=f7e80]
+        - generic [ref=f7e92]: Servers
+      - link "Variable Groups" [ref=f7e93] [cursor=pointer]:
+        - /url: /shared-vars
+        - img [ref=f7e94]
+        - generic [ref=f7e97]: Variable Groups
+      - link "Import from Render" [ref=f7e98] [cursor=pointer]:
+        - /url: /import
+        - img [ref=f7e99]
+        - generic [ref=f7e103]: Import from Render
+    - generic [ref=f7e104]:
+      - generic [ref=f7e105]: v1.4.2
+      - generic [ref=f7e107]: Coolify 4.0
+  - generic [ref=f7e108]:
+    - banner [ref=f7e109]:
+      - generic [ref=f7e112]: Import from Render
+      - generic [ref=f7e113]:
+        - generic [ref=f7e114]:
+          - text: Live
+          - generic [ref=f7e116]: · Coolify
+        - button "Toggle theme" [ref=f7e118] [cursor=pointer]:
+          - img [ref=f7e119]
+        - button "DW Debut Web Consultants admin" [ref=f7e122] [cursor=pointer]:
+          - generic [ref=f7e123]: DW
+          - generic [ref=f7e124]:
+            - generic [ref=f7e125]: Debut Web Consultants
+            - generic [ref=f7e126]: admin
+          - img [ref=f7e127]
+        - button "Log out" [ref=f7e129] [cursor=pointer]:
+          - img [ref=f7e130]
+    - main [ref=f7e133]:
+      - generic [ref=f7e134]:
+        - generic [ref=f7e136]:
+          - heading "Import from Render" [level=1] [ref=f7e137]
+          - paragraph [ref=f7e138]: Migrate a Render service to Coolify on Hetzner.
+        - generic [ref=f7e140]:
+          - generic [ref=f7e141]:
+            - generic [ref=f7e142]: Render API key
+            - combobox [ref=f7e143]:
+              - option "Use a new key"
+              - option "TCB" [selected]
+          - list [ref=f7e144]:
+            - listitem [ref=f7e145]:
+              - text: TCB
+              - button "Delete key" [ref=f7e146]:
+                - img [ref=f7e147]
+          - button "List services" [ref=f7e159] [cursor=pointer]:
+            - img [ref=f7e160]
+            - text: List services

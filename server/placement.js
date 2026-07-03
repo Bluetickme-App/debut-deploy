@@ -8,7 +8,8 @@ export function placeResourceInEnvironment({ user, type, resourceUuid, environme
 
   if (environmentId === null) {
     if (user?.role !== "admin") throw Object.assign(new Error("Cannot unplace a resource"), { status: 400 });
-    db.prepare("UPDATE resource_ownership SET environment_id = NULL WHERE type = ? AND coolify_uuid = ?").run(type, resourceUuid);
+    const res = db.prepare("UPDATE resource_ownership SET environment_id = NULL WHERE type = ? AND coolify_uuid = ?").run(type, resourceUuid);
+    if (!res.changes) throw Object.assign(new Error("Not found"), { status: 404 });
     return { ok: true };
   }
 
@@ -18,6 +19,7 @@ export function placeResourceInEnvironment({ user, type, resourceUuid, environme
     const callerOrg = getMembership(user.id)?.org_id;   // admins may place across orgs deliberately
     if (env.org_id !== callerOrg) throw Object.assign(new Error("Not found"), { status: 404 });
   }
-  db.prepare("UPDATE resource_ownership SET environment_id = ? WHERE type = ? AND coolify_uuid = ?").run(env.id, type, resourceUuid);
+  const res = db.prepare("UPDATE resource_ownership SET environment_id = ? WHERE type = ? AND coolify_uuid = ?").run(env.id, type, resourceUuid);
+  if (!res.changes) throw Object.assign(new Error("Not found"), { status: 404 });
   return { ok: true };
 }

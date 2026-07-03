@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>@keyframes dd-pulse{0%,100%{opacity:1}50%{opacity:.3}}</style>
+</helmet>
+<dc-import name="AppShell" active-nav="services" crumb="Services / api-gateway" theme="{{ theme }}" hint-size="100%,820px">
+  <div style="padding:22px 30px 44px; max-width:1060px">
+
+    <div role="button" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted); cursor:pointer; margin-bottom:16px" style-hover="{color:'var(--text)'}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Services
+    </div>
+
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:16px; flex-wrap:wrap">
+      <div>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px">
+          <h1 style="margin:0; font-family:'Geist',sans-serif; font-size:24px; font-weight:600; letter-spacing:-.01em; color:var(--text)">api-gateway</h1>
+          <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:var(--ok-soft); color:var(--ok-text); font-size:12px; font-weight:600"><span style="width:6px; height:6px; border-radius:50%; background:var(--ok)"></span>running · healthy</span>
+        </div>
+        <a style="display:inline-flex; align-items:center; gap:5px; font-size:13.5px; color:var(--accent-text); text-decoration:none; font-weight:500" style-hover="{textDecoration:'underline'}">api.mflh.io<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
+      </div>
+      <div style="display:flex; align-items:center; gap:9px">
+        <button style="{{ s.btnPrimary }}" style-hover="{background:'var(--accent-hover)', borderColor:'var(--accent-hover)'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15 9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/></svg>Deploy</button>
+        <button style="{{ s.btnSecondary }}" style-hover="{background:'var(--surface-2)'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Stop</button>
+        <button style="{{ s.btnSecondary }}" style-hover="{background:'var(--surface-2)'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Restart</button>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:11px 0 18px; font-size:12.5px; color:var(--text-muted)">
+      <span style="display:inline-flex; align-items:center; gap:7px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg><span style="font-family:'Geist Mono',monospace">debutweb/mflh-api · main</span></span>
+      <span style="display:inline-flex; align-items:center; gap:7px"><span style="width:7px; height:7px; border-radius:50%; background:#4f9d4f"></span>Node 20</span>
+      <span style="display:inline-flex; align-items:center; gap:7px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="7" rx="2"/><rect x="2" y="13" width="20" height="7" rx="2"/><path d="M6 7.5h.01M6 16.5h.01"/></svg>hel-prod-1 · Helsinki</span>
+      <span style="display:inline-flex; align-items:center; gap:7px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Last deploy 7m ago</span>
+    </div>
+
+    <div style="display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:22px">
+      <button onClick="{{ tab.deployments.on }}" style="{{ tab.deployments.style }}">Deployments</button>
+      <button onClick="{{ tab.logs.on }}" style="{{ tab.logs.style }}">Logs</button>
+      <button onClick="{{ tab.environment.on }}" style="{{ tab.environment.style }}">Environment</button>
+      <button onClick="{{ tab.events.on }}" style="{{ tab.events.style }}">Events</button>
+      <button onClick="{{ tab.settings.on }}" style="{{ tab.settings.style }}">Settings</button>
+    </div>
+
+    <sc-if value="{{ isDeployments }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px">
+          <span style="font-size:13px; color:var(--text-muted)">Showing latest 5 deploys</span>
+          <button style="{{ s.btnSecondary }}" style-hover="{background:'var(--surface-2)'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Redeploy latest</button>
+        </div>
+        <div style="border:1px solid var(--border); border-radius:13px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow)">
+          <sc-for list="{{ deploys }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex; align-items:center; gap:14px; padding:14px 18px; border-bottom:1px solid var(--border)" style-hover="{background:'var(--surface-2)'}">
+              <span style="{{ d.iconWrap }}"><sc-if value="{{ d.notFailed }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if><sc-if value="{{ d.isFailed }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></sc-if></span>
+              <div style="flex:1; min-width:0">
+                <div style="font-size:13.5px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ d.msg }}</div>
+                <div style="font-family:'Geist Mono',monospace; font-size:11.5px; color:var(--text-muted); margin-top:3px">{{ d.sha }} · {{ d.branch }} · {{ d.trigger }}</div>
+              </div>
+              <span style="font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; min-width:58px; text-align:right">{{ d.dur }}</span>
+              <span style="font-size:12px; color:var(--text-muted); min-width:78px; text-align:right">{{ d.time }}</span>
+              <div style="min-width:96px; display:flex; justify-content:flex-end">
+                <sc-if value="{{ d.isLive }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px; background:var(--ok-soft); color:var(--ok-text); font-size:11.5px; font-weight:600"><span style="width:6px; height:6px; border-radius:50%; background:var(--ok)"></span>Live</span></sc-if>
+                <sc-if value="{{ d.canRollback }}" hint-placeholder-val="{{ false }}"><button style="{{ s.btnTiny }}" style-hover="{background:'var(--surface-2)', borderColor:'var(--text-muted)'}">Rollback</button></sc-if>
+                <sc-if value="{{ d.isFailed }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px; font-weight:600; color:var(--err-text)">Failed</span></sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isLogs }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:13px; overflow:hidden; border:1px solid var(--border-strong); box-shadow:var(--shadow)">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 14px; background:#13161d; border-bottom:1px solid #232a36">
+          <div style="display:flex; align-items:center; gap:9px">
+            <span style="display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:#cfe9d6"><span style="width:7px; height:7px; border-radius:50%; background:#34d77a; animation:dd-pulse 1.4s infinite"></span>Live tail</span>
+            <span style="font-family:'Geist Mono',monospace; font-size:11.5px; color:#7c8696">api-gateway · stdout</span>
+          </div>
+          <div style="display:flex; gap:6px">
+            <button style="display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:7px; border:1px solid #2a323f; background:transparent; color:#aeb6c2; font-size:11.5px; font-weight:500; cursor:pointer; font-family:inherit" style-hover="{background:'#1c212b'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button>
+            <button style="display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:7px; border:1px solid #2a323f; background:transparent; color:#aeb6c2; font-size:11.5px; font-weight:500; cursor:pointer; font-family:inherit" style-hover="{background:'#1c212b'}">Wrap</button>
+          </div>
+        </div>
+        <div style="background:#0b0e14; padding:14px 16px; height:380px; overflow-y:auto; font-family:'Geist Mono',monospace; font-size:12px; line-height:1.85">
+          <sc-for list="{{ logLines }}" as="l" hint-placeholder-count="14">
+            <div style="display:flex; gap:12px; white-space:pre"><span style="color:#5b6678; flex-shrink:0">{{ l.t }}</span><span style="{{ l.lvlStyle }}">{{ l.lvl }}</span><span style="color:#cdd6e4">{{ l.msg }}</span></div>
+          </sc-for>
+          <div style="display:flex; gap:12px; align-items:center; color:#cdd6e4; margin-top:2px"><span style="width:8px; height:15px; background:#34d77a; display:inline-block; animation:dd-pulse 1.1s steps(1) infinite"></span></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEnvironment }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <div style="border:1px solid var(--border); border-radius:13px; background:var(--surface); box-shadow:var(--shadow); padding:15px 18px; margin-bottom:16px">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:13px">
+            <div>
+              <h4 style="margin:0 0 2px; font-size:13.5px; font-weight:600; color:var(--text)">Attached variable groups</h4>
+              <p style="margin:0; font-size:12px; color:var(--text-muted)">Shared variables merged in at deploy. Manage in Variable Groups.</p>
+            </div>
+            <button style="{{ s.btnSecondary }}" style-hover="{background:'var(--surface-2)'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Attach group</button>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px">
+            <sc-for list="{{ attachedGroups }}" as="ag" hint-placeholder-count="3">
+              <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:9px; background:var(--surface-2); border:1px solid var(--border); font-size:12.5px; color:var(--text)"><span style="display:inline-flex; width:20px; height:20px; border-radius:6px; background:var(--accent-soft); align-items:center; justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"/><path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg></span><span style="font-family:'Geist Mono',monospace; font-weight:600">{{ ag.name }}</span><span style="color:var(--text-muted)">{{ ag.meta }}</span></span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:10px">
+          <span style="font-size:13px; color:var(--text-muted)">Service variables · 7 keys, injected at build &amp; runtime</span>
+          <div style="display:flex; gap:8px">
+            <button onClick="{{ toggleReveal }}" style="{{ s.btnSecondary }}" style-hover="{background:'var(--surface-2)'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>{{ revealLabel }}</button>
+            <button style="{{ s.btnSecondary }}" style-hover="{background:'var(--surface-2)'}">Paste .env</button>
+            <button style="{{ s.btnPrimary }}" style-hover="{background:'var(--accent-hover)'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add variable</button>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border); border-radius:13px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow)">
+          <div style="display:grid; grid-template-columns:1fr 1.5fr 40px; gap:12px; padding:10px 16px; background:var(--surface-2); border-bottom:1px solid var(--border); font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--text-muted)"><span>Key</span><span>Value</span><span></span></div>
+          <sc-for list="{{ envRows }}" as="e" hint-placeholder-count="7">
+            <div style="display:grid; grid-template-columns:1fr 1.5fr 40px; gap:12px; padding:9px 16px; border-bottom:1px solid var(--border); align-items:center">
+              <input value="{{ e.key }}" style="font-family:'Geist Mono',monospace; font-size:12px; padding:7px 10px; border-radius:7px; border:1px solid transparent; background:transparent; color:var(--text); outline:none; font-weight:500" style-hover="{background:'var(--surface-2)'}" style-focus="{background:'var(--surface)', borderColor:'var(--accent)', boxShadow:'0 0 0 3px var(--ring)'}"/>
+              <input value="{{ e.shown }}" style="font-family:'Geist Mono',monospace; font-size:12px; padding:7px 10px; border-radius:7px; border:1px solid transparent; background:transparent; color:var(--text-muted); outline:none" style-hover="{background:'var(--surface-2)'}" style-focus="{background:'var(--surface)', borderColor:'var(--accent)', boxShadow:'0 0 0 3px var(--ring)', color:'var(--text)'}"/>
+              <button title="Remove" style="width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:7px; border:none; background:transparent; color:var(--text-muted); cursor:pointer" style-hover="{background:'var(--err-soft)', color:'var(--err-text)'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEvents }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative; padding-left:8px">
+        <sc-for list="{{ events }}" as="ev" hint-placeholder-count="5">
+          <div style="display:flex; gap:16px; padding-bottom:22px; position:relative">
+            <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0">
+              <span style="{{ ev.dot }}"></span>
+              <span style="width:2px; flex:1; background:var(--border); margin-top:4px; min-height:18px"></span>
+            </div>
+            <div style="padding-top:-2px; margin-top:-3px">
+              <div style="display:flex; align-items:center; gap:9px"><span style="{{ ev.labelStyle }}">{{ ev.label }}</span><span style="font-size:12px; color:var(--text-muted)">{{ ev.detail }}</span></div>
+              <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px">{{ ev.actor }} · {{ ev.time }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:18px">
+        <div style="{{ s.card }}">
+          <h3 style="{{ s.cardTitle }}">Build &amp; deploy</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+            <div><label style="{{ s.label }}">Build pack</label><div style="position:relative"><select style="{{ s.select }}"><option>Nixpacks (auto-detected)</option><option>Dockerfile</option><option>Static site</option></select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; right:11px; top:50%; transform:translateY(-50%); pointer-events:none"><path d="m6 9 6 6 6-6"/></svg></div></div>
+            <div><label style="{{ s.label }}">Exposed port</label><input value="3000" style="{{ s.input }}" style-focus="{borderColor:'var(--accent)', boxShadow:'0 0 0 3px var(--ring)'}"/></div>
+            <div><label style="{{ s.label }}">Build command</label><input value="npm ci &amp;&amp; npm run build" style="{{ s.inputMono }}" style-focus="{borderColor:'var(--accent)', boxShadow:'0 0 0 3px var(--ring)'}"/></div>
+            <div><label style="{{ s.label }}">Start command</label><input value="node dist/server.js" style="{{ s.inputMono }}" style-focus="{borderColor:'var(--accent)', boxShadow:'0 0 0 3px var(--ring)'}"/></div>
+          </div>
+        </div>
+
+        <div style="{{ s.card }}">
+          <h3 style="{{ s.cardTitle }}">Custom domain</h3>
+          <div style="display:flex; align-items:flex-end; gap:10px; margin-bottom:14px">
+            <div style="flex:1"><label style="{{ s.label }}">Domain</label><input value="api.mflh.io" style="{{ s.inputMono }}" style-focus="{borderColor:'var(--accent)', boxShadow:'0 0 0 3px var(--ring)'}"/></div>
+            <button style="{{ s.btnSecondary }}" style-hover="{background:'var(--surface-2)'}">Verify DNS</button>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap">
+            <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:var(--ok-soft); color:var(--ok-text); font-size:11.5px; font-weight:600"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>DNS verified</span>
+            <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:var(--ok-soft); color:var(--ok-text); font-size:11.5px; font-weight:600"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>TLS active · Let's Encrypt</span>
+          </div>
+        </div>
+
+        <div style="{{ s.card }}">
+          <h3 style="{{ s.cardTitle }}">Resources</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+            <div><label style="{{ s.label }}">CPU limit</label><div style="position:relative"><select defaultValue="1.0 vCPU" style="{{ s.select }}"><option>0.5 vCPU</option><option>1.0 vCPU</option><option>2.0 vCPU</option></select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; right:11px; top:50%; transform:translateY(-50%); pointer-events:none"><path d="m6 9 6 6 6-6"/></svg></div></div>
+            <div><label style="{{ s.label }}">Memory limit</label><div style="position:relative"><select defaultValue="1 GB" style="{{ s.select }}"><option>512 MB</option><option>1 GB</option><option>2 GB</option></select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; right:11px; top:50%; transform:translateY(-50%); pointer-events:none"><path d="m6 9 6 6 6-6"/></svg></div></div>
+          </div>
+        </div>
+
+        <div style="border:1px solid var(--err); border-radius:13px; padding:18px 20px; background:var(--err-soft)">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap">
+            <div><h3 style="margin:0 0 3px; font-size:14.5px; font-weight:600; color:var(--err-text)">Delete this service</h3><p style="margin:0; font-size:12.5px; color:var(--text-muted)">Permanently removes the container, domain and build history. This cannot be undone.</p></div>
+            <button style="display:inline-flex; align-items:center; gap:7px; padding:9px 15px; border-radius:9px; border:1px solid var(--err); background:var(--err); color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap" style-hover="{filter:'brightness(.92)'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete service</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:820},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { tab:'deployments', reveal:false };
+
+  renderVals(){
+    const theme = this.props.theme || 'light';
+    const s = {
+      btnPrimary:{ display:'inline-flex', alignItems:'center', gap:'7px', padding:'9px 14px', borderRadius:'9px', border:'1px solid var(--accent)', background:'var(--accent)', color:'var(--accent-contrast)', fontSize:'13px', fontWeight:600, cursor:'pointer', fontFamily:'inherit', boxShadow:'var(--shadow)', whiteSpace:'nowrap' },
+      btnSecondary:{ display:'inline-flex', alignItems:'center', gap:'7px', padding:'9px 14px', borderRadius:'9px', border:'1px solid var(--border-strong)', background:'var(--surface)', color:'var(--text)', fontSize:'13px', fontWeight:600, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' },
+      btnTiny:{ padding:'5px 12px', borderRadius:'7px', border:'1px solid var(--border-strong)', background:'var(--surface)', color:'var(--text)', fontSize:'12px', fontWeight:600, cursor:'pointer', fontFamily:'inherit' },
+      card:{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'13px', padding:'20px 22px', boxShadow:'var(--shadow)' },
+      cardTitle:{ margin:'0 0 16px', fontSize:'15px', fontWeight:600, color:'var(--text)', fontFamily:"'Geist',sans-serif" },
+      label:{ display:'block', fontSize:'12px', fontWeight:600, color:'var(--text-muted)', marginBottom:'6px' },
+      input:{ width:'100%', padding:'9px 12px', borderRadius:'9px', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontSize:'13px', fontFamily:'inherit', outline:'none', boxSizing:'border-box' },
+      inputMono:{ width:'100%', padding:'9px 12px', borderRadius:'9px', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontSize:'12.5px', fontFamily:"'Geist Mono',monospace", outline:'none', boxSizing:'border-box' },
+      select:{ width:'100%', appearance:'none', WebkitAppearance:'none', padding:'9px 32px 9px 12px', borderRadius:'9px', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontSize:'13px', fontFamily:'inherit', cursor:'pointer', outline:'none', boxSizing:'border-box' }
+    };
+
+    const tabName = this.state.tab;
+    const tabStyle = (k) => ({ padding:'10px 14px', border:'none', background:'transparent', fontFamily:'inherit', fontSize:'13.5px', fontWeight:600, cursor:'pointer', color: tabName===k ? 'var(--text)' : 'var(--text-muted)', borderBottom: tabName===k ? '2px solid var(--accent)' : '2px solid transparent', marginBottom:'-1px', transition:'color .15s' });
+    const mkTab = (k) => ({ style: tabStyle(k), on: () => this.setState({ tab:k }) });
+
+    const ok = { iconWrap:{ width:'26px', height:'26px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, background:'var(--ok-soft)', color:'var(--ok-text)' }, iconPath:'<path d="M20 6 9 17l-5-5"/>' };
+    const fail = { iconWrap:{ width:'26px', height:'26px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, background:'var(--err-soft)', color:'var(--err-text)' }, iconPath:'<path d="M18 6 6 18M6 6l12 12"/>' };
+    const deploysRaw = [
+      { msg:'Fix rate limiter edge case', sha:'a1b2c3d', branch:'main', trigger:'git push', kind:'live', dur:'1m 42s', time:'7m ago' },
+      { msg:'Bump dependencies, patch CVE-2026-1183', sha:'9f3e8c1', branch:'main', trigger:'git push', kind:'ok', dur:'2m 03s', time:'1h ago' },
+      { msg:'Add /healthz readiness probe', sha:'4d7a201', branch:'main', trigger:'manual', kind:'ok', dur:'1m 58s', time:'5h ago' },
+      { msg:'Refactor auth middleware', sha:'c0ffee2', branch:'main', trigger:'git push', kind:'fail', dur:'0m 47s', time:'yesterday' },
+      { msg:'Initial production deploy', sha:'1111aaa', branch:'main', trigger:'manual', kind:'ok', dur:'2m 30s', time:'3d ago' }
+    ];
+    const deploys = deploysRaw.map(d => {
+      const ic = d.kind==='fail' ? fail : ok;
+      return { ...d, iconWrap:ic.iconWrap, isLive:d.kind==='live', isFailed:d.kind==='fail', notFailed:d.kind!=='fail', canRollback:d.kind==='ok' };
+    });
+
+    const lvlStyles = { INFO:{color:'#6ea8fe',fontWeight:600,flexShrink:0,width:'46px'}, WARN:{color:'#f5b945',fontWeight:600,flexShrink:0,width:'46px'}, ERROR:{color:'#f87171',fontWeight:600,flexShrink:0,width:'46px'}, OK:{color:'#34d77a',fontWeight:600,flexShrink:0,width:'46px'} };
+    const logsRaw = [
+      ['12:04:01','INFO','Starting api-gateway v1.4.2 (commit a1b2c3d)'],
+      ['12:04:01','INFO','Loading 7 environment variables'],
+      ['12:04:02','INFO','Connected to postgres db-mflh-pg.internal:5432'],
+      ['12:04:02','INFO','Connected to redis cache-mflh.internal:6379'],
+      ['12:04:02','OK','Health check /healthz → 200 OK'],
+      ['12:04:03','INFO','Listening on 0.0.0.0:3000'],
+      ['12:04:11','INFO','GET /v1/orders 200 — 34ms'],
+      ['12:04:12','INFO','POST /v1/checkout 201 — 88ms'],
+      ['12:04:14','WARN','Rate limit near threshold for key 9c1f (842/1000)'],
+      ['12:04:15','INFO','GET /v1/orders 200 — 29ms'],
+      ['12:04:18','INFO','GET /v1/products 200 — 12ms'],
+      ['12:04:21','WARN','Upstream payments latency 612ms (p95)'],
+      ['12:04:24','INFO','GET /healthz 200 — 1ms'],
+      ['12:04:29','INFO','POST /v1/webhooks/stripe 200 — 53ms'],
+      ['12:04:33','INFO','GET /v1/orders 200 — 31ms']
+    ];
+    const logLines = logsRaw.map(([t,lvl,msg]) => ({ t, lvl, msg, lvlStyle: lvlStyles[lvl] }));
+
+    const reveal = this.state.reveal;
+    const envRaw = [
+      ['DATABASE_URL','postgres://app:Xz9f2@db-mflh-pg.internal:5432/app'],
+      ['REDIS_URL','redis://:a83Kd@cache-mflh.internal:6379'],
+      ['NODE_ENV','production'],
+      ['PORT','3000'],
+      ['JWT_SECRET','d41d8cd98f00b204e9800998ecf8427e'],
+      ['STRIPE_SECRET_KEY','sk_live_51Kj2aBxQp7Lm0Tz'],
+      ['LOG_LEVEL','info']
+    ];
+    const envRows = envRaw.map(([key,val]) => ({ key, shown: reveal ? val : '•'.repeat(Math.min(val.length, 28)) }));
+
+    const dotBase = { width:'11px', height:'11px', borderRadius:'50%', flexShrink:0, marginTop:'3px', border:'2px solid var(--surface)' };
+    const evMap = {
+      down:{ dot:{ ...dotBase, background:'var(--err)', boxShadow:'0 0 0 3px var(--err-soft)' }, labelStyle:{ fontSize:'13.5px', fontWeight:600, color:'var(--err-text)' } },
+      up:{ dot:{ ...dotBase, background:'var(--ok)', boxShadow:'0 0 0 3px var(--ok-soft)' }, labelStyle:{ fontSize:'13.5px', fontWeight:600, color:'var(--ok-text)' } },
+      neutral:{ dot:{ ...dotBase, background:'var(--accent)', boxShadow:'0 0 0 3px var(--accent-soft)' }, labelStyle:{ fontSize:'13.5px', fontWeight:600, color:'var(--text)' } }
+    };
+    const eventsRaw = [
+      ['Deployed','a1b2c3d → production','Maya Flores','7m ago','neutral'],
+      ['Service recovered','health check passing again','system','2h ago','up'],
+      ['Service went DOWN','health check failed 3× in a row','system','2h ago','down'],
+      ['Env var set','LOG_LEVEL changed to info','Maya Flores','5h ago','neutral'],
+      ['Restarted','manual restart from dashboard','Omar Haddad','1d ago','neutral']
+    ];
+    const events = eventsRaw.map(([label,detail,actor,time,kind]) => ({ label, detail, actor, time, dot:evMap[kind].dot, labelStyle:evMap[kind].labelStyle }));
+
+    return {
+      theme, s, deploys, logLines, envRows, events,
+      tab:{ deployments:mkTab('deployments'), logs:mkTab('logs'), environment:mkTab('environment'), events:mkTab('events'), settings:mkTab('settings') },
+      isDeployments: tabName==='deployments', isLogs: tabName==='logs', isEnvironment: tabName==='environment', isEvents: tabName==='events', isSettings: tabName==='settings',
+      toggleReveal: () => this.setState(st => ({ reveal: !st.reveal })),
+      revealLabel: reveal ? 'Hide values' : 'Reveal values',
+      attachedGroups: [ { name:'shared-prod', meta:'· 3 vars' }, { name:'stripe-keys', meta:'· 2 vars · secrets' }, { name:'postgres-mflh', meta:'· 2 vars' } ]
+    };
+  }
+}
+</script>
+</body>
+</html>

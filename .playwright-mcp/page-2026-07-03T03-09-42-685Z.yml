@@ -1,0 +1,385 @@
+- generic [ref=f8e7]:
+  - complementary [ref=f8e8]:
+    - generic [ref=f8e9]:
+      - generic [ref=f8e11]: D
+      - generic [ref=f8e12]: DebutDeploy
+    - button "A Project Apps" [ref=f8e14] [cursor=pointer]:
+      - generic [ref=f8e15]:
+        - generic [ref=f8e16]: A
+        - generic [ref=f8e17]:
+          - generic [ref=f8e18]: Project
+          - generic [ref=f8e19]: Apps
+      - img [ref=f8e20]
+    - navigation [ref=f8e23]:
+      - link "Projects" [ref=f8e24] [cursor=pointer]:
+        - /url: /projects
+        - img [ref=f8e25]
+        - generic [ref=f8e27]: Projects
+      - link "Services" [ref=f8e28] [cursor=pointer]:
+        - /url: /
+        - img [ref=f8e29]
+        - generic [ref=f8e33]: Services
+      - link "Infrastructure" [ref=f8e34] [cursor=pointer]:
+        - /url: /databases
+        - img [ref=f8e35]
+        - generic [ref=f8e39]: Infrastructure
+      - link "New Service" [ref=f8e40] [cursor=pointer]:
+        - /url: /new
+        - img [ref=f8e41]
+        - generic [ref=f8e43]: New Service
+      - link "New Database" [ref=f8e44] [cursor=pointer]:
+        - /url: /new-database
+        - img [ref=f8e45]
+        - generic [ref=f8e49]: New Database
+      - link "Activity" [ref=f8e50] [cursor=pointer]:
+        - /url: /activity
+        - img [ref=f8e51]
+        - generic [ref=f8e53]: Activity
+      - link "Notifications" [ref=f8e54] [cursor=pointer]:
+        - /url: /notifications
+        - img [ref=f8e55]
+        - generic [ref=f8e58]: Notifications
+      - generic [ref=f8e60]: Admin
+      - link "Clients" [ref=f8e62] [cursor=pointer]:
+        - /url: /clients
+        - img [ref=f8e63]
+        - generic [ref=f8e68]: Clients
+      - link "Billing & Plans" [ref=f8e69] [cursor=pointer]:
+        - /url: /billing
+        - img [ref=f8e70]
+        - generic [ref=f8e72]: Billing & Plans
+      - link "Deploy from Git" [ref=f8e73] [cursor=pointer]:
+        - /url: /new-git
+        - img [ref=f8e74]
+        - generic [ref=f8e78]: Deploy from Git
+      - link "Servers" [ref=f8e79] [cursor=pointer]:
+        - /url: /servers
+        - img [ref=f8e80]
+        - generic [ref=f8e92]: Servers
+      - link "Variable Groups" [ref=f8e93] [cursor=pointer]:
+        - /url: /shared-vars
+        - img [ref=f8e94]
+        - generic [ref=f8e97]: Variable Groups
+      - link "Import from Render" [ref=f8e98] [cursor=pointer]:
+        - /url: /import
+        - img [ref=f8e99]
+        - generic [ref=f8e103]: Import from Render
+    - generic [ref=f8e104]:
+      - generic [ref=f8e105]: v1.4.2
+      - generic [ref=f8e107]: Coolify 4.0
+  - generic [ref=f8e108]:
+    - banner [ref=f8e109]:
+      - generic [ref=f8e112]: Service Detail
+      - generic [ref=f8e113]:
+        - generic [ref=f8e114]:
+          - text: Live
+          - generic [ref=f8e116]: · Coolify
+        - button "Toggle theme" [ref=f8e118] [cursor=pointer]:
+          - img [ref=f8e119]
+        - button "DW Debut Web Consultants admin" [ref=f8e122] [cursor=pointer]:
+          - generic [ref=f8e123]: DW
+          - generic [ref=f8e124]:
+            - generic [ref=f8e125]: Debut Web Consultants
+            - generic [ref=f8e126]: admin
+          - img [ref=f8e127]
+        - button "Log out" [ref=f8e129] [cursor=pointer]:
+          - img [ref=f8e130]
+    - main [ref=f8e133]:
+      - generic [ref=f8e134]:
+        - link "Services" [ref=f8e135] [cursor=pointer]:
+          - /url: /
+          - img [ref=f8e136]
+          - text: Services
+        - generic [ref=f8e138]:
+          - generic [ref=f8e139]:
+            - generic [ref=f8e140]:
+              - heading "Premium-Agent-Hub" [level=1] [ref=f8e141]
+              - generic [ref=f8e142]: exited
+            - link "rjp1cg4fbcn223fpu50qg1rg.167.233.206.184.sslip.io" [ref=f8e144] [cursor=pointer]:
+              - /url: https://rjp1cg4fbcn223fpu50qg1rg.167.233.206.184.sslip.io
+              - text: rjp1cg4fbcn223fpu50qg1rg.167.233.206.184.sslip.io
+              - img [ref=f8e145]
+          - generic [ref=f8e149]:
+            - button "Deploy" [ref=f8e150] [cursor=pointer]:
+              - img [ref=f8e151]
+              - text: Deploy
+            - button "Stop" [ref=f8e156] [cursor=pointer]:
+              - img [ref=f8e157]
+              - text: Stop
+            - button "Restart" [ref=f8e159] [cursor=pointer]:
+              - img [ref=f8e160]
+              - text: Restart
+        - generic [ref=f8e163]:
+          - generic [ref=f8e164]: git@github.com:Bluetickme-App/Premium-Agent-Hub.git · main
+          - generic [ref=f8e165]: Node 20
+          - generic [ref=f8e166]: Falkenstein
+          - generic [ref=f8e167]: Last deploy 2m ago
+        - generic [ref=f8e168]:
+          - button "Deployments" [ref=f8e169]
+          - button "Logs" [ref=f8e170]
+          - button "Metrics" [ref=f8e171]
+          - button "Environment" [ref=f8e172]
+          - button "Events" [ref=f8e173]
+          - button "Settings" [active] [ref=f8e174]
+        - generic [ref=f8e192]:
+          - generic [ref=f8e193]:
+            - generic [ref=f8e194]:
+              - heading "General" [level=3] [ref=f8e195]
+              - generic [ref=f8e196]:
+                - generic [ref=f8e197]:
+                  - generic [ref=f8e198]:
+                    - paragraph [ref=f8e199]: Name
+                    - paragraph [ref=f8e200]: A friendly name for this service.
+                  - generic [ref=f8e202]:
+                    - generic "Premium-Agent-Hub" [ref=f8e203]
+                    - button "Edit" [ref=f8e204] [cursor=pointer]
+                - generic [ref=f8e205]:
+                  - generic [ref=f8e206]:
+                    - paragraph [ref=f8e207]: Region
+                    - paragraph [ref=f8e208]: The region this service runs in.
+                  - generic "Falkenstein" [ref=f8e210]
+                - generic [ref=f8e211]:
+                  - generic [ref=f8e212]:
+                    - paragraph [ref=f8e213]: Project
+                    - paragraph [ref=f8e214]: Group this service under a Coolify project.
+                  - generic [ref=f8e216]:
+                    - combobox [ref=f8e217]:
+                      - option "Select a project…" [selected]
+                      - option "deploy-7"
+                      - option "debutdeploy"
+                      - option "quick-trade"
+                      - option "customer-apps"
+                      - option "deploy-2"
+                    - button "Move" [disabled] [ref=f8e218]
+                - generic [ref=f8e219]:
+                  - generic [ref=f8e220]:
+                    - paragraph [ref=f8e221]: Instance type
+                    - paragraph [ref=f8e222]: Scaling is managed at the workspace level.
+                  - generic [ref=f8e224]:
+                    - generic [ref=f8e225]:
+                      - paragraph [ref=f8e226]: Pro · 2 CPU · 4 GB
+                      - paragraph [ref=f8e227]: Current plan for this service.
+                    - button "Change plan" [ref=f8e228] [cursor=pointer]
+            - generic [ref=f8e229]:
+              - heading "Build" [level=3] [ref=f8e230]
+              - generic [ref=f8e231]:
+                - generic [ref=f8e232]:
+                  - generic [ref=f8e233]:
+                    - paragraph [ref=f8e234]: Source
+                    - paragraph [ref=f8e235]: Repository this service builds from.
+                  - generic "git@github.com:Bluetickme-App/Premium-Agent-Hub.git" [ref=f8e237]
+                - generic [ref=f8e238]:
+                  - generic [ref=f8e239]:
+                    - paragraph [ref=f8e240]: Branch
+                    - paragraph [ref=f8e241]: Branch used for deploys.
+                  - generic "main" [ref=f8e243]
+                - generic [ref=f8e244]:
+                  - generic [ref=f8e245]:
+                    - paragraph [ref=f8e246]: Root directory
+                    - paragraph [ref=f8e247]: Optional. Subdirectory to build from.
+                  - textbox "./" [ref=f8e249]
+                - generic [ref=f8e250]:
+                  - generic [ref=f8e251]:
+                    - paragraph [ref=f8e252]: Build command
+                    - paragraph [ref=f8e253]: Runs to build your service each deploy.
+                  - generic [ref=f8e255]:
+                    - textbox "npm ci && npm run build" [ref=f8e256]
+                    - button "Save" [ref=f8e258] [cursor=pointer]
+                - generic [ref=f8e259]:
+                  - generic [ref=f8e260]:
+                    - paragraph [ref=f8e261]: Git credentials
+                    - paragraph [ref=f8e262]: How DebutDeploy authenticates to your repo.
+                  - generic [ref=f8e264]:
+                    - generic "Deploy key · debutdeploy-platform" [ref=f8e265]
+                    - button "Use my credentials" [ref=f8e266] [cursor=pointer]
+                - generic [ref=f8e267]:
+                  - generic [ref=f8e268]:
+                    - paragraph [ref=f8e269]: Build filters
+                    - paragraph [ref=f8e270]: Paths that trigger or skip a build.
+                  - generic [ref=f8e272]:
+                    - generic [ref=f8e273]:
+                      - paragraph [ref=f8e274]: Included paths
+                      - textbox "Add path…" [ref=f8e276]
+                    - generic [ref=f8e277]:
+                      - paragraph [ref=f8e278]: Ignored paths
+                      - textbox "Add path…" [ref=f8e280]
+            - generic [ref=f8e281]:
+              - heading "Deploy" [level=3] [ref=f8e282]
+              - generic [ref=f8e283]:
+                - generic [ref=f8e284]:
+                  - generic [ref=f8e285]:
+                    - paragraph [ref=f8e286]: Pre-deploy command
+                    - paragraph [ref=f8e287]: Optional. Runs before the release goes live.
+                  - textbox "npx prisma migrate deploy" [ref=f8e289]
+                - generic [ref=f8e290]:
+                  - generic [ref=f8e291]:
+                    - paragraph [ref=f8e292]: Start command
+                    - paragraph [ref=f8e293]: Command that starts your service.
+                  - generic [ref=f8e295]:
+                    - textbox "node dist/server.js" [ref=f8e296]
+                    - button "Save" [ref=f8e298] [cursor=pointer]
+                - generic [ref=f8e299]:
+                  - generic [ref=f8e300]:
+                    - paragraph [ref=f8e301]: Auto-deploy
+                    - paragraph [ref=f8e302]: Deploy automatically when you push to your branch.
+                  - combobox [ref=f8e304]:
+                    - option "On commit" [selected]
+                    - option "Off"
+                    - option "After CI"
+                - generic [ref=f8e305]:
+                  - generic [ref=f8e306]:
+                    - paragraph [ref=f8e307]: Deploy hook
+                    - paragraph [ref=f8e308]: POST to this URL to trigger a deploy.
+                  - generic [ref=f8e310]:
+                    - generic "https://app.debutdepoly.com/deploy/hook/••••••••" [ref=f8e311]
+                    - button "Reveal" [ref=f8e312]:
+                      - img [ref=f8e313]
+                    - button "Copy" [ref=f8e316]:
+                      - img [ref=f8e317]
+                    - button "Regenerate hook" [ref=f8e320] [cursor=pointer]:
+                      - img [ref=f8e321]
+                      - text: Regenerate hook
+            - generic [ref=f8e326]:
+              - heading "Custom Domains" [level=3] [ref=f8e327]
+              - generic [ref=f8e328]:
+                - generic [ref=f8e329]:
+                  - generic [ref=f8e330]:
+                    - paragraph [ref=f8e331]: Add custom domain
+                    - paragraph [ref=f8e332]: Point your own domain, verify DNS, then TLS is issued.
+                  - generic [ref=f8e335]:
+                    - textbox "app.example.com" [ref=f8e336]: rjp1cg4fbcn223fpu50qg1rg.167.233.206.184.sslip.io
+                    - button "Add custom domain" [ref=f8e337] [cursor=pointer]
+                    - button "Verify DNS" [ref=f8e338] [cursor=pointer]
+                - generic [ref=f8e339]:
+                  - generic [ref=f8e340]:
+                    - paragraph [ref=f8e341]: DebutDeploy subdomain
+                    - paragraph [ref=f8e342]: A free subdomain always reachable for this service.
+                  - generic [ref=f8e344]:
+                    - button "Enable free subdomain" [ref=f8e345]:
+                      - generic [ref=f8e348]: Enable free subdomain
+                    - link "Premium-Agent-Hub.debutdepoly.app" [ref=f8e349] [cursor=pointer]:
+                      - /url: https://Premium-Agent-Hub.debutdepoly.app
+                      - text: Premium-Agent-Hub.debutdepoly.app
+                      - img [ref=f8e350]
+            - generic [ref=f8e354]:
+              - heading "PR Previews" [level=3] [ref=f8e355]
+              - generic [ref=f8e357]:
+                - generic [ref=f8e358]:
+                  - paragraph [ref=f8e359]: Pull request previews
+                  - paragraph [ref=f8e360]: Spin up a temporary environment for each PR.
+                - combobox [ref=f8e362]:
+                  - option "Off" [selected]
+                  - option "Automatic"
+                  - option "Manual"
+            - generic [ref=f8e363]:
+              - heading "Networking" [level=3] [ref=f8e364]
+              - generic [ref=f8e366]:
+                - generic [ref=f8e367]:
+                  - paragraph [ref=f8e368]: Private networking
+                  - paragraph [ref=f8e369]: Reach other services over an internal network.
+                - generic [ref=f8e371]:
+                  - img [ref=f8e372]
+                  - paragraph [ref=f8e375]: Private networking is available on Pro plans. Services in the same workspace can talk to each other over a private network without exposing ports publicly.
+            - generic [ref=f8e376]:
+              - heading "Edge Caching" [level=3] [ref=f8e377]
+              - generic [ref=f8e379]:
+                - generic [ref=f8e380]:
+                  - paragraph [ref=f8e381]: Cacheable file types
+                  - paragraph [ref=f8e382]: Which responses the edge network may cache.
+                - combobox [ref=f8e384]:
+                  - option "None"
+                  - option "Static assets" [selected]
+                  - option "All GET"
+            - generic [ref=f8e385]:
+              - heading "Notifications" [level=3] [ref=f8e386]
+              - generic [ref=f8e387]:
+                - generic [ref=f8e388]:
+                  - generic [ref=f8e389]:
+                    - paragraph [ref=f8e390]: Service notifications
+                    - paragraph [ref=f8e391]: Alerts for failed deploys and downtime.
+                  - combobox [ref=f8e393]:
+                    - option "Workspace default" [selected]
+                    - option "All events"
+                    - option "Failures only"
+                    - option "Off"
+                - generic [ref=f8e394]:
+                  - generic [ref=f8e395]:
+                    - paragraph [ref=f8e396]: Preview-env notifications
+                    - paragraph [ref=f8e397]: Alerts for PR preview environments.
+                  - combobox [ref=f8e399]:
+                    - option "Off" [selected]
+                    - option "Failures only"
+                    - option "All events"
+            - generic [ref=f8e400]:
+              - heading "Log Stream" [level=3] [ref=f8e401]
+              - generic [ref=f8e403]:
+                - generic [ref=f8e404]:
+                  - paragraph [ref=f8e405]: Destination
+                  - paragraph [ref=f8e406]: Ship logs to an external endpoint.
+                - generic [ref=f8e408]:
+                  - generic [ref=f8e409]:
+                    - generic [ref=f8e410]: Log endpoint
+                    - generic [ref=f8e411]: None
+                  - generic [ref=f8e412]:
+                    - generic [ref=f8e413]: Token
+                    - generic [ref=f8e414]: None
+                  - paragraph [ref=f8e415]: Using workspace default.
+            - generic [ref=f8e416]:
+              - heading "Health Checks" [level=3] [ref=f8e417]
+              - generic [ref=f8e419]:
+                - generic [ref=f8e420]:
+                  - paragraph [ref=f8e421]: Health check path
+                  - paragraph [ref=f8e422]: Path DebutDeploy polls to decide the service is healthy.
+                - generic [ref=f8e424]:
+                  - textbox "/healthz" [ref=f8e425]: /
+                  - button "Save" [ref=f8e427] [cursor=pointer]
+            - generic [ref=f8e428]:
+              - heading "Disk" [level=3] [ref=f8e429]
+              - generic [ref=f8e431]:
+                - generic [ref=f8e432]:
+                  - paragraph [ref=f8e433]: Persistent disks
+                  - paragraph [ref=f8e434]: Attach a persistent disk to keep filesystem data across deploys.
+                - generic [ref=f8e436]:
+                  - paragraph [ref=f8e437]: Adding or removing a disk redeploys the service.
+                  - paragraph [ref=f8e438]: No disks attached.
+                  - generic [ref=f8e439]:
+                    - textbox "/data" [ref=f8e440]
+                    - button "Add Disk" [disabled] [ref=f8e441]:
+                      - img [ref=f8e442]
+                      - text: Add Disk
+            - generic [ref=f8e443]:
+              - heading "Maintenance Mode" [level=3] [ref=f8e444]
+              - generic [ref=f8e445]:
+                - generic [ref=f8e446]:
+                  - generic [ref=f8e447]:
+                    - paragraph [ref=f8e448]: Enable maintenance mode
+                    - paragraph [ref=f8e449]: Serve a maintenance page instead of your service.
+                  - button "Maintenance mode" [ref=f8e451]:
+                    - generic [ref=f8e454]: Maintenance mode
+                - generic [ref=f8e455]:
+                  - generic [ref=f8e456]:
+                    - paragraph [ref=f8e457]: Custom maintenance page
+                    - paragraph [ref=f8e458]: Optional. URL to redirect visitors to.
+                  - textbox "https://status.example.com" [ref=f8e460]
+            - generic [ref=f8e462]:
+              - generic [ref=f8e463]:
+                - heading "Delete web service" [level=3] [ref=f8e464]
+                - paragraph [ref=f8e465]: Permanently removes the container, domain and build history. This cannot be undone.
+              - button "Delete web service" [ref=f8e466] [cursor=pointer]:
+                - img [ref=f8e467]
+                - text: Delete web service
+          - navigation [ref=f8e471]:
+            - generic [ref=f8e472]:
+              - button "General" [ref=f8e473]
+              - button "Build" [ref=f8e474]
+              - button "Deploy" [ref=f8e475]
+              - button "Custom Domains" [ref=f8e476]
+              - button "PR Previews" [ref=f8e477]
+              - button "Networking" [ref=f8e478]
+              - button "Edge Caching" [ref=f8e479]
+              - button "Notifications" [ref=f8e480]
+              - button "Log Stream" [ref=f8e481]
+              - button "Health Checks" [ref=f8e482]
+              - button "Disk" [ref=f8e483]
+              - button "Maintenance Mode" [ref=f8e484]
+              - button "Delete or suspend" [ref=f8e485]

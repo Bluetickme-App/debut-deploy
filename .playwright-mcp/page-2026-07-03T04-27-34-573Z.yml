@@ -1,0 +1,351 @@
+- generic [ref=f9e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=f9e3]:
+    - navigation [ref=f9e4]:
+      - generic [ref=f9e5]:
+        - link "LEM Luxury Escorts Manchester" [ref=f9e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f9e8]: LEM
+          - generic [ref=f9e9]: Luxury Escorts Manchester
+        - generic [ref=f9e10]:
+          - link "Companions" [ref=f9e11] [cursor=pointer]:
+            - /url: /
+          - link "Availability" [ref=f9e12] [cursor=pointer]:
+            - /url: /availability
+          - link "Services" [ref=f9e13] [cursor=pointer]:
+            - /url: /services
+          - link "Safety" [ref=f9e14] [cursor=pointer]:
+            - /url: /safety
+          - link "We're Hiring" [ref=f9e15] [cursor=pointer]:
+            - /url: /recruitment
+            - img [ref=f9e16]
+            - text: We're Hiring
+        - link "Call Discreetly" [ref=f9e21] [cursor=pointer]:
+          - /url: tel:0
+          - img [ref=f9e22]
+          - text: Call Discreetly
+      - generic [ref=f9e24]:
+        - button "Close menu" [ref=f9e26] [cursor=pointer]:
+          - img [ref=f9e27]
+        - generic [ref=f9e30]:
+          - link "Companions" [ref=f9e31] [cursor=pointer]:
+            - /url: /
+          - link "Availability" [ref=f9e32] [cursor=pointer]:
+            - /url: /availability
+          - link "Services" [ref=f9e33] [cursor=pointer]:
+            - /url: /services
+          - link "Safety" [ref=f9e34] [cursor=pointer]:
+            - /url: /safety
+          - link "We're Hiring!" [ref=f9e35] [cursor=pointer]:
+            - /url: /recruitment
+            - img [ref=f9e36]
+            - text: We're Hiring!
+    - main [ref=f9e38]:
+      - generic [ref=f9e39]:
+        - img "Manchester city skyline at night - Luxury Escorts Manchester" [ref=f9e41]
+        - generic [ref=f9e44]:
+          - generic [ref=f9e45]: Premium & Discreet Agency
+          - heading "Manchester Escorts Premium Companion Agency | Incall & Outcall" [level=1] [ref=f9e46]:
+            - text: Manchester Escorts
+            - generic [ref=f9e47]: Premium Companion Agency | Incall & Outcall
+          - paragraph [ref=f9e48]: Luxury Escorts Manchester is the premier escort agency in Greater Manchester. Verified companions available 24/7 for incall and outcall bookings. Total discretion, selfie-verified profiles, and concierge-level care.
+          - generic [ref=f9e49]:
+            - button "Chat Now" [ref=f9e50] [cursor=pointer]
+            - link "View Available Now" [ref=f9e51] [cursor=pointer]:
+              - /url: /availability
+        - generic [ref=f9e53]: Scroll
+      - generic [ref=f9e55]:
+        - generic [ref=f9e56]:
+          - generic [ref=f9e57]:
+            - heading "Available Companions" [level=2] [ref=f9e58]
+            - paragraph [ref=f9e59]: Browse our curated selection of verified Manchester escorts currently available for incall and outcall companionship across Greater Manchester.
+          - generic [ref=f9e60]:
+            - button "All" [ref=f9e61] [cursor=pointer]
+            - button "New" [ref=f9e62] [cursor=pointer]
+            - button "Verified" [ref=f9e63] [cursor=pointer]
+            - button "Available" [ref=f9e64] [cursor=pointer]
+            - button "Duo" [ref=f9e65] [cursor=pointer]
+        - generic [ref=f9e66]:
+          - complementary [ref=f9e67]:
+            - generic [ref=f9e68]:
+              - generic [ref=f9e70]:
+                - img [ref=f9e71]
+                - generic [ref=f9e72]: Filters
+              - generic [ref=f9e74]: Found 0 companions
+              - generic [ref=f9e75]:
+                - generic [ref=f9e76]:
+                  - button "Price" [ref=f9e77] [cursor=pointer]:
+                    - generic [ref=f9e78]: Price
+                    - img [ref=f9e79]
+                  - generic [ref=f9e82]:
+                    - button "Under £150" [ref=f9e83] [cursor=pointer]:
+                      - generic [ref=f9e85]: Under £150
+                    - button "£150 - £200" [ref=f9e86] [cursor=pointer]:
+                      - generic [ref=f9e88]: £150 - £200
+                    - button "£200 - £300" [ref=f9e89] [cursor=pointer]:
+                      - generic [ref=f9e91]: £200 - £300
+                    - button "£300 - £500" [ref=f9e92] [cursor=pointer]:
+                      - generic [ref=f9e94]: £300 - £500
+                    - button "£500+" [ref=f9e95] [cursor=pointer]:
+                      - generic [ref=f9e97]: £500+
+                - generic [ref=f9e98]:
+                  - button "Services" [ref=f9e99] [cursor=pointer]:
+                    - generic [ref=f9e100]: Services
+                    - img [ref=f9e101]
+                  - generic [ref=f9e104]:
+                    - button "GFE" [ref=f9e105] [cursor=pointer]:
+                      - generic [ref=f9e107]: GFE
+                    - button "OWO" [ref=f9e108] [cursor=pointer]:
+                      - generic [ref=f9e110]: OWO
+                    - button "CIM" [ref=f9e111] [cursor=pointer]:
+                      - generic [ref=f9e113]: CIM
+                    - button "COB" [ref=f9e114] [cursor=pointer]:
+                      - generic [ref=f9e116]: COB
+                    - button "CIF" [ref=f9e117] [cursor=pointer]:
+                      - generic [ref=f9e119]: CIF
+                    - button "FK" [ref=f9e120] [cursor=pointer]:
+                      - generic [ref=f9e122]: FK
+                    - button "DFK" [ref=f9e123] [cursor=pointer]:
+                      - generic [ref=f9e125]: DFK
+                    - button "69" [ref=f9e126] [cursor=pointer]:
+                      - generic [ref=f9e128]: "69"
+                    - button "A-Level" [ref=f9e129] [cursor=pointer]:
+                      - generic [ref=f9e131]: A-Level
+                    - button "Duo" [ref=f9e132] [cursor=pointer]:
+                      - generic [ref=f9e134]: Duo
+                    - button "Party Girl" [ref=f9e135] [cursor=pointer]:
+                      - generic [ref=f9e137]: Party Girl
+                    - button "DT" [ref=f9e138] [cursor=pointer]:
+                      - generic [ref=f9e140]: DT
+                    - button "Massage" [ref=f9e141] [cursor=pointer]:
+                      - generic [ref=f9e143]: Massage
+                    - button "Tantric" [ref=f9e144] [cursor=pointer]:
+                      - generic [ref=f9e146]: Tantric
+                    - button "Overnight" [ref=f9e147] [cursor=pointer]:
+                      - generic [ref=f9e149]: Overnight
+                    - button "Dinner Date" [ref=f9e150] [cursor=pointer]:
+                      - generic [ref=f9e152]: Dinner Date
+                    - button "Travel" [ref=f9e153] [cursor=pointer]:
+                      - generic [ref=f9e155]: Travel
+                - generic [ref=f9e156]:
+                  - button "Age" [ref=f9e157] [cursor=pointer]:
+                    - generic [ref=f9e158]: Age
+                    - img [ref=f9e159]
+                  - generic [ref=f9e162]:
+                    - button "18-21" [ref=f9e163] [cursor=pointer]:
+                      - generic [ref=f9e165]: 18-21
+                    - button "22-25" [ref=f9e166] [cursor=pointer]:
+                      - generic [ref=f9e168]: 22-25
+                    - button "26-30" [ref=f9e169] [cursor=pointer]:
+                      - generic [ref=f9e171]: 26-30
+                    - button "31-35" [ref=f9e172] [cursor=pointer]:
+                      - generic [ref=f9e174]: 31-35
+                    - button "36-40" [ref=f9e175] [cursor=pointer]:
+                      - generic [ref=f9e177]: 36-40
+                    - button "40+" [ref=f9e178] [cursor=pointer]:
+                      - generic [ref=f9e180]: 40+
+                - button "Hair" [ref=f9e182] [cursor=pointer]:
+                  - generic [ref=f9e183]: Hair
+                  - img [ref=f9e184]
+                - button "Breast" [ref=f9e187] [cursor=pointer]:
+                  - generic [ref=f9e188]: Breast
+                  - img [ref=f9e189]
+                - button "Body Type" [ref=f9e192] [cursor=pointer]:
+                  - generic [ref=f9e193]: Body Type
+                  - img [ref=f9e194]
+                - button "Dress Size" [ref=f9e197] [cursor=pointer]:
+                  - generic [ref=f9e198]: Dress Size
+                  - img [ref=f9e199]
+                - button "Nationality" [ref=f9e202] [cursor=pointer]:
+                  - generic [ref=f9e203]: Nationality
+                  - img [ref=f9e204]
+                - button "Availability" [ref=f9e207] [cursor=pointer]:
+                  - generic [ref=f9e208]: Availability
+                  - img [ref=f9e209]
+          - generic [ref=f9e212]:
+            - paragraph [ref=f9e213]: No companions match your filters.
+            - paragraph [ref=f9e214]:
+              - text: Try adjusting your filters or
+              - button "clear all filters" [ref=f9e215] [cursor=pointer]
+              - text: .
+      - generic [ref=f9e217]:
+        - generic [ref=f9e218]:
+          - img [ref=f9e220]
+          - heading "Total Discretion" [level=3] [ref=f9e222]
+          - paragraph [ref=f9e223]: Private bookings and encrypted communications.
+        - generic [ref=f9e224]:
+          - img [ref=f9e226]
+          - heading "Elite Standard" [level=3] [ref=f9e228]
+          - paragraph [ref=f9e229]: Strictly vetted profiles and luxury service.
+        - generic [ref=f9e230]:
+          - img [ref=f9e232]
+          - heading "24/7 Concierge" [level=3] [ref=f9e235]
+          - paragraph [ref=f9e236]: Our agents are available around the clock.
+      - generic [ref=f9e238]:
+        - heading "Manchester's Premier Escort Agency" [level=2] [ref=f9e239]
+        - generic [ref=f9e240]:
+          - paragraph [ref=f9e241]: Luxury Escorts Manchester is the leading escort agency in Greater Manchester, providing verified, premium companions for discerning clients since our establishment. We combine modern technology with traditional values of discretion, quality, and exceptional personal service to deliver an escort experience that stands apart from the competition.
+          - paragraph [ref=f9e242]: Every companion at Luxury Escorts Manchester undergoes our rigorous selfie verification process, ensuring the woman you see on our website is exactly who arrives for your appointment. Unlike many agencies that rely on outdated or heavily edited photos, we prioritise authenticity and transparency. Our companions' profiles feature genuine selfies alongside professional photos, giving you complete confidence in your booking.
+          - paragraph [ref=f9e243]:
+            - text: We offer both
+            - link "incall appointments" [ref=f9e244] [cursor=pointer]:
+              - /url: /services/incall
+            - text: at our elegant, discreet city centre locations and
+            - link "outcall services" [ref=f9e245] [cursor=pointer]:
+              - /url: /services/outcall
+            - text: to hotels, homes, and private addresses across all of Greater Manchester and into Cheshire. Our multi-channel booking system allows you to arrange your companion via WhatsApp, phone, or our website chat \u2014 whichever you find most convenient and private.
+          - paragraph [ref=f9e246]:
+            - text: Whether you're seeking a
+            - link "girlfriend experience (GFE)" [ref=f9e247] [cursor=pointer]:
+              - /url: /categories/gfe-escorts
+            - text: ", a glamorous"
+            - link "duo escort" [ref=f9e248] [cursor=pointer]:
+              - /url: /categories/duo-escorts
+            - text: pairing, an
+            - link "elite companion" [ref=f9e249] [cursor=pointer]:
+              - /url: /categories/elite-escorts
+            - text: for a corporate event, or simply beautiful company for an evening in Manchester, our agency delivers. With transparent pricing displayed on every profile, 24/7 availability, and a commitment to your privacy, Luxury Escorts Manchester is the smart choice for premium escort services in the North West.
+        - generic [ref=f9e250]:
+          - generic [ref=f9e251]:
+            - img [ref=f9e252]
+            - heading "Selfie Verified" [level=3] [ref=f9e255]
+            - paragraph [ref=f9e256]: Every companion confirmed authentic with selfie photos
+          - generic [ref=f9e257]:
+            - img [ref=f9e258]
+            - heading "35+ Locations" [level=3] [ref=f9e261]
+            - paragraph [ref=f9e262]: Covering all of Greater Manchester and Cheshire
+          - generic [ref=f9e263]:
+            - img [ref=f9e264]
+            - heading "GFE Specialists" [level=3] [ref=f9e266]
+            - paragraph [ref=f9e267]: Warm, genuine girlfriend experience companions
+          - generic [ref=f9e268]:
+            - img [ref=f9e269]
+            - heading "Duo Available" [level=3] [ref=f9e274]
+            - paragraph [ref=f9e275]: Premium duo pairings for extraordinary experiences
+        - heading "Escorts by Category" [level=2] [ref=f9e276]
+        - generic [ref=f9e277]:
+          - link "GFE Escorts" [ref=f9e278] [cursor=pointer]:
+            - /url: /categories/gfe-escorts
+          - link "Busty Escorts" [ref=f9e279] [cursor=pointer]:
+            - /url: /categories/busty-escorts
+          - link "Blonde Escorts" [ref=f9e280] [cursor=pointer]:
+            - /url: /categories/blonde-escorts
+          - link "Brunette Escorts" [ref=f9e281] [cursor=pointer]:
+            - /url: /categories/brunette-escorts
+          - link "Mature Escorts" [ref=f9e282] [cursor=pointer]:
+            - /url: /categories/mature-escorts
+          - link "Duo Escorts" [ref=f9e283] [cursor=pointer]:
+            - /url: /categories/duo-escorts
+          - link "Elite Escorts" [ref=f9e284] [cursor=pointer]:
+            - /url: /categories/elite-escorts
+          - link "British Escorts" [ref=f9e285] [cursor=pointer]:
+            - /url: /categories/british-escorts
+          - link "Party Girl Escorts" [ref=f9e286] [cursor=pointer]:
+            - /url: /categories/party-girl-escorts
+          - link "Couples Escorts" [ref=f9e287] [cursor=pointer]:
+            - /url: /categories/couples-escorts
+        - heading "Escorts by Location in Greater Manchester" [level=2] [ref=f9e288]
+        - generic [ref=f9e289]:
+          - link "City Centre" [ref=f9e290] [cursor=pointer]:
+            - /url: /location/manchester-city-centre
+          - link "Salford" [ref=f9e291] [cursor=pointer]:
+            - /url: /location/salford
+          - link "Stockport" [ref=f9e292] [cursor=pointer]:
+            - /url: /location/stockport
+          - link "Bolton" [ref=f9e293] [cursor=pointer]:
+            - /url: /location/bolton
+          - link "Altrincham" [ref=f9e294] [cursor=pointer]:
+            - /url: /location/altrincham
+          - link "Didsbury" [ref=f9e295] [cursor=pointer]:
+            - /url: /location/didsbury
+          - link "Chorlton" [ref=f9e296] [cursor=pointer]:
+            - /url: /location/chorlton
+          - link "Trafford" [ref=f9e297] [cursor=pointer]:
+            - /url: /location/trafford
+          - link "Deansgate" [ref=f9e298] [cursor=pointer]:
+            - /url: /location/deansgate
+          - link "Northern Quarter" [ref=f9e299] [cursor=pointer]:
+            - /url: /location/northern-quarter
+          - link "Cheshire" [ref=f9e300] [cursor=pointer]:
+            - /url: /location/cheshire
+          - link "Oldham" [ref=f9e301] [cursor=pointer]:
+            - /url: /location/oldham
+        - link "View All 35+ Locations →" [ref=f9e303] [cursor=pointer]:
+          - /url: /locations
+      - generic [ref=f9e305]:
+        - heading "Frequently Asked Questions" [level=2] [ref=f9e306]
+        - generic [ref=f9e307]:
+          - generic [ref=f9e308]:
+            - heading "How do I book an escort in Manchester?" [level=3] [ref=f9e309]
+            - paragraph [ref=f9e310]: Simply browse our verified companion profiles, choose your preferred escort, and contact us via WhatsApp, phone, or our online chat. We're available 24/7 and can often arrange same-day bookings for both incall and outcall appointments.
+          - generic [ref=f9e311]:
+            - heading "Do you offer incall and outcall services?" [level=3] [ref=f9e312]
+            - paragraph [ref=f9e313]: Yes. We offer incall appointments at our discreet city centre locations (M1/M2) and outcall services to hotels, homes, and private addresses across all of Greater Manchester and Cheshire.
+          - generic [ref=f9e314]:
+            - heading "Are your escort photos verified?" [level=3] [ref=f9e315]
+            - paragraph [ref=f9e316]: Absolutely. Every companion at Luxury Escorts Manchester is selfie-verified. The photos on our website are confirmed authentic, so the person you see is exactly who you'll meet.
+          - generic [ref=f9e317]:
+            - heading "What areas of Manchester do you cover?" [level=3] [ref=f9e318]
+            - paragraph [ref=f9e319]: We cover all of Greater Manchester including the city centre, Salford, Stockport, Bolton, Altrincham, Didsbury, Trafford, and 30+ more areas. We also serve North Cheshire including Wilmslow, Alderley Edge, and Knutsford.
+          - generic [ref=f9e320]:
+            - heading "What is a GFE escort?" [level=3] [ref=f9e321]
+            - paragraph [ref=f9e322]: GFE stands for Girlfriend Experience — a style of companionship that emphasises warmth, genuine conversation, and a natural, relaxed interaction. Our GFE escorts are selected for their emotional intelligence and ability to create authentic connections.
+          - generic [ref=f9e323]:
+            - heading "Are you available 24/7?" [level=3] [ref=f9e324]
+            - paragraph [ref=f9e325]: Yes, Luxury Escorts Manchester operates 24 hours a day, 7 days a week, 365 days a year. Contact us anytime to check availability and arrange your booking.
+      - generic [ref=f9e327]:
+        - heading "Guides & Resources" [level=2] [ref=f9e328]
+        - generic [ref=f9e329]:
+          - link "Guide The Complete Guide to Booking Escorts in Manchester" [ref=f9e330] [cursor=pointer]:
+            - /url: /blog/complete-guide-booking-escorts-manchester
+            - text: Guide
+            - heading "The Complete Guide to Booking Escorts in Manchester" [level=3] [ref=f9e331]
+          - link "Hotels Escort Friendly Hotels in Manchester City Centre" [ref=f9e332] [cursor=pointer]:
+            - /url: /blog/escort-friendly-hotels-manchester
+            - text: Hotels
+            - heading "Escort Friendly Hotels in Manchester City Centre" [level=3] [ref=f9e333]
+          - link "Explained What Is a GFE Escort? Your Complete Guide" [ref=f9e334] [cursor=pointer]:
+            - /url: /blog/what-is-gfe-escort-guide
+            - text: Explained
+            - heading "What Is a GFE Escort? Your Complete Guide" [level=3] [ref=f9e335]
+        - link "Read All Guides →" [ref=f9e336] [cursor=pointer]:
+          - /url: /blog
+    - contentinfo [ref=f9e337]:
+      - generic [ref=f9e338]:
+        - generic [ref=f9e340]: LEM
+        - heading "Luxury Escorts Manchester" [level=4] [ref=f9e341]
+        - generic [ref=f9e342]:
+          - link "Safety" [ref=f9e343] [cursor=pointer]:
+            - /url: /safety
+          - link "Locations" [ref=f9e344] [cursor=pointer]:
+            - /url: /locations
+          - link "Categories" [ref=f9e345] [cursor=pointer]:
+            - /url: /categories
+          - link "Blog" [ref=f9e346] [cursor=pointer]:
+            - /url: /blog
+          - link "Incall" [ref=f9e347] [cursor=pointer]:
+            - /url: /services/incall
+          - link "Outcall" [ref=f9e348] [cursor=pointer]:
+            - /url: /services/outcall
+          - link "About" [ref=f9e349] [cursor=pointer]:
+            - /url: /about
+          - link "Contact" [ref=f9e350] [cursor=pointer]:
+            - /url: /contact
+          - link "FAQ" [ref=f9e351] [cursor=pointer]:
+            - /url: /faq
+          - link "Reviews" [ref=f9e352] [cursor=pointer]:
+            - /url: /reviews
+          - link "Terms" [ref=f9e353] [cursor=pointer]:
+            - /url: /terms
+          - link "Privacy" [ref=f9e354] [cursor=pointer]:
+            - /url: /privacy-policy
+        - paragraph [ref=f9e355]: © 2026 Luxury Escorts Manchester. All profiles are of independent individuals aged 18+. Total discretion guaranteed. Manchester's premier escort agency.
+        - generic [ref=f9e356]:
+          - text: Manchester, Greater Manchester, UK|
+          - link "+44 7000 000 000" [ref=f9e357] [cursor=pointer]:
+            - /url: tel:+447000000000
+          - text: "|Available 24/7"
+        - paragraph [ref=f9e359]: Luxury Escorts Manchester provides premium escort companionship services across Greater Manchester including Manchester City Centre, Salford, Stockport, Bolton, Altrincham, Didsbury, Trafford, Oldham, Bury, Wigan, Rochdale, and Cheshire. Available 24/7 for incall and outcall bookings.
+    - button "Open chat" [ref=f9e362] [cursor=pointer]:
+      - img [ref=f9e363]

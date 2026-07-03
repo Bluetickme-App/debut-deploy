@@ -51,3 +51,23 @@ test("non-admin cannot unplace (environmentId null)", () => {
     (err) => err.status === 400
   );
 });
+
+test("admin unplace of a non-existent resource throws 404 (no silent no-op)", () => {
+  const admin = { id: dbm.createUser({ email: "adm1@x.com", role: "admin" }).id, role: "admin" };
+  assert.throws(
+    () => placeResourceInEnvironment({ user: admin, type: "application", resourceUuid: "does-not-exist", environmentId: null }),
+    (e) => e.status === 404
+  );
+});
+
+test("admin may place a resource across orgs (deliberate bypass)", () => {
+  const b = seed("adm2b@x.com");                 // org B owns the resource
+  assign("app-adm", "application", b.user.id);
+  const adminUser = { id: dbm.createUser({ email: "adm2@x.com", role: "admin" }).id, role: "admin" };
+  const adminOrg = dbm.ensureUserOrg(adminUser.id);
+  const p = dbm.createProject(adminOrg, "Admin Proj");
+  const e = dbm.createEnvironment(adminOrg, p.id, "Production");
+  const r = placeResourceInEnvironment({ user: adminUser, type: "application", resourceUuid: "app-adm", environmentId: e.id });
+  assert.deepEqual(r, { ok: true });
+  assert.equal(dbm.db.prepare("SELECT environment_id FROM resource_ownership WHERE coolify_uuid='app-adm'").get().environment_id, e.id);
+});

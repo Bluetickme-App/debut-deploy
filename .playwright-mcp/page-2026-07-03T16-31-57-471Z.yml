@@ -1,0 +1,127 @@
+- generic [active] [ref=f6e1]:
+  - navigation "Primary" [ref=f6e2]:
+    - generic [ref=f6e3]:
+      - link "Aurora Travel home" [ref=f6e4] [cursor=pointer]:
+        - /url: /
+        - img "Aurora Travel" [ref=f6e5]
+      - generic [ref=f6e6]:
+        - link "Destinations" [ref=f6e7] [cursor=pointer]:
+          - /url: /destinations
+        - link "Hotels" [ref=f6e8] [cursor=pointer]:
+          - /url: /search
+        - link "Explore" [ref=f6e9] [cursor=pointer]:
+          - /url: /explore
+        - link "Experiences" [ref=f6e10] [cursor=pointer]:
+          - /url: /experiences
+        - link "Rewards" [ref=f6e11] [cursor=pointer]:
+          - /url: /rewards
+      - link "Sign in" [ref=f6e13] [cursor=pointer]:
+        - /url: /auth/sign-in
+  - main [ref=f6e14]:
+    - generic [ref=f6e16]:
+      - text: All destinations
+      - heading "Where Aurora Travel travels" [level=1] [ref=f6e17]
+      - paragraph [ref=f6e18]: 0 cities, neighbourhoods and coastal regions where we list 4- and 5-star hotels. Each page covers where to stay, when to go, and how to get there from London.
+  - contentinfo "Footer" [ref=f6e20]:
+    - generic [ref=f6e21]:
+      - generic [ref=f6e22]:
+        - generic [ref=f6e23]:
+          - link "C Aurora Travel" [ref=f6e24] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f6e26]: C
+            - generic [ref=f6e27]: Aurora Travel
+          - paragraph [ref=f6e28]: A premium-only travel platform. 4-star and up, every search. Honest pricing, member-exclusive rates, thirty hand-picked anchor hotels.
+          - generic [ref=f6e29]:
+            - link "Instagram" [ref=f6e30] [cursor=pointer]:
+              - /url: https://instagram.com
+              - img [ref=f6e31]
+            - link "X (Twitter)" [ref=f6e35] [cursor=pointer]:
+              - /url: https://x.com
+              - img [ref=f6e36]
+            - link "Facebook" [ref=f6e38] [cursor=pointer]:
+              - /url: https://facebook.com
+              - img [ref=f6e39]
+        - generic [ref=f6e41]:
+          - heading "Discover" [level=4] [ref=f6e42]
+          - list [ref=f6e43]:
+            - listitem [ref=f6e44]:
+              - link "Destinations" [ref=f6e45] [cursor=pointer]:
+                - /url: /destinations
+            - listitem [ref=f6e46]:
+              - link "Hotels" [ref=f6e47] [cursor=pointer]:
+                - /url: /search
+            - listitem [ref=f6e48]:
+              - link "Experiences" [ref=f6e49] [cursor=pointer]:
+                - /url: /experiences
+            - listitem [ref=f6e50]:
+              - link "Explore" [ref=f6e51] [cursor=pointer]:
+                - /url: /explore
+            - listitem [ref=f6e52]:
+              - link "Gift cards" [ref=f6e53] [cursor=pointer]:
+                - /url: /gift-cards
+        - generic [ref=f6e54]:
+          - heading "Aurora Travel" [level=4] [ref=f6e55]
+          - list [ref=f6e56]:
+            - listitem [ref=f6e57]:
+              - link "About" [ref=f6e58] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=f6e59]:
+              - link "Press" [ref=f6e60] [cursor=pointer]:
+                - /url: /press
+            - listitem [ref=f6e61]:
+              - link "Careers" [ref=f6e62] [cursor=pointer]:
+                - /url: /careers
+            - listitem [ref=f6e63]:
+              - link "Sustainability" [ref=f6e64] [cursor=pointer]:
+                - /url: /about#sustainability
+            - listitem [ref=f6e65]:
+              - link "Investors" [ref=f6e66] [cursor=pointer]:
+                - /url: /investors
+        - generic [ref=f6e67]:
+          - heading "Members" [level=4] [ref=f6e68]
+          - list [ref=f6e69]:
+            - listitem [ref=f6e70]:
+              - link "Aurora Club" [ref=f6e71] [cursor=pointer]:
+                - /url: /rewards
+            - listitem [ref=f6e72]:
+              - link "Tier benefits" [ref=f6e73] [cursor=pointer]:
+                - /url: /rewards/tiers
+            - listitem [ref=f6e74]:
+              - link "Refer a friend" [ref=f6e75] [cursor=pointer]:
+                - /url: /refer
+            - listitem [ref=f6e76]:
+              - link "Aurora (your agent)" [ref=f6e77] [cursor=pointer]:
+                - /url: /concierge
+            - listitem [ref=f6e78]:
+              - link "Sign in" [ref=f6e79] [cursor=pointer]:
+                - /url: /auth/sign-in
+        - generic [ref=f6e80]:
+          - heading "Support" [level=4] [ref=f6e81]
+          - list [ref=f6e82]:
+            - listitem [ref=f6e83]:
+              - link "Help centre" [ref=f6e84] [cursor=pointer]:
+                - /url: /help
+            - listitem [ref=f6e85]:
+              - link "Booking changes" [ref=f6e86] [cursor=pointer]:
+                - /url: /help/changes
+            - listitem [ref=f6e87]:
+              - link "Cancellation" [ref=f6e88] [cursor=pointer]:
+                - /url: /help/cancellation
+            - listitem [ref=f6e89]:
+              - link "Contact" [ref=f6e90] [cursor=pointer]:
+                - /url: /help/contact
+            - listitem [ref=f6e91]:
+              - link "Travel advisories" [ref=f6e92] [cursor=pointer]:
+                - /url: /help/advisories
+      - generic [ref=f6e93]:
+        - generic [ref=f6e94]: © 2026 Aurora Travel · Manchester, UK · ABTA member
+        - list [ref=f6e96]:
+          - listitem [ref=f6e97]:
+            - link "Privacy" [ref=f6e98] [cursor=pointer]:
+              - /url: /legal/privacy
+          - listitem [ref=f6e99]:
+            - link "Terms" [ref=f6e100] [cursor=pointer]:
+              - /url: /legal/terms
+          - listitem [ref=f6e101]:
+            - link "Cookies" [ref=f6e102] [cursor=pointer]:
+              - /url: /legal/cookies
