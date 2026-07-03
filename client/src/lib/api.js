@@ -45,7 +45,8 @@ export const api = {
   placeResource:   (type, id, environmentId) => req(`/resources/${type}/${id}/placement`, { method: "PATCH", body: { environmentId } }),
   transferProject: (id, email) => req(`/admin/projects/${id}/transfer`, { method: "POST", body: { email } }), // master-admin only
   updateResources: (id, body) => req(`/services/${id}/resources`, { method: "PATCH", body }), // { cpus?, memory? }
-  deploy: (id) => req(`/services/${id}/deploy`, { method: "POST" }),
+  deploy: (id, opts) => req(`/services/${id}/deploy`, { method: "POST", body: opts }), // opts?: { clearCache: true }
+  rollback: (id, commit) => req(`/services/${id}/rollback`, { method: "POST", body: { commit } }),
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),
   // Returns the array of {time, level, message} lines; falls back if the shape is older (raw array/string).
@@ -144,4 +145,8 @@ export const api = {
   adminOrgBillingInfo: (id) => req(`/admin/orgs/${id}/billing-info`),
   adminSaveBillingInfo: (id, body) => req(`/admin/orgs/${id}/billing-info`, { method: "PATCH", body }),
   adminAdjustCredit: (id, body) => req(`/admin/orgs/${id}/credit`, { method: "POST", body }),
+  // Stripe admin dashboard (operator) — see data + flip test/live without a Stripe login
+  stripeConfig: () => req("/admin/stripe/config"),
+  stripeOverview: () => req("/admin/stripe/overview"),
+  setStripeMode: (mode) => req("/admin/stripe/mode", { method: "PUT", body: { mode } }),
 };

@@ -407,8 +407,9 @@ app.post(
   requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    record(req, "deploy", { resourceType: "application", resourceUuid: req.params.id });
-    const result = await coolify.deployService(req.params.id);
+    const force = req.body?.clearCache === true; // "Clear build cache & deploy"
+    record(req, "deploy", { resourceType: "application", resourceUuid: req.params.id, metadata: { force } });
+    const result = await coolify.deployService(req.params.id, { force });
     notifyOwner(req.params.id, { type: "deploy.started", message: "Deploy triggered" });
     const depUuid = result?.deployments?.[0]?.deployment_uuid;
     if (depUuid) watchDeploy(req.params.id, depUuid); // → deploy.succeeded/failed

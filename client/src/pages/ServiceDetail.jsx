@@ -44,10 +44,12 @@ export default function ServiceDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
-  async function action(kind) {
+  async function action(kind, arg) {
     setBusy(true);
     try {
       if (kind === "deploy") await api.deploy(id);
+      else if (kind === "deploy-cache") await api.deploy(id, { clearCache: true });
+      else if (kind === "deploy-commit") await api.rollback(id, arg); // deploy a specific commit
       else await api.control(id, kind);
       api.deployments(id).then(setDeploys);
     } finally { setBusy(false); }
@@ -127,9 +129,16 @@ export default function ServiceDetail() {
 
         {/* action buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <Button variant="primary" onClick={() => action("deploy")} disabled={busy}>
-            {busy ? <Spinner /> : <Rocket className="h-[15px] w-[15px]" />} Deploy
-          </Button>
+          <DeployMenu
+            busy={busy}
+            onLatest={() => action("deploy")}
+            onSpecific={() => {
+              const c = window.prompt("Commit SHA to deploy:");
+              if (c && c.trim()) action("deploy-commit", c.trim());
+            }}
+            onClearCache={() => action("deploy-cache")}
+            onRestart={() => action("restart")}
+          />
           {svc.status === "stopped" ? (
             <Button variant="secondary" onClick={() => action("start")} disabled={busy}>
               <Play className="h-3.5 w-3.5" /> Start
@@ -139,9 +148,6 @@ export default function ServiceDetail() {
               <Square className="h-3.5 w-3.5" /> Stop
             </Button>
           )}
-          <Button variant="secondary" onClick={() => action("restart")} disabled={busy}>
-            <RotateCw className="h-3.5 w-3.5" /> Restart
-          </Button>
         </div>
       </div>
 
@@ -185,6 +191,57 @@ export default function ServiceDetail() {
       {tab === "Environment" && <EnvironmentTab serviceId={id} onDeploy={() => action("deploy")} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
       {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} onRename={(name) => setSvc((s) => ({ ...s, name }))} />}
+    </div>
+  );
+}
+
+// Render-style "Manual Deploy" split menu: latest / specific commit / clear cache / restart.
+function DeployMenu({ busy, onLatest, onSpecific, onClearCache, onRestart }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const items = [
+    { label: "Deploy latest commit", fn: onLatest },
+    { label: "Deploy a specific commit", fn: onSpecific },
+    { label: "Clear build cache & deploy", fn: onClearCache },
+    { label: "Restart service", fn: onRestart },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <Button variant="primary" onClick={() => setOpen((o) => !o)} disabled={busy}>
+        {busy ? <Spinner /> : <Rocket className="h-[15px] w-[15px]" />} Manual Deploy
+        <ChevronDown className="h-3.5 w-3.5" />
+      </Button>
+      {open && (
+        <div style={{
+          position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 40, minWidth: 232,
+          background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8,
+          boxShadow: "var(--shadow-lg)", overflow: "hidden",
+        }}>
+          {items.map((it, i) => (
+            <button
+              key={it.label}
+              onClick={() => { setOpen(false); it.fn(); }}
+              style={{
+                display: "block", width: "100%", textAlign: "left", padding: "10px 14px",
+                fontSize: 13, background: "transparent", border: "none",
+                borderTop: i ? "1px solid var(--border)" : "none", color: "var(--text)", cursor: "pointer",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -151,9 +151,10 @@ export async function getService(uuid) {
   return mapApp(app, region);
 }
 
-export async function deployService(uuid) {
+export async function deployService(uuid, { force = false } = {}) {
   if (isDemo()) return { ok: true, message: "Deployment queued (demo)", uuid };
-  const r = await cf(`/deploy?uuid=${encodeURIComponent(uuid)}`, { method: "POST" });
+  // force=true makes Coolify rebuild from scratch (clears the build cache).
+  const r = await cf(`/deploy?uuid=${encodeURIComponent(uuid)}${force ? "&force=true" : ""}`, { method: "POST" });
   return { ok: true, message: "Deployment queued", ...r };
 }
 
