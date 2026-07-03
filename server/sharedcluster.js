@@ -66,7 +66,11 @@ async function runSql(clusterUrl, sql) {
 // Create a fresh logical database + login role on the shared cluster for a project,
 // returning a credential-safe connection URL scoped to that project's own database.
 export async function createProjectDatabase(name, { _cluster = ensureSharedCluster } = {}) {
-  const db = pgIdent(name);
+  // Unique suffix: CREATE DATABASE has no IF NOT EXISTS, so a retry after a failed
+  // migration — or two clients with the same app name — would collide on the logical
+  // DB name (`ERROR: database "…" already exists`). ponytail: a failed retry leaks an
+  // empty DB on the cluster; acceptable, clean up out of band.
+  const db = `${pgIdent(name).slice(0, 30)}_${randomBytes(3).toString("hex")}`;
   const role = `${db}_u`.slice(0, 40);
   const pw = randomBytes(18).toString("base64url"); // base64url → no quotes/backslashes, safe in the SQL literal
   if (DEMO) return { db, role, url: `postgresql://${role}:${pw}@demo-shared:5432/${db}` };
