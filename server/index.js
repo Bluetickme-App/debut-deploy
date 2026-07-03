@@ -728,6 +728,7 @@ app.patch("/api/admin/orgs/:id/billing-info", requireAuth, requireAdmin, mutateG
     email: clean(req.body?.billing_email),
     company: clean(req.body?.billing_company),
     vat: clean(req.body?.billing_vat),
+    address: req.body?.billing_address == null ? null : String(req.body.billing_address).slice(0, 500).trim() || null,
   });
   record(req, "billing.info_updated", { metadata: { org_id: orgId } });
   return getOrgBillingInfo(orgId);
@@ -1677,6 +1678,7 @@ app.patch("/api/org/billing-info", requireAuth, mutateGuard, attachOrgContext, r
       email: clean(req.body?.billing_email),
       company: clean(req.body?.billing_company),
       vat: clean(req.body?.billing_vat),
+      address: req.body?.billing_address == null ? null : String(req.body.billing_address).slice(0, 500).trim() || null,
     });
     record(req, "billing.info_updated", { metadata: { org_id: req.org.id } });
     return getOrgBillingInfo(req.org.id);

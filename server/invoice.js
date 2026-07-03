@@ -53,6 +53,7 @@ export function renderInvoiceHtml(d) {
   <div class="parties">
     <div><h3>Billed to</h3>
       <div>${esc(d.info?.billing_company || d.org.name)}</div>
+      ${d.info?.billing_address ? `<div class="muted">${esc(d.info.billing_address).replace(/\n/g, "<br>")}</div>` : ""}
       ${d.info?.billing_email ? `<div class="muted">${esc(d.info.billing_email)}</div>` : ""}
       ${d.info?.billing_vat ? `<div class="muted">VAT ${esc(d.info.billing_vat)}</div>` : ""}
     </div>

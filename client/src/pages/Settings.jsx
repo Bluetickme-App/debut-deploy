@@ -69,6 +69,11 @@ export default function Settings() {
               {field("billing_email", "Billing email", true)}
               {field("billing_vat", "VAT number", false)}
             </div>
+            <textarea
+              className="input mt-2" style={{ width: "100%", minHeight: 64, resize: "vertical" }}
+              placeholder="Billing address" value={info?.billing_address || ""} disabled={!isOwner}
+              onChange={(e) => { setInfo({ ...info, billing_address: e.target.value }); setSaved(false); }}
+            />
             {err && <div className="text-xs mt-2" style={{ color: "var(--err)" }}>{err.message}</div>}
           </>
         )}

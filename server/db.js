@@ -261,6 +261,10 @@ const MIGRATIONS = [
       ALTER TABLE organizations ADD COLUMN billing_vat     TEXT;
     `);
   },
+  // -> user_version 14: billing postal address (multi-line)
+  (d) => {
+    d.exec(`ALTER TABLE organizations ADD COLUMN billing_address TEXT;`);
+  },
 ];
 
 function resolveDbFile() {
@@ -571,8 +575,8 @@ export const listOrgResources = (orgId) =>
 
 // Org billing information (for statements / invoices). All fields nullable.
 export const getOrgBillingInfo = (orgId) =>
-  db.prepare("SELECT billing_email, billing_company, billing_vat FROM organizations WHERE id = ?").get(orgId);
+  db.prepare("SELECT billing_email, billing_company, billing_vat, billing_address FROM organizations WHERE id = ?").get(orgId);
 
-export const setOrgBillingInfo = (orgId, { email = null, company = null, vat = null }) =>
-  db.prepare("UPDATE organizations SET billing_email = ?, billing_company = ?, billing_vat = ? WHERE id = ?")
-    .run(email, company, vat, orgId).changes;
+export const setOrgBillingInfo = (orgId, { email = null, company = null, vat = null, address = null }) =>
+  db.prepare("UPDATE organizations SET billing_email = ?, billing_company = ?, billing_vat = ?, billing_address = ? WHERE id = ?")
+    .run(email, company, vat, address, orgId).changes;

@@ -196,9 +196,9 @@ test("admin credit adjustment: negative drives arrears balance, positive comps c
 test("migration 13: org billing info columns exist + round-trip", () => {
   const u = db.createUser({ email: "bizinfo@x.com", role: "customer" });
   const orgId = db.ensureUserOrg(u.id);
-  assert.deepEqual(db.getOrgBillingInfo(orgId), { billing_email: null, billing_company: null, billing_vat: null });
-  db.setOrgBillingInfo(orgId, { email: "ap@acme.com", company: "Acme Ltd", vat: "GB123" });
-  assert.deepEqual(db.getOrgBillingInfo(orgId), { billing_email: "ap@acme.com", billing_company: "Acme Ltd", billing_vat: "GB123" });
+  assert.deepEqual(db.getOrgBillingInfo(orgId), { billing_email: null, billing_company: null, billing_vat: null, billing_address: null });
+  db.setOrgBillingInfo(orgId, { email: "ap@acme.com", company: "Acme Ltd", vat: "GB123", address: "1 High St\nLondon" });
+  assert.deepEqual(db.getOrgBillingInfo(orgId), { billing_email: "ap@acme.com", billing_company: "Acme Ltd", billing_vat: "GB123", billing_address: "1 High St\nLondon" });
 });
 
 test("listOrgResources returns each resource with its plan_id (null = free)", () => {

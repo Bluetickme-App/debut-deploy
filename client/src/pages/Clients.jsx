@@ -220,6 +220,7 @@ function BillingPanel({ org, onChange }) {
           <input className="input" style={{ minWidth: 160 }} placeholder="company name" value={info?.billing_company || ""} onChange={(e) => setInfo({ ...info, billing_company: e.target.value })} />
           <input className="input" style={{ minWidth: 120 }} placeholder="VAT number" value={info?.billing_vat || ""} onChange={(e) => setInfo({ ...info, billing_vat: e.target.value })} />
         </div>
+        <textarea className="input mt-2" style={{ width: "100%", minHeight: 56, resize: "vertical" }} placeholder="billing address" value={info?.billing_address || ""} onChange={(e) => setInfo({ ...info, billing_address: e.target.value })} />
       </Section>
     </div>
   );
