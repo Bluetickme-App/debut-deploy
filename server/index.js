@@ -978,6 +978,32 @@ app.post("/api/admin/orgs/:id/subscribe", requireAuth, requireAdmin, mutateGuard
   return result;
 }));
 
+// A client's subscription-billing view: currency, subscription state, and the current
+// usage-credit top-up minimum (max £25, last month's usage).
+app.get("/api/admin/orgs/:id/billing", requireAuth, requireAdmin, h((req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const now = new Date();
+  const prev = currentPeriod(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+  const lastMonthPence = (usageSummary(orgId, prev)?.lines || []).reduce((s, l) => s + (l.pence || 0), 0);
+  return {
+    currency: subscriptions.orgCurrency(orgId),
+    subscription: subscriptions.getSubState(orgId),
+    min_topup_pence: subscriptions.minTopUpMinor(lastMonthPence),
+    balance_pence: walletBalance(orgId),
+    lines: subscriptions.subscriptionLinesFor(orgId),
+  };
+}));
+
+// Set a client's billing currency (UK £ vs rest-of-world $).
+app.put("/api/admin/orgs/:id/currency", requireAuth, requireAdmin, mutateGuard, h((req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const currency = subscriptions.setOrgCurrency(orgId, req.body?.currency);
+  record(req, "billing.currency_set", { metadata: { org_id: orgId, currency } });
+  return { currency };
+}));
+
 // Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.
 app.get(
   "/api/billing",

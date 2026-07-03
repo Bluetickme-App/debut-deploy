@@ -4,6 +4,9 @@ import { api } from "../lib/api.js";
 import { Spinner, timeAgo } from "../components/ui.jsx";
 
 const gbp = (pence) => `£${((pence || 0) / 100).toFixed(2)}`;
+const CUR_SYM = { gbp: "£", usd: "$" };
+const money2 = (pence, cur) => (CUR_SYM[cur] || "£") + ((pence || 0) / 100).toFixed(2);
+const SUB_LABEL = { active: "Active", trialing: "Trialing", past_due: "Past due", suspended: "Suspended", canceled: "Canceled" };
 
 const PAY_STATUS = {
   succeeded: { label: "succeeded", ok: true },
@@ -52,6 +55,10 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
+  const [billing, setBilling] = useState(null);
+  const [curBusy, setCurBusy] = useState(false);
+  const [subBusy, setSubBusy] = useState(false);
+  const [subUrl, setSubUrl] = useState(null);
 
   useEffect(() => { api.adminOrgUsage(org.id).then((u) => setSpend(u.totalPence)).catch(() => setSpend(0)); }, [org.id]);
   useEffect(() => {
@@ -60,6 +67,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
     api.adminOrgPayments(org.id).then(setPayments).catch(() => setPayments({ payments: [], configured: false }));
     api.adminOrgResources(org.id).then(setResources).catch(() => setResources({ monthly_total_pence: 0 }));
     api.adminOrgBillingInfo(org.id).then(setInfo).catch(() => setInfo({}));
+    api.orgBilling(org.id).then(setBilling).catch(() => setBilling(null));
   }, [expanded]); // eslint-disable-line
 
   const pastDue = org.billing_status === "arrears" || org.balance_pence < 0;
@@ -77,6 +85,9 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
     } finally { setBusy(false); }
   };
   const saveInfo = async () => { setSavingInfo(true); try { setInfo(await api.adminSaveBillingInfo(org.id, info)); } finally { setSavingInfo(false); } };
+  const setCur = async (c) => { if (billing?.currency === c) return; setCurBusy(true); try { await api.setOrgCurrency(org.id, c); setBilling(await api.orgBilling(org.id)); } finally { setCurBusy(false); } };
+  const subscribe = async () => { setSubBusy(true); try { const r = await api.subscribeOrg(org.id); setSubUrl(r.url); window.open(r.url, "_blank", "noopener"); } catch (e) { alert(e.message); } finally { setSubBusy(false); } };
+  const subTotal = (billing?.lines || []).reduce((sum, l) => sum + l.unitAmountMinor * l.quantity, 0);
 
   // Accrued + projection
   const now = new Date();
@@ -137,6 +148,40 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 10 }}><div style={s.blockTitle}>Usage this month</div><span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{spend == null ? "…" : gbp(spend)}</span></div>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>{accrued > 0 ? "Compute, bandwidth & storage." : "No metered usage yet."}</p>
             </div>
+          </div>
+
+          {/* Subscription & currency */}
+          <div style={{ ...s.card, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={s.blockTitle}>Subscription &amp; currency</div>
+              <div style={{ display: "flex", gap: 3, background: "var(--surface-2)", borderRadius: 999, padding: 3, border: "1px solid var(--border)" }}>
+                {["gbp", "usd"].map((c) => {
+                  const active = billing?.currency === c;
+                  return (
+                    <button key={c} disabled={!billing || curBusy || active} onClick={() => setCur(c)}
+                      style={{ fontSize: 12, fontWeight: 600, padding: "4px 13px", borderRadius: 999, border: "none", cursor: active || !billing ? "default" : "pointer", background: active ? "var(--text)" : "transparent", color: active ? "var(--surface)" : "var(--text-muted)", fontFamily: "inherit" }}>
+                      {c.toUpperCase()}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {!billing ? <Spinner /> : (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 14 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}><span style={s.statLabel}>Subscription</span><span style={s.statVal}>{SUB_LABEL[billing.subscription?.status] || "None"}</span></div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}><span style={s.statLabel}>Monthly service</span><span style={s.statVal}>{money2(subTotal, billing.currency)}</span></div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}><span style={s.statLabel}>Min top-up</span><span style={s.statVal}>{money2(billing.min_topup_pence, billing.currency)}</span></div>
+                </div>
+                <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
+                  <button style={{ ...s.btnPrimary, opacity: (subBusy || !billing.lines?.length) ? 0.55 : 1 }} disabled={subBusy || !billing.lines?.length} onClick={subscribe}>
+                    {subBusy ? "Creating link…" : billing.subscription?.status === "active" ? "New checkout link" : "Start subscription"}
+                  </button>
+                  {subUrl && <a style={s.btnGhostSm} href={subUrl} target="_blank" rel="noreferrer">Open checkout ↗</a>}
+                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{billing.lines?.length ? "Charges the client's card upfront — send them the link." : "No priced services to subscribe."}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Unbilled */}

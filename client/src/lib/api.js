@@ -147,6 +147,9 @@ export const api = {
   adminOrgBillingInfo: (id) => req(`/admin/orgs/${id}/billing-info`),
   adminSaveBillingInfo: (id, body) => req(`/admin/orgs/${id}/billing-info`, { method: "PATCH", body }),
   adminAdjustCredit: (id, body) => req(`/admin/orgs/${id}/credit`, { method: "POST", body }),
+  orgBilling: (id) => req(`/admin/orgs/${id}/billing`),
+  setOrgCurrency: (id, currency) => req(`/admin/orgs/${id}/currency`, { method: "PUT", body: { currency } }),
+  subscribeOrg: (id) => req(`/admin/orgs/${id}/subscribe`, { method: "POST" }),
   // Stripe admin dashboard (operator) — see data + flip test/live without a Stripe login
   stripeConfig: () => req("/admin/stripe/config"),
   stripeOverview: () => req("/admin/stripe/overview"),

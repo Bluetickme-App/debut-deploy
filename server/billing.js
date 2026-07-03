@@ -76,6 +76,14 @@ export function computeMonthlyCharge(orgId) {
 // ponytail: subsystem B usage drawdown lands here — an additional type='usage' debit
 // computed from B's metering, same wallet, same shape. Wire after B ships.
 export function chargeMonthlyHardware(orgId, period) {
+  // Cutover: once an org is on a Stripe subscription, the fixed monthly service fee is
+  // billed there — do NOT also debit the wallet for it (the wallet is usage-only now).
+  // Read the subscription state directly from app_settings to avoid a circular import.
+  let sub = {};
+  try { sub = JSON.parse(getSetting(`org_sub_${orgId}`) || "{}"); } catch { sub = {}; }
+  if (sub.subscriptionId || ["active", "trialing", "past_due"].includes(sub.status)) {
+    return { charged: 0, skipped: "on_subscription" };
+  }
   const already = db.prepare(
     "SELECT 1 FROM credit_ledger WHERE org_id = ? AND type = 'hardware_charge' AND period = ?"
   ).get(orgId, period);

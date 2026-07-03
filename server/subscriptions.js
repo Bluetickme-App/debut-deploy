@@ -35,6 +35,15 @@ export function orgCurrency(orgId) {
   return "gbp";
 }
 
+// Operator override of a client's billing currency (UK £ vs ROW $).
+export function setOrgCurrency(orgId, currency) {
+  if (currency !== "gbp" && currency !== "usd") {
+    throw Object.assign(new Error("currency must be 'gbp' or 'usd'"), { status: 400 });
+  }
+  setSetting(`org_currency_${orgId}`, currency);
+  return currency;
+}
+
 // A plan's monthly price in the target currency's MINOR units. Plans are priced in USD;
 // GBP converts at the operator FX rate (same rate the wallet already uses).
 export function planAmountMinor(planId, currency) {
