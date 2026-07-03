@@ -504,7 +504,7 @@ app.get(
 );
 
 // --- panel-native projects / environments / placement ---
-const orgOf = (user) => getMembership(user.id)?.org_id ?? ensureUserOrg(user.id);
+const orgOf = (user) => user.role === "admin" ? null : (getMembership(user.id)?.org_id ?? ensureUserOrg(user.id));
 
 app.get("/api/projects", requireAuth, h(async (req) => listProjects(orgOf(req.user))));
 
@@ -512,7 +512,7 @@ app.post("/api/projects", requireAuth, mutateGuard, attachOrgContext, requireCap
   h(async (req) => createProject(orgOf(req.user), String(req.body?.name || "").trim() || "Untitled")));
 
 app.get("/api/projects/:id", requireAuth, h(async (req) => {
-  const detail = buildProjectDetail(orgOf(req.user), Number(req.params.id));
+  const detail = buildProjectDetail(orgOf(req.user), Number(req.params.id)); // sync
   if (!detail) throw Object.assign(new Error("Not found"), { status: 404 });
   return detail;
 }));
@@ -535,7 +535,7 @@ app.delete("/api/environments/:id", requireAuth, mutateGuard, attachOrgContext, 
 // type ∈ application|database; id is the coolify_uuid. Replaces the old /move routes.
 app.patch("/api/resources/:type/:id/placement", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => {
-    const r = placeResourceInEnvironment({
+    const r = placeResourceInEnvironment({ // sync
       user: req.user, type: req.params.type, resourceUuid: req.params.id,
       environmentId: req.body?.environmentId ?? null,
     });
@@ -640,10 +640,11 @@ app.post(
   requireCapability("manage"),
   h(async (req) => {
     const userId = req.user.id;
-    const { type, name, projectUuid, version } = req.body || {};
+    const { type, name, version } = req.body || {};
     if (!type || !name) throw Object.assign(new Error("type and name are required"), { status: 400 });
-    // projectUuid is passed through to Coolify's createDatabase for its own grouping; ownership via assign().
-    const { uuid } = await databases.createDatabase({ type, name, projectUuid, version });
+    // projectUuid intentionally NOT accepted here — Coolify-side project is the server default;
+    // customer grouping is panel-native via PATCH /api/resources/:type/:id/placement.
+    const { uuid } = await databases.createDatabase({ type, name, version });
     assign(uuid, "database", userId);
     const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
     if (planId && planPriceUsd(planId) > 0) {
