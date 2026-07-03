@@ -7,7 +7,7 @@ process.env.DATABASE_FILE = ":memory:";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { importFromRender, assertPgUrl } = await import("./migrate.js");
+const { importFromRender, assertPgUrl, planDump, migratePostgres } = await import("./migrate.js");
 const { addUserInstallation, findUserInstallationByLogin, seedUser } = await import("./db.js");
 
 // Security: pg connection URL validation (argument-injection guard)
@@ -20,6 +20,43 @@ test("assertPgUrl rejects flag-smuggling / non-postgres values with 400", () => 
   for (const bad of ["--version", "-X", "file:///etc/passwd", "", null]) {
     assert.throws(() => assertPgUrl(bad), (e) => e.status === 400);
   }
+});
+
+// Version-aware migration: pg_dump must match the SOURCE major (Render defaults to
+// PG18); a newer dump into an older target must strip the PG17+ transaction_timeout GUC.
+test("planDump: client matches source major; strip only on cross-major downgrade", () => {
+  assert.deepEqual(planDump(18, 16), { image: "postgres:18", downgrade: true });  // PG18 → PG16 downgrade
+  assert.deepEqual(planDump(16, 16), { image: "postgres:16", downgrade: false }); // same version
+  assert.deepEqual(planDump(16, 18), { image: "postgres:16", downgrade: false }); // upgrade — no strip
+  assert.deepEqual(planDump(NaN, 16), { image: "postgres:18", downgrade: false }); // detection failed → safe fallback
+});
+
+test("migratePostgres: PG18 source → PG16 target uses postgres:18 client and strips the GUC", async () => {
+  const prev = process.env.DEMO_MODE; process.env.DEMO_MODE = "false";
+  try {
+    let ran = null;
+    const r = await migratePostgres({
+      source: "postgres://src", target: "postgres://tgt",
+      _detect: async (u) => (u === "postgres://src" ? 18 : 16),
+      _run: async (opts) => { ran = opts; return { ok: true, out: "" }; },
+    });
+    assert.equal(ran.image, "postgres:18", "pg client must match the PG18 source");
+    assert.match(ran.script, /grep -av 'SET transaction_timeout'/, "downgrade must strip the PG17+ GUC");
+    assert.equal(r.srcMajor, 18);
+  } finally { process.env.DEMO_MODE = prev; }
+});
+
+test("migratePostgres: same-version migration does NOT strip", async () => {
+  const prev = process.env.DEMO_MODE; process.env.DEMO_MODE = "false";
+  try {
+    let ran = null;
+    await migratePostgres({
+      source: "postgres://src", target: "postgres://tgt",
+      _detect: async () => 16, _run: async (opts) => { ran = opts; return { ok: true }; },
+    });
+    assert.equal(ran.image, "postgres:16");
+    assert.doesNotMatch(ran.script, /transaction_timeout/, "same-version must not strip");
+  } finally { process.env.DEMO_MODE = prev; }
 });
 
 // Shared stubs. fetchBlueprint stubbed to null so the blueprint step stays offline

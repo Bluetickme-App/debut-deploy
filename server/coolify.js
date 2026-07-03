@@ -265,13 +265,17 @@ export async function getDatabase(uuid) {
 // provision is credential-safe. Used to stand up the shared cluster.
 const DB_PROJECT = process.env.COOLIFY_DB_PROJECT_UUID || "qxm8dk7s33dk057p0g2x66ia";
 const DB_SERVER = process.env.COOLIFY_SERVER_UUID || "odtl07eovoo6f40gqwztsyhq";
-export async function provisionDatabase({ name, superUser = "dd_super" }) {
+// `image` picks the Postgres version. Default to PG18 (Render's current default) so a
+// migrated PG≤18 source restores into an equal-or-newer target — the supported
+// direction, no downgrade. Coolify's create-postgres API accepts an `image` field;
+// omitting it defaults to postgres:16-alpine (too old for modern Render sources).
+export async function provisionDatabase({ name, superUser = "dd_super", image = process.env.PG_TARGET_IMAGE || "postgres:18-alpine" }) {
   if (isDemo()) return { uuid: `demo-db-${name}`, url: `postgresql://${superUser}:demo@demo-db-${name}:5432/postgres` };
   const password = randomBytes(18).toString("base64url");
   const r = await cf(`/databases/postgresql`, {
     method: "POST",
     body: {
-      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: DB_SERVER,
+      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: DB_SERVER, image,
       postgres_user: superUser, postgres_password: password, postgres_db: "postgres", instant_deploy: true,
     },
   });

@@ -1,7 +1,7 @@
 // Render → DebutDeploy import orchestrator.
 // Returns a structured report; never throws — callers get ok:false on failure.
 
-import { dockerPg } from "./hostexec.js";
+import { dockerPg, detectPgMajor } from "./hostexec.js";
 import { getService, getEnvVars, getConnectionInfo } from "./render.js";
 import { provisionServer, removeCoolifyServer } from "./provision.js";
 import { deleteServer } from "./hetzner.js";
@@ -30,20 +30,32 @@ export function assertPgUrl(url) {
   return url;
 }
 
-// Real Postgres migration: dump the Render source and load it into the chosen
-// Coolify target using a pinned pg client container (PG_IMAGE, default postgres:16
-// to match Coolify's default target — a newer pg_dump emits GUCs an older target
-// rejects; see hostexec.js). BOTH URLs are validated by assertPgUrl and passed via
-// ENV — never argv — so a value can't smuggle flags into the command. Requires the
-// Docker socket reachable by this process. Overridable via deps for tests.
-async function migratePostgres({ source, target }) {
+// Pick the pg client image + restore strategy for a source→target migration.
+// pg_dump can dump its own version or older but NEVER a newer server, so the client
+// must MATCH the source major (Render now defaults to PG18). Restoring a newer dump
+// into an older server fails on version-specific GUCs (PG17+ `transaction_timeout`
+// into PG16), so strip those only when downgrading. Pure + exported for testing.
+export function planDump(srcMajor, tgtMajor) {
+  const major = Number.isFinite(srcMajor) ? srcMajor : 18; // fallback reads any source ≤18
+  const downgrade = Number.isFinite(srcMajor) && Number.isFinite(tgtMajor) && srcMajor > tgtMajor;
+  return { image: `postgres:${major}`, downgrade };
+}
+
+// Real Postgres migration: dump the source and load it into the chosen target with a
+// pg client matched to the SOURCE version (so pg_dump can read it). BOTH URLs are
+// validated by assertPgUrl and passed via ENV — never argv — so a value can't smuggle
+// flags into the command. dockerPg runs under `set -o pipefail`, so a pg_dump abort
+// fails the step instead of silently loading nothing. Requires the Docker socket.
+export async function migratePostgres({ source, target, _detect = detectPgMajor, _run = dockerPg }) {
   if (process.env.DEMO_MODE === "true") return { ok: true, note: "demo-skip" };
   assertPgUrl(source);
   assertPgUrl(target);
-  // pg_dump the Render source and load into the Coolify target, run on the host in
-  // the pinned PG_IMAGE container (default postgres:16). URLs pass base64.
-  await dockerPg({ vars: { SRC: source, TGT: target }, script: 'pg_dump --no-owner --no-privileges "$SRC" | psql -v ON_ERROR_STOP=1 "$TGT"' });
-  return { ok: true };
+  const [srcMajor, tgtMajor] = await Promise.all([_detect(source), _detect(target)]);
+  const { image, downgrade } = planDump(srcMajor, tgtMajor);
+  // On a cross-major downgrade, drop the PG17+ GUC the older target can't parse.
+  const strip = downgrade ? `| grep -av 'SET transaction_timeout'` : "";
+  await _run({ image, vars: { SRC: source, TGT: target }, script: `pg_dump --no-owner --no-privileges "$SRC" ${strip} | psql -v ON_ERROR_STOP=1 "$TGT"` });
+  return { ok: true, srcMajor, tgtMajor, image };
 }
 
 export async function importFromRender({ renderServiceId, target, userId, apiKey, deps = {} }) {

@@ -7,12 +7,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
-// The postgres client image for pg_dump/restore + admin SQL. It MUST NOT be newer
-// than the TARGET server's major version: a newer pg_dump emits GUCs the target
-// can't parse — e.g. PG17's `SET transaction_timeout` makes a PG16 restore die with
-// `ERROR: unrecognized configuration parameter`. Coolify provisions PG16 by default,
-// and pg_dump 16 still reads any older Render source, so default to 16.
-// ponytail: env knob, no version auto-detection — bump PG_MIGRATE_IMAGE if targets move.
+// Default pg client image for ADMIN SQL (CREATE DATABASE/ROLE, pg_isready) on the
+// shared cluster, which is PG16. The dump/restore migration NO LONGER uses this — it
+// picks an image matched to the SOURCE version (see detectPgMajor / migrate.js), so a
+// PG18 Render source is read by a PG18 client. Override with PG_MIGRATE_IMAGE.
 export const PG_IMAGE = process.env.PG_MIGRATE_IMAGE || "postgres:16";
 
 // Verify the host key against a pinned SHA-256 (hex) to prevent MITM. Fails closed.
@@ -100,15 +98,26 @@ export async function getServiceLogs(uuid, { tail = 300 } = {}) {
 // Run a `docker run ${PG_IMAGE}` command on the host. Secret values (connection
 // URLs, SQL) pass as base64 env — only [A-Za-z0-9+/=], safe to interpolate — and
 // are decoded INSIDE the container, so no secret ever appears in the shell command.
-export async function dockerPg({ vars = {}, script }) {
-  if (DEMO) return { ok: true, demo: true };
+export async function dockerPg({ vars = {}, script, image = PG_IMAGE }) {
+  if (DEMO) return { ok: true, demo: true, out: "" };
   const net = process.env.PG_MIGRATE_DOCKER_NETWORK || "coolify";
   const flags = Object.keys(vars).map((k) => `-e B64_${k}=${Buffer.from(String(vars[k])).toString("base64")}`).join(" ");
   const decode = Object.keys(vars).map((k) => `${k}=$(echo "$B64_${k}" | base64 -d)`).join("; ");
   // bash + pipefail so a failure in ANY stage of a pipe propagates. Without it,
   // `pg_dump | psql` hides a pg_dump abort (e.g. "server version mismatch" when the
-  // source is newer than PG_IMAGE): psql gets empty input, exits 0, and the migration
-  // reports success having copied ZERO rows. The PG_IMAGE (Debian postgres) has bash.
-  await runOnHost(`docker run --rm --network ${net} ${flags} ${PG_IMAGE} bash -c 'set -o pipefail; ${decode}; ${script}'`);
-  return { ok: true };
+  // source is newer than the pg client): psql gets empty input, exits 0, and the
+  // migration reports success having copied ZERO rows. The image (Debian postgres)
+  // has bash. `image` is chosen per-call so pg_dump can match the source version.
+  const out = await runOnHost(`docker run --rm --network ${net} ${flags} ${image} bash -c 'set -o pipefail; ${decode}; ${script}'`);
+  return { ok: true, out };
+}
+
+// Detect a Postgres server's MAJOR version over the wire (any psql can query any
+// server for its version). Used to pick a pg_dump matching the source and to decide
+// whether a restore is a cross-major downgrade. Returns an integer major, or NaN.
+export async function detectPgMajor(url, { image = "postgres:18" } = {}) {
+  if (DEMO) return 16;
+  const { out } = await dockerPg({ image, vars: { U: url }, script: 'psql -Atqc "SHOW server_version_num" "$U"' });
+  const n = parseInt(String(out).trim(), 10); // e.g. 180004 → 18
+  return Number.isFinite(n) && n > 0 ? Math.floor(n / 10000) : NaN;
 }
