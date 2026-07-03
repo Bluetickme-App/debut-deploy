@@ -78,6 +78,12 @@ export async function createProjectDatabase(name, { _cluster = ensureSharedClust
   // CREATE DATABASE can't share a transaction with the rest — run it on its own.
   await runSql(clusterUrl, `CREATE DATABASE "${db}"`);
   await runSql(clusterUrl, `CREATE ROLE "${role}" WITH LOGIN PASSWORD '${pw}'; GRANT ALL PRIVILEGES ON DATABASE "${db}" TO "${role}"; ALTER ROLE "${role}" CONNECTION LIMIT 20`);
+  // PG15+: GRANT ALL PRIVILEGES ON DATABASE does NOT confer CREATE on the public
+  // schema, so the app's own migrations / drizzle db:push fail with "permission denied
+  // for schema public". Schema privileges are per-database, so connect (as the cluster
+  // superuser) to the NEW db and hand its public schema to the project role.
+  const admin = new URL(clusterUrl); admin.pathname = `/${db}`;
+  await runSql(admin.toString(), `GRANT ALL ON SCHEMA public TO "${role}"; ALTER SCHEMA public OWNER TO "${role}"`);
   const u = new URL(clusterUrl);
   u.username = role; u.password = pw; u.pathname = `/${db}`;
   return { db, role, url: u.toString() };
