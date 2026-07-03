@@ -151,4 +151,5 @@ export const api = {
   stripeConfig: () => req("/admin/stripe/config"),
   stripeOverview: () => req("/admin/stripe/overview"),
   setStripeMode: (mode) => req("/admin/stripe/mode", { method: "PUT", body: { mode } }),
+  syncStripeCatalog: () => req("/admin/stripe/catalog", { method: "POST" }),
 };

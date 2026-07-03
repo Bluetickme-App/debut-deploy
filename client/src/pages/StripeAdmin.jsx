@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { CreditCard, RefreshCw, AlertTriangle, Users, Banknote, Wallet, TrendingUp, Server, Repeat } from "lucide-react";
+import { CreditCard, RefreshCw, AlertTriangle, Users, Banknote, Wallet, TrendingUp, Server, Repeat, Layers } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Spinner } from "../components/ui.jsx";
 
@@ -41,6 +41,15 @@ export default function StripeAdmin() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [syncing, setSyncing] = useState(false);
+
+  async function syncCatalog() {
+    if (syncing) return;
+    setSyncing(true);
+    try { await api.syncStripeCatalog(); load(); }
+    catch (e) { setError(e); }
+    finally { setSyncing(false); }
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -172,6 +181,46 @@ STRIPE_WEBHOOK_SECRET_LIVE=whsec_...`}</pre>
             <Card><div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><Users size={14} /> Customers</div><div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>{data.counts?.customers ?? 0}</div></Card>
             <Card><div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><Banknote size={14} /> Payouts</div><div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>{data.counts?.payouts ?? 0}</div></Card>
           </div>
+
+          {/* Plan catalog — the Stripe Products/Prices subscriptions bill against */}
+          <div className="flex items-center justify-between mb-3" style={{ flexWrap: "wrap", gap: 8 }}>
+            <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text)" }}>
+              <Layers size={16} /> Plan catalog
+              <span style={{ fontWeight: 400, fontSize: 12.5, color: "var(--text-muted)" }}>· {data.catalog?.configured ? "ready" : "not created"} in {data.mode} mode</span>
+            </div>
+            <button onClick={syncCatalog} disabled={syncing} className="btn"
+              style={{ fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "1px solid var(--border)", cursor: syncing ? "default" : "pointer", background: "var(--ink,#111)", color: "#fff", opacity: syncing ? 0.6 : 1 }}>
+              {syncing ? "Syncing…" : data.catalog?.configured ? "Re-sync prices" : "Create prices"}
+            </button>
+          </div>
+          <Card className="mb-6">
+            <div style={{ overflowX: "auto" }}>
+              <table className="w-full text-sm" style={{ minWidth: 480, borderCollapse: "collapse" }}>
+                <thead><tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
+                  <th className="py-2 pr-4 font-semibold">Plan</th><th className="py-2 pr-4 font-semibold">GBP / mo</th><th className="py-2 font-semibold">USD / mo</th>
+                </tr></thead>
+                <tbody>
+                  {(data.catalog?.plans || []).map((p) => {
+                    const cell = (c, cur) => (
+                      <span className="flex items-center gap-2">
+                        <span className="mono" style={{ color: "var(--text)" }}>{money(c.current, cur)}</span>
+                        {c.priceId
+                          ? <StatusChip text={c.upToDate ? "synced" : "price changed"} tone={c.upToDate ? "ok" : "warn"} />
+                          : <StatusChip text="not created" tone="neutral" />}
+                      </span>
+                    );
+                    return (
+                      <tr key={p.plan} style={{ borderTop: "1px solid var(--border)" }}>
+                        <td className="py-2 pr-4 font-semibold" style={{ color: "var(--text)" }}>{p.name}</td>
+                        <td className="py-2 pr-4">{cell(p.gbp, "GBP")}</td>
+                        <td className="py-2">{cell(p.usd, "USD")}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
 
           {/* Payments — with client link + status filters */}
           <div className="flex items-center justify-between mb-3" style={{ flexWrap: "wrap", gap: 8 }}>

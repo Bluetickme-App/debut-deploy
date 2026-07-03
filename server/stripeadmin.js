@@ -4,6 +4,7 @@
 import { stripeClient, stripeMode, stripeModeAvailable } from "./billing.js";
 import { db } from "./db.js";
 import * as hetzner from "./hetzner.js";
+import { catalogStatus } from "./stripecatalog.js";
 
 // Cross-link Stripe records to our internal clients (orgs). A Stripe object is
 // matched first by its stored customer id (organizations.stripe_customer_id), then
@@ -114,6 +115,8 @@ export async function stripeOverview() {
       : null,
     // Live infra cost (Hetzner) so revenue can be read against spend on the same screen.
     infra: infra ? { monthlyEur: infra.totalMonthly, hourlyEur: infra.totalHourly, servers: (infra.servers || []).length } : null,
+    catalog: catalogStatus(), // Stage-2 plan Product/Price state for the active mode
+
     mrr: Object.entries(mrr).map(([currency, amount]) => ({ amount, currency })),
     charges: rows(charges).map((c) => {
       const email = c.billing_details?.email || c.receipt_email || null;
