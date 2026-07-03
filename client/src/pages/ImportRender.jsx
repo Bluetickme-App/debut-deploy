@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 // ponytail: Set for selected ids; toggle via new Set copy so React sees a change.
 import { Download, CheckCircle, XCircle, MinusCircle, ExternalLink, X } from "lucide-react";
 import { api } from "../lib/api.js";
-import { Button, Card, Field, Input, PageHeader, Spinner } from "../components/ui.jsx";
+import { Button, Card, Field, Input, PageHeader, Select, Spinner } from "../components/ui.jsx";
 
 // Step status badge — maps Render migration step statuses to icons/colours
 function StepBadge({ status }) {
@@ -29,6 +29,10 @@ export default function ImportRender() {
   const [mode, setMode] = useState("shared");
   const [serverType, setServerType] = useState("");
   const [location, setLocation] = useState("");
+  // Live Hetzner catalogue — dedicated mode picks from these so an invalid type
+  // (e.g. the old placeholder "cx22", which doesn't exist) can't be submitted.
+  const [serverTypes, setServerTypes] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   // Database migration mapping
   const [renderDbs, setRenderDbs] = useState([]); // Render Postgres (source)
@@ -38,6 +42,14 @@ export default function ImportRender() {
   // Active credential: saved key selected → { savedKeyId }, else pasted → { apiKey }.
   const creds = selectedKeyId ? { savedKeyId: selectedKeyId } : { apiKey };
   const hasCreds = selectedKeyId ? true : apiKey.trim().length > 0;
+
+  // Fetch the Hetzner catalogue the first time Dedicated is chosen (admin-only routes;
+  // failures leave the dropdowns empty rather than breaking the page).
+  useEffect(() => {
+    if (mode !== "dedicated" || serverTypes.length) return;
+    api.hetznerServerTypes().then((t) => setServerTypes(Array.isArray(t) ? t : [])).catch(() => setServerTypes([]));
+    api.hetznerLocations().then((l) => setLocations(Array.isArray(l) ? l : [])).catch(() => setLocations([]));
+  }, [mode, serverTypes.length]);
 
   function loadKeys() {
     api.renderKeys()
@@ -291,18 +303,24 @@ export default function ImportRender() {
               {mode === "dedicated" && (
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Server type">
-                    <Input
-                      value={serverType}
-                      onChange={(e) => setServerType(e.target.value)}
-                      placeholder="cx22"
-                    />
+                    <Select value={serverType} onChange={(e) => setServerType(e.target.value)} disabled={!serverTypes.length}>
+                      <option value="">{serverTypes.length ? "Select a server type…" : "Loading…"}</option>
+                      {serverTypes.map((t) => (
+                        <option key={t.name} value={t.name}>
+                          {t.name} — {t.cores} vCPU / {t.memory} GB{t.disk ? ` / ${t.disk} GB` : ""}
+                        </option>
+                      ))}
+                    </Select>
                   </Field>
                   <Field label="Location (optional)">
-                    <Input
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="nbg1"
-                    />
+                    <Select value={location} onChange={(e) => setLocation(e.target.value)}>
+                      <option value="">Default location</option>
+                      {locations.map((l) => (
+                        <option key={l.name} value={l.name}>
+                          {l.name}{l.city ? ` — ${l.city}${l.country ? `, ${l.country}` : ""}` : ""}
+                        </option>
+                      ))}
+                    </Select>
                   </Field>
                 </div>
               )}
