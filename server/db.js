@@ -269,6 +269,10 @@ const MIGRATIONS = [
   (d) => {
     d.exec(`ALTER TABLE credit_ledger ADD COLUMN created_by INTEGER REFERENCES users(id);`);
   },
+  // -> user_version 16: API key scope ('full' = act as owner; 'read' = GET-only)
+  (d) => {
+    d.exec(`ALTER TABLE api_tokens ADD COLUMN scope TEXT NOT NULL DEFAULT 'full';`);
+  },
 ];
 
 function resolveDbFile() {
@@ -421,25 +425,28 @@ export function consumeOauthState(state) {
 const hashToken = (raw) => createHash("sha256").update(raw).digest("hex");
 
 // Returns { id, token } — the raw token is shown ONCE and never stored.
-export function createApiToken(userId, name) {
+// scope: 'full' (act as owner) or 'read' (GET-only); anything else coerces to 'full'.
+export function createApiToken(userId, name, scope = "full") {
   const token = "dd_" + randomBytes(24).toString("hex");
   const info = db
-    .prepare("INSERT INTO api_tokens (user_id, name, token_hash, created_at) VALUES (?,?,?,?)")
-    .run(userId, name || null, hashToken(token), new Date().toISOString());
+    .prepare("INSERT INTO api_tokens (user_id, name, token_hash, scope, created_at) VALUES (?,?,?,?,?)")
+    .run(userId, name || null, hashToken(token), scope === "read" ? "read" : "full", new Date().toISOString());
   return { id: info.lastInsertRowid, token };
 }
 
-// Resolve a raw bearer token to its user (and stamp last_used_at), or undefined.
+// Resolve a raw bearer token to its user (stamps last_used_at). Returns the user
+// with the token's scope attached as `tokenScope`, or undefined if unknown.
 export function getUserByApiToken(rawToken) {
   if (!rawToken) return undefined;
   const row = db.prepare("SELECT * FROM api_tokens WHERE token_hash = ?").get(hashToken(rawToken));
   if (!row) return undefined;
   db.prepare("UPDATE api_tokens SET last_used_at = ? WHERE id = ?").run(new Date().toISOString(), row.id);
-  return getUserById(row.user_id);
+  const user = getUserById(row.user_id);
+  return user && { ...user, tokenScope: row.scope || "full" };
 }
 
 export const listApiTokens = (userId) =>
-  db.prepare("SELECT id, name, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY id DESC").all(userId);
+  db.prepare("SELECT id, name, scope, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY id DESC").all(userId);
 
 export const deleteApiToken = (userId, id) =>
   db.prepare("DELETE FROM api_tokens WHERE id = ? AND user_id = ?").run(id, userId);

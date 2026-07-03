@@ -35,7 +35,10 @@ Most `/api/*` routes require auth. Two mechanisms are accepted:
 
 ### Minting a token
 
-Tokens are created, listed, and deleted under `/api/tokens`. **Creating a token requires a
+The easiest way is the web UI: **Account settings → API keys → Create key**. Pick
+**Full access** or **Read-only**, then copy the token (shown once).
+
+Tokens are also created, listed, and deleted under `/api/tokens`. **Creating a token requires a
 session** (you must be logged into the web UI) — you can't bootstrap a token with a token
 alone in a fresh context via the mutate guard's origin check, so mint it from the browser /
 an authenticated session, then use it programmatically.
@@ -48,9 +51,21 @@ immediately.
 curl -X POST https://app.debutdepoly.com/api/tokens \
   -H "Content-Type: application/json" \
   --cookie "…session cookie…" \
-  -d '{"name":"ci-deploy"}'
-# → { "id": 3, "name": "ci-deploy", "token": "…copy me, shown once…" }
+  -d '{"name":"ci-deploy","scope":"full"}'
+# → { "id": 3, "name": "ci-deploy", "scope": "full", "token": "…copy me, shown once…" }
 ```
+
+### Key scope: full vs read-only
+
+Each key carries a **scope**:
+
+- **`full`** (default) — can do anything the key's owner can do; ordinary
+  ownership + role (RBAC) checks still apply.
+- **`read`** — may only make **GET/HEAD** requests. Any write (POST/PUT/PATCH/DELETE)
+  returns `403 {"error":"read-only API key"}`, enforced before the route runs.
+
+This single check covers every Bearer caller — curl, CI, and the MCP server (below) —
+so a read-only key is a safe way to grant dashboards or agents look-but-don't-touch access.
 
 Thereafter, use the token on any `/api/*` route:
 
@@ -261,8 +276,8 @@ HMAC-verified, auto-deploys matching services).
 
 | Method | Path | Purpose | Body | Admin |
 |---|---|---|---|---|
-| GET | `/api/tokens` | List your API tokens (metadata only). | — | — |
-| POST | `/api/tokens` | Create a token; returns raw `token` **once**. | `name` (optional, ≤60 chars) | — |
+| GET | `/api/tokens` | List your API tokens (metadata only, incl. `scope`). | — | — |
+| POST | `/api/tokens` | Create a token; returns raw `token` **once**. | `name` (optional, ≤60 chars), `scope` (`full`\|`read`, default `full`) | — |
 | DELETE | `/api/tokens/:id` | Revoke a token. | — | — |
 
 ### Events & notifications
@@ -295,6 +310,26 @@ HMAC-verified, auto-deploys matching services).
 
 \* Importing onto **shared** infra (`target.mode === "shared"`) is allowed for any user.
 Importing onto dedicated/provisioned infra requires admin (`403` otherwise).
+
+---
+
+## Use from Claude (MCP)
+
+The [`mcp/`](../mcp) directory ships a Model Context Protocol server that exposes
+these endpoints as tools, so Claude Code / Claude Desktop can operate the platform.
+It authenticates with the **same API key** — just set it as `DEBUTDEPLOY_TOKEN`:
+
+```bash
+claude mcp add debutdeploy \
+  -e DEBUTDEPLOY_URL=https://app.debutdepoly.com \
+  -e DEBUTDEPLOY_TOKEN=$DD_TOKEN \
+  -- node /path/to/debut-deploy/mcp/server.js
+```
+
+A **read-only** key restricts the MCP server to read tools (`list_services`,
+`service_logs`, …); write tools (`deploy_service`, `create_service`, `control_service`)
+return `403`. The Account settings → API keys page shows this exact command with your
+token pre-filled after you create a key.
 
 ---
 

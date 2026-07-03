@@ -98,6 +98,10 @@ export const api = {
   serviceEvents:    (id) => req(`/services/${id}/events`),
   getNotifications: () => req("/notifications"),
   saveNotifications:(body) => req("/notifications", { method: "PUT", body }),
+  // API keys (programmatic access — also used as the MCP DEBUTDEPLOY_TOKEN)
+  tokens: () => req("/tokens"),
+  createToken: (body) => req("/tokens", { method: "POST", body }), // { name, scope: 'full'|'read' } → { token } shown once
+  deleteToken: (id) => req(`/tokens/${id}`, { method: "DELETE" }),
   // Org + team
   org: () => req("/org"),
   orgMembers: () => req("/org/members"),

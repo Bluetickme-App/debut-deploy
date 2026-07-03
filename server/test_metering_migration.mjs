@@ -29,6 +29,8 @@ fs.rmSync(file, { force: true });
   `);
   d.prepare("INSERT INTO organizations (name, slug, created_at) VALUES (?,?,?)")
     .run("Acme", "acme", new Date().toISOString());
+  // Migration 16 ALTERs api_tokens (from migration 4); this fixture jumps to v11.
+  d.exec(`CREATE TABLE api_tokens (id INTEGER PRIMARY KEY, token_hash TEXT UNIQUE NOT NULL);`);
   d.pragma("user_version = 11");
   d.close();
 }

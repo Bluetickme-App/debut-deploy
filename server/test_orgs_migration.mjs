@@ -27,6 +27,8 @@ fs.rmSync(file, { force: true });
   d.prepare("INSERT INTO users (id,email,name,role,created_at) VALUES (?,?,?,?,?)").run(1, "a@x.com", "Acme Ltd", "customer", now);
   d.prepare("INSERT INTO users (id,email,name,role,created_at) VALUES (?,?,?,?,?)").run(2, "b@x.com", null, "admin", now);
   d.prepare("INSERT INTO resource_ownership (coolify_uuid,type,user_id,created_at) VALUES (?,?,?,?)").run("app-1", "application", 1, now);
+  // Migration 16 ALTERs api_tokens (from migration 4); this fixture jumps to v9.
+  d.exec(`CREATE TABLE api_tokens (id INTEGER PRIMARY KEY, token_hash TEXT UNIQUE NOT NULL);`);
   d.pragma("user_version = 9");
   d.close();
 }

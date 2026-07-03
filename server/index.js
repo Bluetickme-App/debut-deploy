@@ -127,6 +127,12 @@ app.use((req, res, next) => {
       if (user) {
         req.user = user;
         req.viaApiToken = true;
+        req.tokenScope = user.tokenScope || "full";
+        // Read-only keys may only make safe requests. This single guard covers
+        // every Bearer caller — curl, CI, and the MCP server alike.
+        if (req.tokenScope === "read" && req.method !== "GET" && req.method !== "HEAD") {
+          return res.status(403).json({ error: "read-only API key" });
+        }
       } else {
         recordTokenFail(req.ip);
       }
@@ -1191,10 +1197,11 @@ app.get("/api/tokens", requireAuth, h((req) => listApiTokens(req.user.id)));
 
 app.post("/api/tokens", requireAuth, mutateGuard, h((req) => {
   const name = (req.body?.name || "").toString().slice(0, 60) || "token";
-  const { id, token } = createApiToken(req.user.id, name);
-  record(req, "token.create", { metadata: { id, name } });
+  const scope = req.body?.scope === "read" ? "read" : "full";
+  const { id, token } = createApiToken(req.user.id, name, scope);
+  record(req, "token.create", { metadata: { id, name, scope } });
   // token is returned ONCE; only its hash is stored
-  return { id, name, token };
+  return { id, name, scope, token };
 }));
 
 app.delete("/api/tokens/:id", requireAuth, mutateGuard, h((req) => {

@@ -20,8 +20,11 @@ The server reads two environment variables:
 | `DEBUTDEPLOY_URL`    | `https://app.debutdepoly.com`    | Base URL of your instance.    |
 | `DEBUTDEPLOY_TOKEN`  | *(required)*                     | Bearer API token.             |
 
-Mint a token from the DebutDeploy web UI (`POST /api/tokens` requires a logged-in
-browser session). The raw token is shown **once** — copy it immediately.
+Mint a token from the DebutDeploy web UI — **Account settings → API keys → Create key**.
+Choose **Full access** or **Read-only**, then copy the raw token (shown **once**). A
+**read-only** key restricts this server to read tools (`list_services`, `service_logs`,
+…); write tools (`deploy_service`, `create_service`, `control_service`) return `403`.
+That page also shows a ready-to-paste `claude mcp add` command with your token filled in.
 
 ## Claude Desktop / Claude Code config
 

@@ -26,3 +26,34 @@ test("tokens are scoped + revocable per user", () => {
   deleteApiToken(a.id, id);                 // owner revokes
   assert.equal(getUserByApiToken(token), undefined);
 });
+
+test("scope: default full, read persists, bad value coerces to full", () => {
+  const u = createUser({ email: "s@x.com", role: "customer" });
+  const full = createApiToken(u.id, "f");                 // default
+  const read = createApiToken(u.id, "r", "read");
+  const bad  = createApiToken(u.id, "b", "banana");       // invalid → full
+
+  assert.equal(getUserByApiToken(full.token).tokenScope, "full");
+  assert.equal(getUserByApiToken(read.token).tokenScope, "read");
+  assert.equal(getUserByApiToken(bad.token).tokenScope, "full");
+
+  const byId = Object.fromEntries(listApiTokens(u.id).map((k) => [k.id, k.scope]));
+  assert.equal(byId[full.id], "full");
+  assert.equal(byId[read.id], "read");
+  assert.equal(byId[bad.id], "full");
+});
+
+// Mirror the index.js Bearer guard: a read key may only make safe requests.
+// (Same predicate as the route; kept in sync here per house test style.)
+const readKeyBlocks = (scope, method) =>
+  scope === "read" && method !== "GET" && method !== "HEAD";
+
+test("read-only guard: blocks writes, allows reads; full is unrestricted", () => {
+  assert.equal(readKeyBlocks("read", "POST"), true);
+  assert.equal(readKeyBlocks("read", "DELETE"), true);
+  assert.equal(readKeyBlocks("read", "PATCH"), true);
+  assert.equal(readKeyBlocks("read", "GET"), false);
+  assert.equal(readKeyBlocks("read", "HEAD"), false);
+  assert.equal(readKeyBlocks("full", "POST"), false);
+  assert.equal(readKeyBlocks("full", "DELETE"), false);
+});
