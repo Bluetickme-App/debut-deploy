@@ -648,12 +648,6 @@ export const setOrgBillingInfo = (orgId, { email = null, company = null, vat = n
 
 const notFound = (m = "Not found") => Object.assign(new Error(m), { status: 404 });
 
-function uniqueProjectSlug(orgId, base) {
-  const taken = db.prepare("SELECT 1 FROM projects WHERE org_id = ? AND slug = ?");
-  let slug = base, n = 1;
-  while (taken.get(orgId, slug)) { n += 1; slug = `${base}-${n}`; }
-  return slug;
-}
 function uniqueEnvSlug(projectId, base) {
   const taken = db.prepare("SELECT 1 FROM environments WHERE project_id = ? AND slug = ?");
   let slug = base, n = 1;
@@ -679,9 +673,15 @@ export const listProjects = (orgId) =>
 export const getProject = (orgId, id) =>
   db.prepare("SELECT id, name, slug, created_at FROM projects WHERE org_id = ? AND id = ?").get(orgId, id);
 
-export const renameProject = (orgId, id, name) =>
-  db.prepare("UPDATE projects SET name = ?, slug = ?, updated_at = ? WHERE org_id = ? AND id = ?")
-    .run(name, slugify(name), nowIso(), orgId, id).changes;
+export function renameProject(orgId, id, name) {
+  const newSlug = slugify(name);
+  // Pre-check: reject if another project in the same org already has this slug
+  const collision = db.prepare("SELECT 1 FROM projects WHERE org_id = ? AND slug = ? AND id != ?")
+    .get(orgId, newSlug, id);
+  if (collision) throw Object.assign(new Error("A project with that name already exists"), { status: 409 });
+  return db.prepare("UPDATE projects SET name = ?, slug = ?, updated_at = ? WHERE org_id = ? AND id = ?")
+    .run(name, newSlug, nowIso(), orgId, id).changes;
+}
 
 export const deleteProject = (orgId, id) =>
   db.prepare("DELETE FROM projects WHERE org_id = ? AND id = ?").run(orgId, id).changes;
@@ -697,6 +697,7 @@ export function createEnvironment(orgId, projectId, name) {
   return { id, name, slug };
 }
 
+// NOTE: not org-scoped by design — callers MUST gate with getProject(orgId, projectId) first (buildProjectDetail does). Never call with an untrusted projectId.
 export const listEnvironments = (projectId) =>
   db.prepare("SELECT id, name, slug FROM environments WHERE project_id = ? ORDER BY (slug='production') DESC, name").all(projectId);
 

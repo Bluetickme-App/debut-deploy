@@ -50,3 +50,12 @@ test("getEnvironmentWithOrg resolves env → project → org", () => {
   const e = db.createEnvironment(org, p.id, "Production");
   assert.deepEqual(db.getEnvironmentWithOrg(e.id), { id: e.id, project_id: p.id, org_id: org });
 });
+
+test("renameProject rejects a name that collides with another project in the org (409)", () => {
+  const org = newOrg("prc@x.com");
+  const a = db.createProject(org, "Alpha");
+  const b = db.createProject(org, "Beta");
+  assert.throws(() => db.renameProject(org, b.id, "Alpha"), (e) => e.status === 409);
+  // renaming to its own current name is fine (no collision with itself)
+  assert.doesNotThrow(() => db.renameProject(org, a.id, "Alpha"));
+});
