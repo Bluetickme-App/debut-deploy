@@ -10,7 +10,7 @@ import * as githubApp from "./github-app.js";
 import * as databases from "./databases.js";
 import * as lifecycle from "./lifecycle.js";
 import { setupAuth } from "./auth.js";
-import { assertOwns, assign, ownedUuids, release } from "./ownership.js";
+import { assertOwns, assign, ownedUuids, release, getAutoDeploy, setAutoDeploy } from "./ownership.js";
 import {
   db,
   listUsers,
@@ -318,7 +318,21 @@ app.get(
   requireAuth,
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    return ensureFound(await coolify.getService(req.params.id), "Service");
+    const svc = ensureFound(await coolify.getService(req.params.id), "Service");
+    return { ...svc, autoDeploy: getAutoDeploy(req.params.id) };
+  })
+);
+
+// Toggle whether a git push auto-deploys this service (checked in /github/webhook).
+app.patch(
+  "/api/services/:id/auto-deploy",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const enabled = !!req.body?.enabled;
+    setAutoDeploy(req.params.id, enabled);
+    return { ok: true, autoDeploy: enabled };
   })
 );
 
@@ -1070,6 +1084,10 @@ app.post("/github/webhook", async (req, res) => {
     const services = await coolify.listServices();
     const matches = services.filter((s) => repoKey(s.repo) === key && (s.branch || "main") === branch);
     for (const s of matches) {
+      if (!getAutoDeploy(s.uuid)) {
+        recordSystem("github.push.skipped", { resourceType: "application", resourceUuid: s.uuid, metadata: { name: s.name, repo: repoFull, branch, reason: "auto-deploy off" } });
+        continue;
+      }
       await coolify.deployService(s.uuid);
       recordSystem("github.push.deploy", { resourceType: "application", resourceUuid: s.uuid, metadata: { name: s.name, repo: repoFull, branch } });
     }

@@ -58,6 +58,18 @@ export function release(type, uuid) {
   return db.prepare("DELETE FROM resource_ownership WHERE type = ? AND coolify_uuid = ?").run(type, uuid).changes;
 }
 
+// Per-service auto-deploy toggle. Missing row → ON, matching the global
+// push-to-deploy behaviour that predates this flag.
+export function getAutoDeploy(uuid) {
+  const row = db.prepare("SELECT auto_deploy FROM resource_ownership WHERE coolify_uuid = ?").get(uuid);
+  return row ? row.auto_deploy !== 0 : true;
+}
+
+export function setAutoDeploy(uuid, enabled) {
+  return db.prepare("UPDATE resource_ownership SET auto_deploy = ? WHERE coolify_uuid = ?")
+    .run(enabled ? 1 : 0, uuid).changes;
+}
+
 export function listOwnedTypesForUser(userId) {
   const orgId = orgIdForUser(userId);
   if (orgId == null) return [];

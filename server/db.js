@@ -273,6 +273,11 @@ const MIGRATIONS = [
   (d) => {
     d.exec(`ALTER TABLE api_tokens ADD COLUMN scope TEXT NOT NULL DEFAULT 'full';`);
   },
+  // -> user_version 17: per-service auto-deploy toggle (push webhook skips when 0).
+  // Default 1 keeps the pre-existing "every push deploys" behaviour.
+  (d) => {
+    d.exec(`ALTER TABLE resource_ownership ADD COLUMN auto_deploy INTEGER NOT NULL DEFAULT 1;`);
+  },
 ];
 
 function resolveDbFile() {

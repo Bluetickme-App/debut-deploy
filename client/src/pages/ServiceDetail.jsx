@@ -1060,8 +1060,19 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
   // health check (wired to /build alongside commands; falls through if unsupported)
   const [healthPath, setHealthPath] = useState(svc.healthCheckPath || "/");
 
+  // auto-deploy (wired to /auto-deploy; skipped by the push webhook when "Off")
+  const [autoDeploy, setAutoDeploy] = useState(svc.autoDeploy === false ? "Off" : "On commit");
+  async function changeAutoDeploy(v) {
+    setAutoDeploy(v);
+    await fetch(`/api/services/${serviceId}/auto-deploy`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: v !== "Off" }),
+    }).catch(() => {});
+  }
+
   // display-only local state (no backend)
-  const [autoDeploy, setAutoDeploy] = useState("On commit");
   const [prPreview, setPrPreview] = useState("Off");
   const [edgeCache, setEdgeCache] = useState("Static assets");
   const [svcNotify, setSvcNotify] = useState("Workspace default");
@@ -1210,7 +1221,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
             </div>
           </SettingsRow>
           <SettingsRow label="Auto-deploy" desc="Deploy automatically when you push to your branch.">
-            <SelectInput value={autoDeploy} onChange={setAutoDeploy} options={["On commit", "Off", "After CI"]} />
+            <SelectInput value={autoDeploy} onChange={changeAutoDeploy} options={["On commit", "Off"]} />
           </SettingsRow>
           <SettingsRow label="Deploy hook" desc="POST to this URL to trigger a deploy.">
             <div className="flex items-center gap-2">
