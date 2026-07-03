@@ -42,6 +42,17 @@ test("claiming a database stores a DB kind, not web_service", () => {
   assert.equal(row.kind, "postgres", "database claimed as postgres, so it groups under Databases");
 });
 
+test("a caller-derived kind (e.g. key_value) is stored on claim", () => {
+  const admin = mkAdmin("kv@x.com");
+  const org = ensureUserOrg(admin.id);
+  const proj = createProject(org, "KvOps");
+  const env = createEnvironment(org, proj.id, "Production");
+
+  placeResourceInEnvironment({ user: admin, type: "database", resourceUuid: "redis-1", environmentId: env.id, kind: "key_value" });
+  const row = db.prepare("SELECT kind FROM resource_ownership WHERE coolify_uuid='redis-1'").get();
+  assert.equal(row.kind, "key_value", "redis stored as key_value, groups under Key Value");
+});
+
 test("a non-admin cannot claim an unowned resource (no IDOR)", () => {
   const cust = mkUser("c1@x.com", "customer");
   const org = ensureUserOrg(cust.id);

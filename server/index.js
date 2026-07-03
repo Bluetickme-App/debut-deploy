@@ -61,7 +61,9 @@ import { record, recordSystem } from "./audit.js";
 import {
   walletBalance, recentLedger, creditWallet, createTopupSession, handleWebhookEvent, stripeClient,
   getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod, usdToPence,
+  stripeMode, setStripeMode, stripeWebhookSecret,
 } from "./billing.js";
+import * as stripeadmin from "./stripeadmin.js";
 import { planPriceUsd } from "./plans.js";
 import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -86,6 +88,7 @@ import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
 import { placeResourceInEnvironment } from "./placement.js";
+import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
 import { renderStatusHtml } from "./status.js";
 
@@ -566,14 +569,30 @@ app.patch("/api/environments/:id", requireAuth, mutateGuard, attachOrgContext, r
 app.delete("/api/environments/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => ({ changed: deleteEnvironment(orgOf(req.user), Number(req.params.id)) })));
 
+// Derive a resource's display kind from the live Coolify resource (postgres vs
+// key_value for DBs; static_site vs web_service for apps). Best-effort — placement
+// falls back to a sane default if the lookup fails.
+async function deriveKindFor(type, uuid) {
+  try {
+    if (type === "database") {
+      const d = await coolify.getDatabase(uuid);
+      return deriveResourceKind({ type: "database", image: d?.image || d?.type || "" });
+    }
+    const s = await coolify.getService(uuid);
+    return deriveResourceKind({ type: "application", buildPack: s?.runtime, hasDomain: !!s?.domain });
+  } catch { return undefined; }
+}
+
 // type ∈ application|database; id is the coolify_uuid. Replaces the old /move routes.
 app.patch("/api/resources/:type/:id/placement", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => {
-    const r = placeResourceInEnvironment({ // sync
-      user: req.user, type: req.params.type, resourceUuid: req.params.id,
-      environmentId: req.body?.environmentId ?? null,
+    const environmentId = req.body?.environmentId ?? null;
+    // Classify the resource so it lands in the right section (only when placing).
+    const kind = environmentId == null ? undefined : await deriveKindFor(req.params.type, req.params.id);
+    const r = placeResourceInEnvironment({
+      user: req.user, type: req.params.type, resourceUuid: req.params.id, environmentId, kind,
     });
-    record(req, "resource.place", { resourceType: req.params.type, resourceUuid: req.params.id, metadata: { environmentId: req.body?.environmentId } });
+    record(req, "resource.place", { resourceType: req.params.type, resourceUuid: req.params.id, metadata: { environmentId, kind } });
     return r;
   }));
 
@@ -954,6 +973,19 @@ app.get(
   }))
 );
 
+// --- Stripe admin dashboard (operator only) ---------------------------------
+// See Stripe data (balance, payments, customers, payouts) and flip test<->live at
+// runtime — no Stripe login, no server restart. Keys stay in env; only the active
+// mode is stored. GET is read-only; the mode switch is an audited mutation.
+app.get("/api/admin/stripe/config", requireAuth, requireAdmin, h(() => stripeadmin.stripeConfig()));
+app.get("/api/admin/stripe/overview", requireAuth, requireAdmin, h(() => stripeadmin.stripeOverview()));
+app.put("/api/admin/stripe/mode", requireAuth, requireAdmin, mutateGuard, h((req) => {
+  const mode = setStripeMode(req.body?.mode); // throws 400 if the target mode has no key
+  record(req, "stripe.mode_switch", { metadata: { mode } });
+  recordSystem("stripe.mode_switch", { metadata: { mode, by: req.user.email } });
+  return { mode };
+}));
+
 // --- Deploy-key service creation (deploy ANY repo without the GitHub App) ---
 // Step 1: generate a keypair, register the private half in Coolify, return the
 // public key for the operator to add as a read-only deploy key on their repo.
@@ -1167,7 +1199,7 @@ app.post("/api/stripe/webhook", (req, res) => {
   let event;
   try {
     event = stripe.webhooks.constructEvent(
-      req.rawBody, req.get("stripe-signature"), process.env.STRIPE_WEBHOOK_SECRET
+      req.rawBody, req.get("stripe-signature"), stripeWebhookSecret()
     );
   } catch (err) {
     recordSystem("billing.webhook_bad_signature", { metadata: { error: err.message } });
