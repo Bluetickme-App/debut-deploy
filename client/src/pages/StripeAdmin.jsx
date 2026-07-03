@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { CreditCard, RefreshCw, AlertTriangle, Users, Banknote, Wallet } from "lucide-react";
+import { CreditCard, RefreshCw, AlertTriangle, Users, Banknote, Wallet, TrendingUp, Server, Repeat } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Spinner } from "../components/ui.jsx";
 
@@ -12,6 +12,17 @@ const money = (minor, cur) =>
   (SYM[cur] || (cur ? cur + " " : "$")) +
   (Number(minor || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const when = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
+const eur = (n) => "€" + Number(n || 0).toFixed(2); // Hetzner infra cost is already in euros, not minor units
+
+const FILTERS = [
+  { key: "all", label: "All" },
+  { key: "succeeded", label: "Succeeded" },
+  { key: "failed", label: "Failed" },
+  { key: "refunded", label: "Refunded" },
+  { key: "pending", label: "Pending" },
+];
+const matchFilter = (c, f) =>
+  f === "all" ? true : f === "refunded" ? c.refunded : f === "pending" ? c.status === "pending" : (c.status === f && !c.refunded);
 
 function StatusChip({ text, tone }) {
   const c = tone === "ok" ? "ok" : tone === "warn" ? "warn" : tone === "err" ? "err" : "neutral";
@@ -29,6 +40,7 @@ export default function StripeAdmin() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState("all");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -129,8 +141,8 @@ STRIPE_WEBHOOK_SECRET_LIVE=whsec_...`}</pre>
         </Card>
       ) : (
         <>
-          {/* Balance + counts */}
-          <div className="grid gap-3 mb-6" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))" }}>
+          {/* Revenue vs cost + counts */}
+          <div className="grid gap-3 mb-6" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))" }}>
             <Card>
               <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><Wallet size={14} /> Available balance</div>
               <div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>
@@ -140,31 +152,92 @@ STRIPE_WEBHOOK_SECRET_LIVE=whsec_...`}</pre>
                 pending {data.balance?.pending?.length ? data.balance.pending.map((b) => money(b.amount, b.currency)).join(" · ") : money(0, "USD")}
               </div>
             </Card>
-            <Card><div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><CreditCard size={14} /> Recent payments</div><div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>{data.counts?.charges ?? 0}</div></Card>
+            <Card>
+              <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><TrendingUp size={14} /> Recurring / mo</div>
+              <div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>
+                {data.mrr?.length ? data.mrr.map((m) => money(m.amount, m.currency)).join(" · ") : money(0, "GBP")}
+              </div>
+              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{data.counts?.active_subs ?? 0} active subscription{(data.counts?.active_subs ?? 0) === 1 ? "" : "s"}</div>
+            </Card>
+            <Card>
+              <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><Server size={14} /> Infra cost / mo</div>
+              <div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>{data.infra ? eur(data.infra.monthlyEur) : "—"}</div>
+              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{data.infra ? `${data.infra.servers} server${data.infra.servers === 1 ? "" : "s"} · live from Hetzner` : "Hetzner not configured"}</div>
+            </Card>
+            <Card>
+              <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><CreditCard size={14} /> Payments</div>
+              <div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>{data.counts?.charges ?? 0}</div>
+              <div className="text-xs mt-1" style={{ color: (data.counts?.failed ? "var(--err-text,#b91c1c)" : "var(--text-muted)") }}>{data.counts?.failed ?? 0} failed</div>
+            </Card>
             <Card><div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><Users size={14} /> Customers</div><div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>{data.counts?.customers ?? 0}</div></Card>
             <Card><div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}><Banknote size={14} /> Payouts</div><div className="mt-2 text-2xl font-bold" style={{ color: "var(--text)" }}>{data.counts?.payouts ?? 0}</div></Card>
           </div>
 
-          {/* Payments */}
-          <div className="flex items-center gap-2 mb-3 text-sm font-semibold" style={{ color: "var(--text)" }}><CreditCard size={16} /> Payments</div>
+          {/* Payments — with client link + status filters */}
+          <div className="flex items-center justify-between mb-3" style={{ flexWrap: "wrap", gap: 8 }}>
+            <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text)" }}><CreditCard size={16} /> Payments</div>
+            <div style={{ display: "flex", gap: 3, background: "var(--surface-2)", borderRadius: 999, padding: 3, border: "1px solid var(--border)" }}>
+              {FILTERS.map((f) => {
+                const active = filter === f.key;
+                const n = f.key === "all" ? (data.charges?.length ?? 0) : (data.charges || []).filter((c) => matchFilter(c, f.key)).length;
+                return (
+                  <button key={f.key} onClick={() => setFilter(f.key)}
+                    style={{
+                      fontSize: 12.5, fontWeight: 600, padding: "5px 12px", borderRadius: 999, border: "none", cursor: "pointer",
+                      background: active ? (f.key === "failed" ? "var(--err-text,#dc2626)" : "var(--ink,#111)") : "transparent",
+                      color: active ? "#fff" : "var(--text-muted)",
+                    }}>{f.label}{n ? ` ${n}` : ""}</button>
+                );
+              })}
+            </div>
+          </div>
+          <Card className="mb-6">
+            <div style={{ overflowX: "auto" }}>
+              <table className="w-full text-sm" style={{ minWidth: 720, borderCollapse: "collapse" }}>
+                <thead><tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
+                  <th className="py-2 pr-4 font-semibold">Amount</th><th className="py-2 pr-4 font-semibold">Status</th>
+                  <th className="py-2 pr-4 font-semibold">Client</th><th className="py-2 pr-4 font-semibold">Email</th>
+                  <th className="py-2 pr-4 font-semibold">Detail</th><th className="py-2 font-semibold">When</th>
+                </tr></thead>
+                <tbody>
+                  {(() => {
+                    const shown = (data.charges || []).filter((c) => matchFilter(c, filter));
+                    return shown.length ? shown.map((c) => (
+                      <tr key={c.id} style={{ borderTop: "1px solid var(--border)" }}>
+                        <td className="py-2 pr-4 mono font-semibold" style={{ color: "var(--text)" }}>{money(c.amount, c.currency)}</td>
+                        <td className="py-2 pr-4"><StatusChip text={c.refunded ? "refunded" : c.status} tone={c.refunded ? "warn" : c.status === "succeeded" ? "ok" : c.status === "failed" ? "err" : "neutral"} /></td>
+                        <td className="py-2 pr-4" style={{ color: c.client ? "var(--accent-text)" : "var(--text-muted)", fontWeight: c.client ? 600 : 400 }}>{c.client ? c.client.orgName : "unlinked"}</td>
+                        <td className="py-2 pr-4 mono text-xs" style={{ color: "var(--text-muted)" }}>{c.email || "—"}</td>
+                        <td className="py-2 pr-4" style={{ color: c.failure ? "var(--err-text,#b91c1c)" : "var(--text-muted)" }}>{c.failure || c.description || "—"}</td>
+                        <td className="py-2 mono text-xs" style={{ color: "var(--text-muted)" }}>{when(c.created)}</td>
+                      </tr>
+                    )) : <tr><td colSpan={6} className="py-4 text-center" style={{ color: "var(--text-muted)" }}>No {filter === "all" ? "" : filter + " "}payments in {data.mode} mode.</td></tr>;
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Subscriptions — monthly services + usage credits */}
+          <div className="flex items-center gap-2 mb-3 text-sm font-semibold" style={{ color: "var(--text)" }}><Repeat size={16} /> Subscriptions</div>
           <Card className="mb-6">
             <div style={{ overflowX: "auto" }}>
               <table className="w-full text-sm" style={{ minWidth: 640, borderCollapse: "collapse" }}>
                 <thead><tr style={{ color: "var(--text-muted)", textAlign: "left" }}>
-                  <th className="py-2 pr-4 font-semibold">Amount</th><th className="py-2 pr-4 font-semibold">Status</th>
-                  <th className="py-2 pr-4 font-semibold">Customer</th><th className="py-2 pr-4 font-semibold">Description</th>
-                  <th className="py-2 font-semibold">When</th>
+                  <th className="py-2 pr-4 font-semibold">Client</th><th className="py-2 pr-4 font-semibold">Monthly</th>
+                  <th className="py-2 pr-4 font-semibold">Status</th><th className="py-2 pr-4 font-semibold">Email</th>
+                  <th className="py-2 font-semibold">Renews</th>
                 </tr></thead>
                 <tbody>
-                  {data.charges?.length ? data.charges.map((c) => (
-                    <tr key={c.id} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td className="py-2 pr-4 mono font-semibold" style={{ color: "var(--text)" }}>{money(c.amount, c.currency)}</td>
-                      <td className="py-2 pr-4"><StatusChip text={c.refunded ? "refunded" : c.status} tone={c.refunded ? "warn" : c.status === "succeeded" ? "ok" : c.status === "failed" ? "err" : "neutral"} /></td>
-                      <td className="py-2 pr-4" style={{ color: "var(--text-muted)" }}>{c.email || "—"}</td>
-                      <td className="py-2 pr-4" style={{ color: "var(--text-muted)" }}>{c.description || "—"}</td>
-                      <td className="py-2 mono text-xs" style={{ color: "var(--text-muted)" }}>{when(c.created)}</td>
+                  {data.subscriptions?.length ? data.subscriptions.map((s) => (
+                    <tr key={s.id} style={{ borderTop: "1px solid var(--border)" }}>
+                      <td className="py-2 pr-4" style={{ color: s.client ? "var(--accent-text)" : "var(--text-muted)", fontWeight: s.client ? 600 : 400 }}>{s.client ? s.client.orgName : "unlinked"}</td>
+                      <td className="py-2 pr-4 mono font-semibold" style={{ color: "var(--text)" }}>{money(s.monthly, s.currency)}<span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>/mo</span></td>
+                      <td className="py-2 pr-4"><StatusChip text={s.status} tone={s.status === "active" || s.status === "trialing" ? "ok" : s.status === "past_due" || s.status === "unpaid" ? "err" : "neutral"} /></td>
+                      <td className="py-2 pr-4 mono text-xs" style={{ color: "var(--text-muted)" }}>{s.email || "—"}</td>
+                      <td className="py-2 mono text-xs" style={{ color: "var(--text-muted)" }}>{when(s.current_period_end).split(",")[0]}</td>
                     </tr>
-                  )) : <tr><td colSpan={5} className="py-4 text-center" style={{ color: "var(--text-muted)" }}>No payments in {data.mode} mode.</td></tr>}
+                  )) : <tr><td colSpan={5} className="py-4 text-center" style={{ color: "var(--text-muted)" }}>No subscriptions yet. Recurring monthly-service plans + usage credits appear here once set up.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -177,7 +250,7 @@ STRIPE_WEBHOOK_SECRET_LIVE=whsec_...`}</pre>
               <Card>
                 {data.customers?.length ? data.customers.map((c) => (
                   <div key={c.id} className="flex items-center justify-between" style={{ padding: "8px 0", borderTop: "1px solid var(--border)" }}>
-                    <div><div className="text-sm" style={{ color: "var(--text)" }}>{c.email || c.name || c.id}</div><div className="mono text-xs" style={{ color: "var(--text-muted)" }}>{c.id}</div></div>
+                    <div><div className="text-sm" style={{ color: "var(--text)" }}>{c.email || c.name || c.id}</div><div className="text-xs" style={{ color: c.client ? "var(--accent-text)" : "var(--text-muted)" }}>{c.client ? c.client.orgName : c.id}</div></div>
                     <div className="mono text-xs" style={{ color: "var(--text-muted)" }}>{when(c.created).split(",")[0]}</div>
                   </div>
                 )) : <div className="text-sm py-2" style={{ color: "var(--text-muted)" }}>No customers in {data.mode} mode.</div>}
