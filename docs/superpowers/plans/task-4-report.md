@@ -51,3 +51,28 @@ None. The code follows the exact spec from the plan without modifications.
 
 **Short-SHA:** `4cb3770`  
 **Message:** `feat(grouping): placeResourceInEnvironment service (single validated writer)`
+
+## Fix pass
+
+Applied two targeted fixes to `server/placement.js`:
+- Captured result of both UPDATE statements in `placeResourceInEnvironment`
+- Added `if (!res.changes) throw { status: 404 }` after each UPDATE to fail loud when no rows changed
+
+Added two new tests to `server/test_placement.mjs`:
+- `admin unplace of a non-existent resource throws 404 (no silent no-op)`
+- `admin may place a resource across orgs (deliberate bypass)`
+
+Test command & output:
+```
+node --test server/test_placement.mjs
+```
+
+All 6 tests passed:
+```
+1..6
+# tests 6
+# pass 6
+# fail 0
+```
+
+**Commit Short-SHA:** `e2b02af`
