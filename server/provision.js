@@ -150,7 +150,7 @@ export async function provisionServer({
     throw Object.assign(err, { steps });
   }
 
-  return { serverUuid, ip, status: "running", steps };
+  return { serverUuid, hetznerId: serverId, ip, status: "running", steps };
   } finally {
     inFlight.delete(name);
   }

@@ -216,6 +216,47 @@ test("(j) no blueprint → step skipped, migration still succeeds", async () => 
   assert.equal(result.ok, true);
 });
 
+// Money path: a dedicated migration provisions a billed Hetzner VM at resolve-server.
+// If create-app fails, the VM must be torn down so a failed migration never orphans it.
+test("(k) dedicated create-app fails → provisioned server torn down (no billing orphan)", async () => {
+  let deletedHetzner = null, removedCoolify = null;
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "dedicated", serverType: "cx23", location: "fsn1" },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      provisionServer: async () => ({ serverUuid: "cool-srv-1", hetznerId: 999, ip: "1.2.3.4" }),
+      getDefaultDestination: async () => "dest-1",
+      createDeployKeyApp: async () => { throw Object.assign(new Error("boom"), { status: 500 }); },
+      deleteServer: async (id) => { deletedHetzner = id; },
+      removeCoolifyServer: async (uuid) => { removedCoolify = uuid; },
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.steps.find((s) => s.step === "create-app").status, "error");
+  assert.equal(deletedHetzner, 999, "the Hetzner VM must be deleted");
+  assert.equal(removedCoolify, "cool-srv-1", "the Coolify server entry must be removed");
+});
+
+test("(l) dedicated create-app SUCCEEDS → server kept (app lives on it, not an orphan)", async () => {
+  let deletedHetzner = null;
+  const result = await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "dedicated", serverType: "cx23", location: "fsn1" },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      provisionServer: async () => ({ serverUuid: "cool-srv-1", hetznerId: 999, ip: "1.2.3.4" }),
+      getDefaultDestination: async () => "dest-1",
+      createDeployKeyApp: async () => ({ uuid: "app-1" }),
+      deleteServer: async (id) => { deletedHetzner = id; },
+    },
+  });
+  assert.equal(result.steps.find((s) => s.step === "create-app").status, "ok");
+  assert.equal(deletedHetzner, null, "must NOT delete the server once an app is created on it");
+});
+
 test("(e) dbTarget none → migrate-db skipped even when a datastore exists", async () => {
   const result = await importFromRender({
     renderServiceId: "srv-demo1",

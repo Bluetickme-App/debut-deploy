@@ -3,7 +3,8 @@
 
 import { dockerPg } from "./hostexec.js";
 import { getService, getEnvVars, getConnectionInfo } from "./render.js";
-import { provisionServer } from "./provision.js";
+import { provisionServer, removeCoolifyServer } from "./provision.js";
+import { deleteServer } from "./hetzner.js";
 import { createDeployKeyApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import {
   getDefaultDestination,
@@ -67,10 +68,24 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     fetchBlueprint,
     applyBlueprint,
     ownerRepo,
+    removeCoolifyServer,
+    deleteServer,
     ...deps,
   };
 
   const steps = [];
+
+  // A dedicated server is provisioned (and billed) at resolve-server, BEFORE the app
+  // exists. If a step fails before the app is created, tear the server down so a
+  // failed migration never orphans a paid Hetzner VM (this cost a real €103/mo box).
+  let provisioned = null;
+  async function cleanupProvisioned() {
+    if (!provisioned) return;
+    const { hetznerId, coolifyUuid } = provisioned;
+    provisioned = null;
+    try { if (coolifyUuid) await d.removeCoolifyServer(coolifyUuid); } catch { /* best effort */ }
+    try { if (hetznerId) await d.deleteServer(hetznerId); } catch { /* best effort */ }
+  }
 
   // Step 1 — read Render service + env vars
   let service, envVars;
@@ -99,6 +114,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     } else {
       const result = await d.provisionServer({ name: service.name, serverType: target.serverType, location: target.location });
       serverUuid = result.serverUuid;
+      provisioned = { hetznerId: result.hetznerId, coolifyUuid: result.serverUuid };
     }
     steps.push({ step: "resolve-server", status: "ok", detail: { serverUuid } });
   } catch (err) {
@@ -115,6 +131,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     steps.push({ step: "resolve-key", status: "ok", detail: null });
   } catch (err) {
     steps.push({ step: "resolve-key", status: "error", detail: errDetail(err) });
+    await cleanupProvisioned();
     return { ok: false, appUuid: null, steps };
   }
 
@@ -137,9 +154,11 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       ...(dedicated ? { serverUuid, destinationUuid: await d.getDefaultDestination(serverUuid) } : {}),
     });
     appUuid = uuid;
+    provisioned = null; // app now lives on the server — it's committed, not an orphan
     steps.push({ step: "create-app", status: "ok", detail: { appUuid } });
   } catch (err) {
     steps.push({ step: "create-app", status: "error", detail: errDetail(err) });
+    await cleanupProvisioned();
     return { ok: false, appUuid: null, steps };
   }
 
