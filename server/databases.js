@@ -33,7 +33,11 @@ const VALID_TYPES = new Set(["postgresql", "redis", "mysql", "mariadb", "mongodb
 const DB_PROJECT = process.env.COOLIFY_DB_PROJECT_UUID || "qxm8dk7s33dk057p0g2x66ia";
 const DB_SERVER = process.env.COOLIFY_SERVER_UUID || "odtl07eovoo6f40gqwztsyhq";
 
-export async function createDatabase({ type, name, projectUuid, environmentName, serverUuid }) {
+// Coolify's per-engine version field (only sent when the caller picks one; the
+// default is Coolify's latest, so an unset version stays safe).
+const VERSION_FIELD = { postgresql: "postgres_version", mysql: "mysql_version", mariadb: "mariadb_version", mongodb: "mongo_version", redis: "redis_version" };
+
+export async function createDatabase({ type, name, projectUuid, environmentName, serverUuid, version }) {
   if (!VALID_TYPES.has(type)) {
     throw Object.assign(new Error(`Invalid database type: ${type}`), { status: 400 });
   }
@@ -45,6 +49,7 @@ export async function createDatabase({ type, name, projectUuid, environmentName,
       project_uuid: projectUuid || DB_PROJECT,
       environment_name: environmentName || "production",
       server_uuid: serverUuid || DB_SERVER,
+      ...(version && VERSION_FIELD[type] ? { [VERSION_FIELD[type]]: String(version) } : {}),
       instant_deploy: true,
     },
   });

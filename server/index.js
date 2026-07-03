@@ -41,12 +41,15 @@ import {
   deleteInvite,
   listOrgsWithCounts,
   getOrgDetail,
+  listOrgResources,
+  getOrgBillingInfo,
+  setOrgBillingInfo,
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
 import {
   walletBalance, recentLedger, creditWallet, createTopupSession, handleWebhookEvent, stripeClient,
-  getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod,
+  getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod, usdToPence,
 } from "./billing.js";
 import { planPriceUsd } from "./plans.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -373,13 +376,24 @@ app.get(
 // --- projects: list + move a service/database into one ---
 app.get("/api/projects", requireAuth, h(async () => coolify.listProjects()));
 
+// Only allow moving into a real, panel-managed Coolify project — never an arbitrary
+// or other-tenant project uuid submitted by the client (IDOR guard). // ponytail:
+// filter listProjects by org once projects are org-partitioned.
+async function assertKnownProject(projectUuid) {
+  const projects = await coolify.listProjects();
+  if (!projectUuid || !projects.some((p) => p.uuid === projectUuid)) {
+    throw Object.assign(new Error("Unknown or missing target project"), { status: 400 });
+  }
+}
+
 app.post(
   "/api/services/:id/move",
   requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    const r = await coolify.moveToProject(req.params.id, req.body?.projectUuid, "app");
-    record(req, "service.move", { resourceType: "application", resourceUuid: req.params.id, metadata: { projectUuid: req.body?.projectUuid } });
+    await assertKnownProject(req.body?.projectUuid);
+    const r = await coolify.moveToProject(req.params.id, req.body.projectUuid, "app");
+    record(req, "service.move", { resourceType: "application", resourceUuid: req.params.id, metadata: { projectUuid: req.body.projectUuid } });
     return r;
   })
 );
@@ -389,8 +403,9 @@ app.post(
   requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
-    const r = await coolify.moveToProject(req.params.id, req.body?.projectUuid, "postgres");
-    record(req, "database.move", { resourceType: "database", resourceUuid: req.params.id, metadata: { projectUuid: req.body?.projectUuid } });
+    await assertKnownProject(req.body?.projectUuid);
+    const r = await coolify.moveToProject(req.params.id, req.body.projectUuid, "postgres");
+    record(req, "database.move", { resourceType: "database", resourceUuid: req.params.id, metadata: { projectUuid: req.body.projectUuid } });
     return r;
   })
 );
@@ -492,11 +507,11 @@ app.post(
   requireCapability("manage"),
   h(async (req) => {
     const userId = req.user.id;
-    const { type, name } = req.body || {};
+    const { type, name, projectUuid, version } = req.body || {};
     if (!type || !name) throw Object.assign(new Error("type and name are required"), { status: 400 });
-    // Use createDatabase's verified-good project/server defaults (the per-customer
-    // project could be stale in Coolify and 404 the create). Ownership via assign().
-    const { uuid } = await databases.createDatabase({ type, name });
+    if (projectUuid) await assertKnownProject(projectUuid); // reject arbitrary/other-tenant project targets
+    // projectUuid unset → createDatabase's verified-good default project. Ownership via assign().
+    const { uuid } = await databases.createDatabase({ type, name, projectUuid, version });
     assign(uuid, "database", userId);
     const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
     if (planId && planPriceUsd(planId) > 0) {
@@ -671,6 +686,42 @@ app.get("/api/admin/orgs/:id/payments", requireAuth, requireAdmin, h(async (req)
       error: p.last_payment_error?.message || null,
     })),
   };
+}));
+
+// Master-Admin: a client's resources and their assigned plan + monthly £ (the "Plan" view).
+app.get("/api/admin/orgs/:id/resources", requireAuth, requireAdmin, h((req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const rows = listOrgResources(orgId).map((r) => ({
+    type: r.type,
+    uuid: r.coolify_uuid,
+    plan_id: r.plan_id || null,
+    monthly_pence: r.plan_id ? usdToPence(planPriceUsd(r.plan_id)) : 0,  // £0 = free until assigned
+    created_at: r.created_at,
+  }));
+  const monthlyTotalPence = rows.reduce((s, r) => s + r.monthly_pence, 0);
+  return { resources: rows, monthly_total_pence: monthlyTotalPence };
+}));
+
+// Master-Admin: read/update a client's billing information (email/company/VAT for statements).
+app.get("/api/admin/orgs/:id/billing-info", requireAuth, requireAdmin, h((req) => {
+  const orgId = Number(req.params.id);
+  const info = getOrgBillingInfo(orgId);
+  if (!info) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  return info;
+}));
+
+app.patch("/api/admin/orgs/:id/billing-info", requireAuth, requireAdmin, mutateGuard, h((req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const clean = (v) => (v == null ? null : String(v).slice(0, 200).trim() || null);
+  setOrgBillingInfo(orgId, {
+    email: clean(req.body?.billing_email),
+    company: clean(req.body?.billing_company),
+    vat: clean(req.body?.billing_vat),
+  });
+  record(req, "billing.info_updated", { metadata: { org_id: orgId } });
+  return getOrgBillingInfo(orgId);
 }));
 
 // Master-Admin: manual credit/debit adjustment (comp credit, refund, correction).
