@@ -26,8 +26,9 @@ fs.rmSync(file, { force: true });
 process.env.DATABASE_FILE = file;
 const { db } = await import("./db.js");
 
-test("migration bumped user_version to 12", () => {
-  assert.equal(db.pragma("user_version", { simple: true }), 12);
+test("migration ran usage_events (user_version >= 12)", () => {
+  // >= 12 not == 12: later migrations (13+) also apply on a fresh migrate from v11.
+  assert.ok(db.pragma("user_version", { simple: true }) >= 12);
 });
 
 test("usage_events table exists with the expected columns", () => {
