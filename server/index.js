@@ -370,6 +370,31 @@ app.get(
   })
 );
 
+// --- projects: list + move a service/database into one ---
+app.get("/api/projects", requireAuth, h(async () => coolify.listProjects()));
+
+app.post(
+  "/api/services/:id/move",
+  requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const r = await coolify.moveToProject(req.params.id, req.body?.projectUuid, "app");
+    record(req, "service.move", { resourceType: "application", resourceUuid: req.params.id, metadata: { projectUuid: req.body?.projectUuid } });
+    return r;
+  })
+);
+
+app.post(
+  "/api/databases/:id/move",
+  requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    const r = await coolify.moveToProject(req.params.id, req.body?.projectUuid, "postgres");
+    record(req, "database.move", { resourceType: "database", resourceUuid: req.params.id, metadata: { projectUuid: req.body?.projectUuid } });
+    return r;
+  })
+);
+
 // --- env vars ---
 app.get(
   "/api/services/:id/envs",
@@ -619,6 +644,33 @@ app.get("/api/admin/orgs/:id/wallet", requireAuth, requireAdmin, h((req) => {
   const orgId = Number(req.params.id);
   if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
   return { balance_pence: walletBalance(orgId), recent_ledger: recentLedger(orgId) };
+}));
+
+// Master-Admin: a client's Stripe payment attempts — succeeded AND failed/abandoned.
+// Our ledger only records successful credits, so failures live only in Stripe; pull
+// them live. Empty (not an error) if the org has no Stripe customer yet.
+app.get("/api/admin/orgs/:id/payments", requireAuth, requireAdmin, h(async (req) => {
+  const orgId = Number(req.params.id);
+  const detail = getOrgDetail(orgId);
+  if (!detail) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const row = db.prepare("SELECT stripe_customer_id FROM organizations WHERE id = ?").get(orgId);
+  const stripe = stripeClient();
+  if (!stripe || !row?.stripe_customer_id) {
+    return { customer: row?.stripe_customer_id || null, configured: !!stripe, payments: [] };
+  }
+  const list = await stripe.paymentIntents.list({ customer: row.stripe_customer_id, limit: 20 });
+  return {
+    customer: row.stripe_customer_id,
+    configured: true,
+    payments: list.data.map((p) => ({
+      id: p.id,
+      amount_pence: p.amount,          // Stripe amount is already minor units (pence for GBP)
+      currency: p.currency,
+      status: p.status,                // succeeded | requires_payment_method | canceled | processing | …
+      created: new Date(p.created * 1000).toISOString(),
+      error: p.last_payment_error?.message || null,
+    })),
+  };
 }));
 
 // Master-Admin: manual credit/debit adjustment (comp credit, refund, correction).

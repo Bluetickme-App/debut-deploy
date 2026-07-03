@@ -12,14 +12,27 @@ function OrgUsageCell({ id }) {
 }
 
 // Operator billing panel for one client: balance, recent ledger, manual credit/debit.
+const PAY_STATUS = {
+  succeeded: { label: "succeeded", ok: true },
+  processing: { label: "processing", ok: null },
+  requires_payment_method: { label: "failed / no method", ok: false },
+  requires_action: { label: "needs auth (3DS)", ok: null },
+  requires_confirmation: { label: "unconfirmed", ok: null },
+  canceled: { label: "canceled", ok: false },
+};
+
 function BillingPanel({ org, onChange }) {
   const [wallet, setWallet] = useState(null);
+  const [payments, setPayments] = useState(null);
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
-  const load = () => api.adminOrgWallet(org.id).then(setWallet).catch((e) => setErr(e));
+  const load = () => {
+    api.adminOrgWallet(org.id).then(setWallet).catch((e) => setErr(e));
+    api.adminOrgPayments(org.id).then(setPayments).catch(() => setPayments({ payments: [], configured: false }));
+  };
   useEffect(() => { load(); }, [org.id]); // wrap so the effect returns undefined, not a Promise
 
   const adjust = async (sign) => {
@@ -40,38 +53,77 @@ function BillingPanel({ org, onChange }) {
   const ledger = Array.isArray(wallet.recent_ledger) ? wallet.recent_ledger : [];
 
   return (
-    <div style={{ padding: 16, background: "var(--surface-2)", display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
+    <div style={{ padding: 16, background: "var(--surface-2)", display: "grid", gap: 16 }}>
+      {/* Client info */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
+        <span>Balance <span className="mono" style={{ color: wallet.balance_pence < 0 ? "var(--err)" : "var(--text)" }}>{gbp(wallet.balance_pence)}</span></span>
+        <span>{org.members} member{org.members !== 1 ? "s" : ""} · {org.owners} owner{org.owners !== 1 ? "s" : ""}</span>
+        <span>{org.applications} service{org.applications !== 1 ? "s" : ""} · {org.databases} DB{org.databases !== 1 ? "s" : ""}</span>
+        {payments?.customer && <span>Stripe <span className="mono">{payments.customer}</span></span>}
+      </div>
+
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
+        <div>
+          <div className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Credit ledger</div>
+          {ledger.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>No credit transactions yet.</div>}
+          {ledger.length > 0 && (
+            <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+              <tbody>
+                {ledger.map((l) => (
+                  <tr key={l.id} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td className="py-1.5" style={{ color: "var(--text-muted)" }}>{l.created_at ? timeAgo(l.created_at) : "—"}</td>
+                    <td className="py-1.5"><span className="pill pill-neutral">{l.type}</span></td>
+                    <td className="py-1.5 mono" style={{ color: l.amount_pence < 0 ? "var(--err)" : "var(--ok-text)", textAlign: "right" }}>{l.amount_pence < 0 ? "−" : "+"}{gbp(Math.abs(l.amount_pence))}</td>
+                    <td className="py-1.5" style={{ color: "var(--text-muted)", paddingLeft: 8 }}>{l.notes || ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div>
+          <div className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Adjust credit (manual)</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span style={{ color: "var(--text-muted)" }}>£</span>
+            <input className="input" style={{ width: 100 }} type="number" min="0" step="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="reason (e.g. comp, refund)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button className="btn btn-primary" disabled={busy} onClick={() => adjust(+1)}>Credit</button>
+            <button className="btn btn-danger" disabled={busy} onClick={() => adjust(-1)}>Debit</button>
+          </div>
+          {err && <div className="text-xs mt-2" style={{ color: "var(--err)" }}>{err.message}</div>}
+          <div className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>Writes an audited <span className="mono">adjustment</span> ledger entry.</div>
+        </div>
+      </div>
+
+      {/* Stripe payment attempts — succeeded AND failed/abandoned (from Stripe, not our ledger) */}
       <div>
-        <div className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Recent ledger</div>
-        {ledger.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>No transactions yet.</div>}
-        {ledger.length > 0 && (
+        <div className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Stripe payment attempts</div>
+        {!payments && <div className="text-xs" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2" /> Loading…</div>}
+        {payments && payments.payments.length === 0 && (
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {payments.configured === false ? "Stripe is not configured on the server." : payments.customer ? "No payment attempts yet." : "No Stripe customer yet — this client hasn't started a top-up."}
+          </div>
+        )}
+        {payments && payments.payments.length > 0 && (
           <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
             <tbody>
-              {ledger.map((l) => (
-                <tr key={l.id} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td className="py-1.5" style={{ color: "var(--text-muted)" }}>{l.created_at ? timeAgo(l.created_at) : "—"}</td>
-                  <td className="py-1.5"><span className="pill pill-neutral">{l.type}</span></td>
-                  <td className="py-1.5 mono" style={{ color: l.amount_pence < 0 ? "var(--err)" : "var(--ok-text)", textAlign: "right" }}>{l.amount_pence < 0 ? "−" : "+"}{gbp(Math.abs(l.amount_pence))}</td>
-                  <td className="py-1.5" style={{ color: "var(--text-muted)", paddingLeft: 8 }}>{l.notes || ""}</td>
-                </tr>
-              ))}
+              {payments.payments.map((p) => {
+                const st = PAY_STATUS[p.status] || { label: p.status, ok: null };
+                const col = st.ok === true ? "var(--ok-text)" : st.ok === false ? "var(--err)" : "var(--text-muted)";
+                return (
+                  <tr key={p.id} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td className="py-1.5" style={{ color: "var(--text-muted)" }}>{p.created ? timeAgo(p.created) : "—"}</td>
+                    <td className="py-1.5 mono" style={{ color: "var(--text)" }}>{gbp(p.amount_pence)}</td>
+                    <td className="py-1.5"><span className="pill" style={{ color: col, borderColor: col }}>{st.label}</span></td>
+                    <td className="py-1.5" style={{ color: "var(--err)", paddingLeft: 8 }}>{p.error || ""}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
-      </div>
-      <div>
-        <div className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Adjust credit (manual)</div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span style={{ color: "var(--text-muted)" }}>£</span>
-          <input className="input" style={{ width: 100 }} type="number" min="0" step="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="reason (e.g. comp, refund)" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-        <div className="flex gap-2 mt-2">
-          <button className="btn btn-primary" disabled={busy} onClick={() => adjust(+1)}>Credit</button>
-          <button className="btn btn-danger" disabled={busy} onClick={() => adjust(-1)}>Debit</button>
-        </div>
-        {err && <div className="text-xs mt-2" style={{ color: "var(--err)" }}>{err.message}</div>}
-        <div className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>Balance updates immediately; writes an audited <span className="mono">adjustment</span> ledger entry.</div>
       </div>
     </div>
   );

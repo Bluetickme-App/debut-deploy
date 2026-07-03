@@ -33,6 +33,9 @@ export const api = {
   services: () => req("/services"),
   service: (id) => req(`/services/${id}`),
   renameService: (id, name) => req(`/services/${id}/rename`, { method: "PATCH", body: { name } }),
+  projects: () => req("/projects"),
+  moveService: (id, projectUuid) => req(`/services/${id}/move`, { method: "POST", body: { projectUuid } }),
+  moveDatabase: (id, projectUuid) => req(`/databases/${id}/move`, { method: "POST", body: { projectUuid } }),
   deploy: (id) => req(`/services/${id}/deploy`, { method: "POST" }),
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),
@@ -118,5 +121,6 @@ export const api = {
   usageCurrent: () => req("/org/usage/current"),
   adminOrgUsage: (id, period) => req(`/admin/orgs/${id}/usage${period ? `?period=${period}` : ""}`),
   adminOrgWallet: (id) => req(`/admin/orgs/${id}/wallet`),
+  adminOrgPayments: (id) => req(`/admin/orgs/${id}/payments`),
   adminAdjustCredit: (id, body) => req(`/admin/orgs/${id}/credit`, { method: "POST", body }),
 };
