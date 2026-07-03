@@ -82,6 +82,7 @@ export async function provisionServer({
   name,
   serverType,
   location,
+  image = "ubuntu-22.04", // Coolify's Docker install is flaky on 24.04; 22.04 is battle-tested
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   maxPollMs = 120_000,
 } = {}) {
@@ -113,7 +114,7 @@ export async function provisionServer({
   // Step 3 — create Hetzner server (with the key in authorized_keys)
   let serverId, ip;
   try {
-    ({ id: serverId, ip } = await createServer({ name, serverType, location, sshKeys: [sshKeyName] }));
+    ({ id: serverId, ip } = await createServer({ name, serverType, location, image, sshKeys: [sshKeyName] }));
     steps.push({ step: "create-server", status: "ok", detail: { id: serverId, ip } });
   } catch (err) {
     steps.push({ step: "create-server", status: "error", detail: err.message });

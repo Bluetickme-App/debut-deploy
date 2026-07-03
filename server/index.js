@@ -1648,9 +1648,9 @@ app.post(
   requireAdmin,
   mutateGuard,
   h(async (req) => {
-    const { name, serverType, location } = req.body || {};
-    const result = await provisionServer({ name, serverType, location });
-    record(req, "server.provision", { metadata: { name, serverType, location } });
+    const { name, serverType, location, image } = req.body || {};
+    const result = await provisionServer({ name, serverType, location, ...(image ? { image } : {}) });
+    record(req, "server.provision", { metadata: { name, serverType, location, image } });
     return result;
   })
 );
