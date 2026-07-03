@@ -257,6 +257,30 @@ test("(l) dedicated create-app SUCCEEDS → server kept (app lives on it, not an
   assert.equal(deletedHetzner, null, "must NOT delete the server once an app is created on it");
 });
 
+// Regression: push-env re-pushes ALL Render env vars, and Render apps carry their own
+// DATABASE_URL. Without a guard, that stale value overwrites the migrated target URL
+// set at migrate-db → the deployed app points back at Render's DB. When a migration
+// ran, DATABASE_URL from Render must be skipped so the migrated URL is the last word.
+test("(m) migration ran → push-env skips Render's stale DATABASE_URL, migrated URL wins", async () => {
+  const dbUrls = [];
+  await importFromRender({
+    renderServiceId: "srv-demo1",
+    target: { mode: "shared", datastoreId: "ds-1", dbTarget: { mode: "existing", uuid: "cool-db-1" } },
+    userId: 1, apiKey: "x",
+    deps: {
+      ...baseDeps,
+      getService: async () => ({ id: "srv-demo1", name: "Premium", repo: "https://github.com/Bluetickme-App/Premium-Agent-Hub", branch: "main", buildCommand: "", startCommand: "" }),
+      getEnvVars: async () => [{ key: "DATABASE_URL", value: "postgres://render:STALE@ext:5432/app" }, { key: "OTHER", value: "keep" }],
+      getConnectionInfo: async () => "postgres://render:pw@ext:5432/app",
+      resolveDbUrl: async (uuid) => `postgres://cool:pw@db-${uuid}.internal:5432/app`,
+      migratePostgres: async () => ({ ok: true }),
+      upsertEnv: async (_u, { key, value }) => { if ((key || "").toUpperCase() === "DATABASE_URL") dbUrls.push(value); },
+    },
+  });
+  assert.ok(!dbUrls.includes("postgres://render:STALE@ext:5432/app"), "Render's stale DATABASE_URL must never be applied");
+  assert.equal(dbUrls.at(-1), "postgres://cool:pw@db-cool-db-1.internal:5432/app", "the migrated target URL must be the final DATABASE_URL");
+});
+
 test("(e) dbTarget none → migrate-db skipped even when a datastore exists", async () => {
   const result = await importFromRender({
     renderServiceId: "srv-demo1",

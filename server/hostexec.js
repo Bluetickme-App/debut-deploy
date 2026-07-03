@@ -7,6 +7,14 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
+// The postgres client image for pg_dump/restore + admin SQL. It MUST NOT be newer
+// than the TARGET server's major version: a newer pg_dump emits GUCs the target
+// can't parse — e.g. PG17's `SET transaction_timeout` makes a PG16 restore die with
+// `ERROR: unrecognized configuration parameter`. Coolify provisions PG16 by default,
+// and pg_dump 16 still reads any older Render source, so default to 16.
+// ponytail: env knob, no version auto-detection — bump PG_MIGRATE_IMAGE if targets move.
+export const PG_IMAGE = process.env.PG_MIGRATE_IMAGE || "postgres:16";
+
 // Verify the host key against a pinned SHA-256 (hex) to prevent MITM. Fails closed.
 function makeHostVerifier() {
   const pinnedHex = (process.env.MIGRATION_SSH_HOSTKEY_SHA256 || "").replace(/[:\s]/g, "").toLowerCase();
@@ -89,7 +97,7 @@ export async function getServiceLogs(uuid, { tail = 300 } = {}) {
   });
 }
 
-// Run a `docker run postgres:18` command on the host. Secret values (connection
+// Run a `docker run ${PG_IMAGE}` command on the host. Secret values (connection
 // URLs, SQL) pass as base64 env — only [A-Za-z0-9+/=], safe to interpolate — and
 // are decoded INSIDE the container, so no secret ever appears in the shell command.
 export async function dockerPg({ vars = {}, script }) {
@@ -97,6 +105,6 @@ export async function dockerPg({ vars = {}, script }) {
   const net = process.env.PG_MIGRATE_DOCKER_NETWORK || "coolify";
   const flags = Object.keys(vars).map((k) => `-e B64_${k}=${Buffer.from(String(vars[k])).toString("base64")}`).join(" ");
   const decode = Object.keys(vars).map((k) => `${k}=$(echo "$B64_${k}" | base64 -d)`).join("; ");
-  await runOnHost(`docker run --rm --network ${net} ${flags} postgres:18 sh -c '${decode}; ${script}'`);
+  await runOnHost(`docker run --rm --network ${net} ${flags} ${PG_IMAGE} sh -c '${decode}; ${script}'`);
   return { ok: true };
 }

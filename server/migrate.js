@@ -31,17 +31,17 @@ export function assertPgUrl(url) {
 }
 
 // Real Postgres migration: dump the Render source and load it into the chosen
-// Coolify target using a pinned postgres:18 container (version-matches Render's
-// PG18, so no host pg tooling is needed). BOTH URLs are validated by assertPgUrl
-// and passed via ENV — never argv — so a value can't smuggle flags into the
-// command. Requires the Docker socket reachable by this process. Overridable via
-// deps for tests. // VERIFY LIVE: network name + Coolify DB URL field.
+// Coolify target using a pinned pg client container (PG_IMAGE, default postgres:16
+// to match Coolify's default target — a newer pg_dump emits GUCs an older target
+// rejects; see hostexec.js). BOTH URLs are validated by assertPgUrl and passed via
+// ENV — never argv — so a value can't smuggle flags into the command. Requires the
+// Docker socket reachable by this process. Overridable via deps for tests.
 async function migratePostgres({ source, target }) {
   if (process.env.DEMO_MODE === "true") return { ok: true, note: "demo-skip" };
   assertPgUrl(source);
   assertPgUrl(target);
   // pg_dump the Render source and load into the Coolify target, run on the host in
-  // a pinned postgres:18 container (version-matches Render PG18). URLs pass base64.
+  // the pinned PG_IMAGE container (default postgres:16). URLs pass base64.
   await dockerPg({ vars: { SRC: source, TGT: target }, script: 'pg_dump --no-owner --no-privileges "$SRC" | psql -v ON_ERROR_STOP=1 "$TGT"' });
   return { ok: true };
 }
@@ -184,6 +184,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   // migrate FROM; dbTarget.uuid = the Coolify Postgres to migrate INTO.
   const dbTarget = target.dbTarget || { mode: "none" };
   const sourceDatastoreId = dbTarget.source || service.datastoreId || target.datastoreId;
+  let dbMigrated = false; // gates push-env: once we've set the migrated DATABASE_URL, Render's must not overwrite it
   if (sourceDatastoreId && ["shared", "dedicated", "existing"].includes(dbTarget.mode)) {
     try {
       const source = await d.getConnectionInfo(sourceDatastoreId, apiKey);
@@ -202,6 +203,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       await d.migratePostgres({ source, target: targetUrl });
       // Wire the migrated app at the COOLIFY target — never the Render source.
       await d.upsertEnv(appUuid, { key: "DATABASE_URL", value: targetUrl, is_secret: true });
+      dbMigrated = true;
       steps.push({ step: "migrate-db", status: "ok", detail: null });
     } catch (err) {
       steps.push({ step: "migrate-db", status: "error", detail: errDetail(err) });
@@ -219,6 +221,9 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     }
     for (const { key, value } of envVars) {
       // ponytail: never log key or value — security boundary
+      // The migrated DATABASE_URL (set at migrate-db) is authoritative — never let
+      // Render's stale value clobber it here. If no migration ran, keep Render's.
+      if (dbMigrated && (key || "").toUpperCase() === "DATABASE_URL") continue;
       // Default-secret: Render's API doesn't reliably flag secrets, and its env
       // vars routinely hold API keys / DATABASE_URL / tokens. Safe default.
       await d.upsertEnv(appUuid, { key, value, is_secret: true });
