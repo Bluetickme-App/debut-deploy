@@ -244,6 +244,14 @@ function Sidebar({ drawerOpen, onClose }) {
         <span style={{ fontSize: 11.5, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>v1.4.2</span>
         <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--text-muted)", opacity: 0.6 }} />
         <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>Coolify 4.0</span>
+        <a
+          href="/api/status"
+          target="_blank"
+          rel="noreferrer"
+          style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}
+        >
+          Status ↗
+        </a>
       </div>
     </aside>
   );

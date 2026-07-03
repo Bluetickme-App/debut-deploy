@@ -74,6 +74,7 @@ import { createRenderCredential, listRenderCredentials, getRenderCredential, del
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
+import { renderStatusHtml } from "./status.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -213,6 +214,65 @@ function ensureFound(entity, label = "Resource") {
 app.get("/api/health", (_req, res) =>
   res.json({ ok: true, mode: demoMode ? "demo" : "live" })
 );
+
+// Public systems status page (like status.render.com). No auth — it must render
+// even when auth/the SPA is broken. Reachable three ways: at /api/status (dev
+// Vite-proxied, prod PWA-safe), and served at the ROOT of the dedicated status
+// subdomain (STATUS_HOSTNAME, default status.debutdepoly.com) via the host check
+// registered below. Overall status = the worst of the live component checks.
+// buildStatus never throws — a status page that 500s is worse than useless.
+async function buildStatus() {
+  const RANK = { operational: 0, degraded: 1, unknown: 2, outage: 3 };
+  const components = [
+    // This handler is running, so the control panel is up by definition.
+    { name: "Control Panel", status: "operational", note: "Dashboard & API" },
+  ];
+
+  // One live Coolify fetch backs both the orchestrator check and the fleet rollup.
+  let services = null;
+  try {
+    services = await Promise.race([
+      coolify.listServices(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+    ]);
+  } catch { /* services stays null → orchestrator down */ }
+
+  components.push({
+    name: "Deployment Engine",
+    status: services ? "operational" : "outage",
+    note: "Coolify orchestrator",
+  });
+
+  if (services) {
+    const down = services.filter((s) => s.status !== "running").length;
+    components.push({
+      name: "Hosted Services",
+      status: down === 0 ? "operational" : down < services.length ? "degraded" : "outage",
+      note: services.length ? `${services.length - down}/${services.length} running` : "no services",
+    });
+  } else {
+    components.push({ name: "Hosted Services", status: "unknown", note: "orchestrator unreachable" });
+  }
+
+  const overall = components.reduce((w, c) => (RANK[c.status] > RANK[w] ? c.status : w), "operational");
+  return { overall, components, mode: demoMode ? "demo" : "live", checkedAt: Date.now() };
+}
+
+async function serveStatus(res) {
+  res.type("html").send(renderStatusHtml(await buildStatus()));
+}
+
+app.get("/api/status", (_req, res) => serveStatus(res));
+
+// Dedicated status subdomain: on status.debutdepoly.com every path is the status
+// page (self-contained HTML, so no static assets needed). Registered before all
+// authed routes and the SPA fallback so it wins for that host. Add the hostname as
+// a domain on the panel's Coolify app so Traefik routes + certs it to this process.
+const STATUS_HOST = (process.env.STATUS_HOSTNAME || "status.debutdepoly.com").toLowerCase();
+app.use((req, res, next) => {
+  if (req.hostname?.toLowerCase() === STATUS_HOST) return serveStatus(res);
+  next();
+});
 
 app.get("/api/me", requireAuth, h((req) => {
   const m = req.user.role === "admin" ? null : getMembership(req.user.id);
