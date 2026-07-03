@@ -40,21 +40,40 @@ async function cf(path, { method = "GET", body } = {}) {
 
 // --- normalisers: map Coolify's raw objects onto the UI shape ----------------
 
-function mapApp(a) {
+function mapApp(a, region = "") {
   return {
     uuid: a.uuid,
     name: a.name,
     group: a.environment_name || a.project?.name || "Apps",
+    project: a.project?.name || a.environment_name || null, // Coolify project this app belongs to
     type: a.build_pack === "dockercompose" ? "service" : "web",
     runtime: a.build_pack || "docker",
     status: a.status?.split(":")[0] || "unknown", // Coolify returns e.g. "running:healthy"
     server: a.destination?.server?.uuid || a.server_uuid || null,
+    region, // datacenter of the host it runs on (Coolify has no region; resolved from Hetzner)
     branch: a.git_branch || "main",
     repo: a.git_repository || "",
     domain: a.fqdn ? a.fqdn.replace(/^https?:\/\//, "").split(",")[0] : null,
     lastDeployedAt: a.updated_at || null,
     health: a.status?.split(":")[1] || "healthy",
   };
+}
+
+// The shared host's datacenter — all shared-mode apps run there. Coolify servers
+// carry no location, so resolve it from Hetzner once and cache. // ponytail:
+// single-host setup; per-server region is the upgrade path for dedicated servers.
+let _regionCache;
+async function sharedRegion() {
+  if (_regionCache !== undefined) return _regionCache;
+  _regionCache = "";
+  try {
+    const K = process.env.HETZNER_API_KEY;
+    if (!K) return _regionCache;
+    const j = await (await fetch("https://api.hetzner.cloud/v1/servers", { headers: { Authorization: `Bearer ${K}` } })).json();
+    const s = (j.servers || [])[0];
+    _regionCache = s?.datacenter?.location?.city || s?.datacenter?.location?.name || "";
+  } catch { /* leave blank on failure */ }
+  return _regionCache;
 }
 
 function mapDb(d) {
@@ -76,13 +95,14 @@ function mapDb(d) {
 
 export async function listServices() {
   if (isDemo()) return fx.services;
-  const apps = await cf("/applications");
-  return (Array.isArray(apps) ? apps : []).map(mapApp);
+  const [apps, region] = await Promise.all([cf("/applications"), sharedRegion()]);
+  return (Array.isArray(apps) ? apps : []).map((a) => mapApp(a, region));
 }
 
 export async function getService(uuid) {
   if (isDemo()) return fx.services.find((s) => s.uuid === uuid) || null;
-  return mapApp(await cf(`/applications/${uuid}`));
+  const [app, region] = await Promise.all([cf(`/applications/${uuid}`), sharedRegion()]);
+  return mapApp(app, region);
 }
 
 export async function deployService(uuid) {
