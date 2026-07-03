@@ -222,30 +222,36 @@ function ListRow({ s, onClick }) {
         transition: "background .12s",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <span style={{
+          fontSize: 13.5, fontWeight: 600, color: "var(--text)", fontFamily: "'Inter', sans-serif",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
           {s.name}
         </span>
-        <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--text-muted)" }}>
+        <span style={{
+          fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--text-muted)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
           <RepoText repo={s.repo} name={s.name} isPrivate={s.repoPrivate} /> · {s.branch || "main"}
         </span>
       </div>
-      <div><StatusPill status={s.status} /></div>
+      <div style={{ minWidth: 0 }}><StatusPill status={s.status} /></div>
       <div style={{
-        fontSize: 13, color: "var(--accent-text)",
+        fontSize: 13, color: "var(--accent-text)", minWidth: 0,
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       }}>
         {s.domain || "—"}
       </div>
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12.5, color: "var(--text)" }}>
         <span style={{
           width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
           background: RT_COLOR[s.runtime] || "var(--text-muted)",
         }} />
-        {s.runtime || "—"}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.runtime || "—"}</span>
       </div>
       <div style={{
-        fontSize: 12.5, color: "var(--text-muted)",
+        fontSize: 12.5, color: "var(--text-muted)", minWidth: 0,
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       }}>
         {s.region || "—"}

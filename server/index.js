@@ -53,6 +53,8 @@ import {
   createEnvironment,
   renameEnvironment,
   deleteEnvironment,
+  transferProject,
+  getUserByEmail,
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
@@ -524,6 +526,17 @@ app.patch("/api/projects/:id", requireAuth, mutateGuard, attachOrgContext, requi
 
 app.delete("/api/projects/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => ({ changed: deleteProject(orgOf(req.user), Number(req.params.id)) })));
+
+// Master-admin only: reassign a project + its resources to another user's account (by email).
+// Metadata move — nothing on Coolify changes. Not org-scoped: admin can move any project.
+app.post("/api/admin/projects/:id/transfer", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const target = email && getUserByEmail(email);
+  if (!target) throw Object.assign(new Error("No user found with that email"), { status: 404 });
+  const result = transferProject(Number(req.params.id), target.id);
+  record(req, "project.transfer", { metadata: { projectId: Number(req.params.id), toEmail: target.email, moved: result.moved } });
+  return result;
+}));
 
 app.post("/api/projects/:id/environments", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => createEnvironment(orgOf(req.user), Number(req.params.id), String(req.body?.name || "").trim() || "Untitled")));

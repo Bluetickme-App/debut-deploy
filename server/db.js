@@ -695,6 +695,34 @@ export function renameProject(orgId, id, name) {
 export const deleteProject = (orgId, id) =>
   db.prepare("DELETE FROM projects WHERE org_id = ? AND id = ?").run(orgId, id).changes;
 
+// Master-admin only: move a whole project + its resources to another user's org.
+// Panel-native metadata move — nothing on Coolify changes, so no redeploy/downtime.
+// Repoints authz+billing (org_id) AND creator (user_id) for every resource placed in
+// the project's environments; environments follow via their project_id FK. Returns the
+// count of resources moved and the (possibly suffixed) slug used in the destination org.
+export function transferProject(projectId, targetUserId) {
+  const proj = db.prepare("SELECT id, org_id, name, slug FROM projects WHERE id = ?").get(projectId);
+  if (!proj) throw notFound();
+  if (!getUserById(targetUserId)) throw Object.assign(new Error("Target user not found"), { status: 404 });
+  const targetOrg = ensureUserOrg(targetUserId); // resolves or creates the target user's org
+  if (targetOrg === proj.org_id) return { moved: 0, project: proj.id, slug: proj.slug, org_id: targetOrg };
+  // Collision-safe slug in the destination org (UNIQUE(org_id, slug)).
+  let slug = proj.slug;
+  for (let n = 2; db.prepare("SELECT 1 FROM projects WHERE org_id = ? AND slug = ?").get(targetOrg, slug); n++) {
+    slug = `${proj.slug}-${n}`;
+  }
+  const now = nowIso();
+  const run = db.transaction(() => {
+    const moved = db.prepare(`UPDATE resource_ownership SET org_id = ?, user_id = ?
+      WHERE environment_id IN (SELECT id FROM environments WHERE project_id = ?)`)
+      .run(targetOrg, targetUserId, projectId).changes;
+    db.prepare("UPDATE projects SET org_id = ?, slug = ?, updated_at = ? WHERE id = ?")
+      .run(targetOrg, slug, now, projectId);
+    return moved;
+  });
+  return { moved: run(), project: projectId, slug, org_id: targetOrg };
+}
+
 // Validates the project belongs to the org before creating the env under it.
 export function createEnvironment(orgId, projectId, name) {
   const proj = db.prepare("SELECT id FROM projects WHERE org_id = ? AND id = ?").get(orgId, projectId);

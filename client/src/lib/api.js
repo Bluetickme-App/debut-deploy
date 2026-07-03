@@ -43,6 +43,7 @@ export const api = {
   renameEnvironment: (id, name) => req(`/environments/${id}`, { method: "PATCH", body: { name } }),
   deleteEnvironment: (id) => req(`/environments/${id}`, { method: "DELETE" }),
   placeResource:   (type, id, environmentId) => req(`/resources/${type}/${id}/placement`, { method: "PATCH", body: { environmentId } }),
+  transferProject: (id, email) => req(`/admin/projects/${id}/transfer`, { method: "POST", body: { email } }), // master-admin only
   deploy: (id) => req(`/services/${id}/deploy`, { method: "POST" }),
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),

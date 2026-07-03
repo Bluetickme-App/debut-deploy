@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Layers, Database, Clock, Globe, ArrowRight, Pencil, Trash2, Plus, X, ArrowLeft } from "lucide-react";
+import { Layers, Database, Clock, Globe, ArrowRight, ArrowRightLeft, Pencil, Trash2, Plus, X, ArrowLeft } from "lucide-react";
 import { api } from "../lib/api.js";
+import { useAuth } from "../auth.jsx";
 import {
   Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner, StatusPill, timeAgo,
 } from "../components/ui.jsx";
@@ -215,6 +216,86 @@ function NewEnvModal({ projectId, onClose, onCreate }) {
   );
 }
 
+// ── Transfer Modal (master-admin only) ────────────────────────────────────────
+
+function TransferModal({ project, onClose, onTransferred }) {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy]   = useState(false);
+  const [err, setErr]     = useState(null);
+
+  async function handleTransfer() {
+    const e = email.trim().toLowerCase();
+    if (!e) return;
+    setBusy(true); setErr(null);
+    try {
+      const res = await api.transferProject(project.id, e);
+      onTransferred(res, e);
+    } catch (ex) {
+      setErr(ex.message || "Transfer failed");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(10,12,17,.45)",
+        backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        paddingTop: 64, zIndex: 50,
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        width: 440, maxWidth: "calc(100% - 40px)",
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: 8, boxShadow: "var(--shadow-lg)", overflow: "hidden",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid var(--border)" }}>
+          <h3 style={{ margin: 0, fontFamily: "'Inter', sans-serif", fontSize: 16.5, fontWeight: 600, color: "var(--text)" }}>
+            Transfer project
+          </h3>
+          <button onClick={onClose} style={{
+            width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: 6, border: "none", background: "transparent", color: "var(--text-muted)", cursor: "pointer",
+          }}>
+            <X size={17} />
+          </button>
+        </div>
+
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+            Move <strong style={{ color: "var(--text)" }}>{project.name}</strong> and all its resources to another
+            user's account. Billing and ownership move with it; nothing is redeployed. You will lose access to this
+            project once it leaves your workspace.
+          </p>
+          <Field label="Recipient email">
+            <Input
+              type="email"
+              placeholder="customer@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleTransfer()}
+              autoFocus
+            />
+          </Field>
+          {err && <p style={{ margin: 0, fontSize: 12.5, color: "var(--err)" }}>{err}</p>}
+        </div>
+
+        <div style={{
+          display: "flex", justifyContent: "flex-end", gap: 9,
+          padding: "16px 22px", borderTop: "1px solid var(--border)", background: "var(--surface-2)",
+        }}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={handleTransfer} disabled={!email.trim() || busy}>
+            {busy ? <Spinner /> : null} Transfer
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Resource card within a kind section ───────────────────────────────────────
 
 function ResourceCard({ resource, onMove }) {
@@ -316,6 +397,8 @@ function RenameInput({ value, onSave, onCancel }) {
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const [project, setProject]   = useState(null);  // { project, environments }
   const [services, setServices] = useState([]);
@@ -326,6 +409,7 @@ export default function ProjectDetail() {
   const [activeEnvId, setActiveEnvId] = useState(null);
   const [newEnvOpen, setNewEnvOpen]   = useState(false);
   const [moveTarget, setMoveTarget]   = useState(null); // resource being moved
+  const [transferOpen, setTransferOpen] = useState(false);
   const [renaming, setRenaming]       = useState(false);
   const [deleting, setDeleting]       = useState(false);
 
@@ -450,16 +534,29 @@ export default function ProjectDetail() {
             </button>
           )}
         </div>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          title="Delete project"
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4, flexShrink: 0 }}
-          onMouseEnter={e => (e.currentTarget.style.color = "var(--err)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
-        >
-          {deleting ? <Spinner /> : <Trash2 size={16} />}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {isAdmin && (
+            <button
+              onClick={() => setTransferOpen(true)}
+              title="Transfer project to another user"
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--accent-text)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
+            >
+              <ArrowRightLeft size={16} />
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            title="Delete project"
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--err)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
+          >
+            {deleting ? <Spinner /> : <Trash2 size={16} />}
+          </button>
+        </div>
       </div>
 
       {/* Environment tabs */}
@@ -527,6 +624,18 @@ export default function ProjectDetail() {
           resource={moveTarget}
           onClose={() => setMoveTarget(null)}
           onMoved={() => { setMoveTarget(null); load(); }}
+        />
+      )}
+      {transferOpen && (
+        <TransferModal
+          project={proj}
+          onClose={() => setTransferOpen(false)}
+          onTransferred={(res, email) => {
+            setTransferOpen(false);
+            // Project has left this admin's org — the detail page can no longer load it.
+            alert(`Transferred to ${email} (${res.moved} resource${res.moved === 1 ? "" : "s"} moved).`);
+            navigate("/projects");
+          }}
         />
       )}
     </div>
