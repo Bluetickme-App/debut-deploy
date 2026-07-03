@@ -1,7 +1,7 @@
 // Stripe + prepaid credit wallet. All ledger + Stripe logic lives here so
 // index.js routes stay thin. Money is integer pence; balance = SUM(ledger).
 import Stripe from "stripe";
-import { db, getSetting } from "./db.js";
+import { db, getSetting, setSetting } from "./db.js";
 import { planPriceUsd } from "./plans.js";
 import { recordSystem } from "./audit.js";
 
@@ -90,17 +90,56 @@ export function chargeMonthlyHardware(orgId, period) {
   return { charged: charge };
 }
 
-// --- Stripe (test mode first; live keys are a config swap, not a code change) ---
-
-let _stripe; // lazily constructed; null when no key (importing billing.js stays safe in tests)
-export function stripeClient() {
-  if (_stripe !== undefined) return _stripe;
-  const key = process.env.STRIPE_SECRET_KEY;
-  _stripe = key ? new Stripe(key) : null;
-  return _stripe;
+// --- Stripe: mode-aware (test | live), switchable at runtime with NO restart ------
+// The active mode is stored in app_settings; the operator flips it from the Stripe
+// admin page. Keys come from env (never the DB): prefer mode-specific
+// STRIPE_SECRET_KEY_{TEST,LIVE}; fall back to the single STRIPE_SECRET_KEY when its
+// sk_test_/sk_live_ prefix matches the requested mode (back-compat with older .env).
+function stripeKeyFor(mode) {
+  const specific = mode === "live" ? process.env.STRIPE_SECRET_KEY_LIVE : process.env.STRIPE_SECRET_KEY_TEST;
+  if (specific) return specific;
+  const single = process.env.STRIPE_SECRET_KEY || "";
+  if (single.startsWith(mode === "live" ? "sk_live_" : "sk_test_")) return single;
+  return null;
 }
+export function stripeModeAvailable(mode) { return !!stripeKeyFor(mode); }
+
+// Active mode: the stored setting, else inferred from whichever key exists (live wins).
+export function stripeMode() {
+  const m = getSetting("stripe_mode");
+  if (m === "test" || m === "live") return m;
+  return stripeModeAvailable("live") ? "live" : "test";
+}
+
+const _clients = new Map(); // mode -> Stripe | null (cached per mode; cleared on toggle)
+export function stripeClient() {
+  const mode = stripeMode();
+  if (_clients.has(mode)) return _clients.get(mode);
+  const key = stripeKeyFor(mode);
+  const client = key ? new Stripe(key) : null;
+  _clients.set(mode, client);
+  return client;
+}
+
+// Flip test<->live at runtime. Refuses a mode with no key. Clears the client cache so
+// the very next stripeClient() call talks to the newly-selected environment.
+export function setStripeMode(mode) {
+  if (mode !== "test" && mode !== "live") throw Object.assign(new Error("mode must be 'test' or 'live'"), { status: 400 });
+  if (!stripeKeyFor(mode)) throw Object.assign(new Error(`No ${mode}-mode Stripe secret key is configured`), { status: 400 });
+  setSetting("stripe_mode", mode);
+  _clients.clear();
+  return mode;
+}
+
+// Webhook signing secret for the active mode (mode-specific env, else the single secret).
+export function stripeWebhookSecret() {
+  const mode = stripeMode();
+  return (mode === "live" ? process.env.STRIPE_WEBHOOK_SECRET_LIVE : process.env.STRIPE_WEBHOOK_SECRET_TEST)
+    || process.env.STRIPE_WEBHOOK_SECRET || null;
+}
+
 // Tests inject a stub so no real Stripe call is made (money tests hit the ledger).
-export function setStripeForTests(stub) { _stripe = stub; }
+export function setStripeForTests(stub) { _clients.set(stripeMode(), stub); }
 
 // Org's stable primary-owner email — the Stripe customer's email.
 function ownerEmail(orgId) {

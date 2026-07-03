@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge, Settings as SettingsIcon,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge, Landmark, Settings as SettingsIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -25,6 +25,7 @@ import Team from "./pages/Team.jsx";
 import Clients from "./pages/Clients.jsx";
 import NewServiceGit from "./pages/NewServiceGit.jsx";
 import Billing from "./pages/Billing.jsx";
+import StripeAdmin from "./pages/StripeAdmin.jsx";
 import WalletPage from "./pages/Wallet.jsx";
 import Usage from "./pages/Usage.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -232,6 +233,7 @@ function Sidebar({ drawerOpen, onClose }) {
             </div>
             <HoverNavLink to="/clients"><Users size={18} /><span>Clients</span></HoverNavLink>
             <HoverNavLink to="/billing"><CreditCard size={18} /><span>Billing &amp; Plans</span></HoverNavLink>
+            <HoverNavLink to="/stripe"><Landmark size={18} /><span>Stripe</span></HoverNavLink>
             <HoverNavLink to="/new-git"><GitBranch size={18} /><span>Deploy from Git</span></HoverNavLink>
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
             <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
@@ -276,6 +278,7 @@ const CRUMB_MAP = {
   "/clients": "Clients",
   "/new-git": "Deploy from Git",
   "/billing": "Billing & Plans",
+  "/stripe": "Stripe",
   "/wallet": "Wallet",
   "/usage": "Usage",
   "/settings": "Account settings",
@@ -524,6 +527,7 @@ function AppShell() {
             <Route path="/clients" element={<Clients />} />
             <Route path="/new-git" element={<NewServiceGit />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/stripe" element={<StripeAdmin />} />
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/usage" element={<Usage />} />
             <Route path="/settings" element={<Settings />} />
