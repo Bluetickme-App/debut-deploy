@@ -22,7 +22,10 @@ function maskUrl(url) {
 }
 
 async function dbAction(uuid, action) {
-  return fetch(`/api/databases/${uuid}/${action}`, {
+  // Delete is DELETE /api/databases/:id (no action suffix); start/stop are POST
+  // /api/databases/:id/<action>. Appending "/delete" hits no route → silent 404.
+  const url = action === "delete" ? `/api/databases/${uuid}` : `/api/databases/${uuid}/${action}`;
+  return fetch(url, {
     method: action === "delete" ? "DELETE" : "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
@@ -48,7 +51,8 @@ export default function Databases() {
     if (action === "delete" && !window.confirm("Delete this database? This cannot be undone.")) return;
     setBusy(b => ({ ...b, [uuid]: action }));
     try {
-      await dbAction(uuid, action);
+      const res = await dbAction(uuid, action);
+      if (!res.ok) { alert(`Failed to ${action} database (${res.status})`); return; }
       api.databases().then(setDbs).catch(() => {});
     } finally {
       setBusy(b => { const n = { ...b }; delete n[uuid]; return n; });
