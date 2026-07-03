@@ -121,7 +121,7 @@ function GridCard({ s, onClick }) {
       </div>
 
       {/* Domain */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 18, minWidth: 0 }}>
         {domain ? (
           <a
             href={domain.startsWith("http") ? domain : `https://${domain}`}
@@ -129,12 +129,12 @@ function GridCard({ s, onClick }) {
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
             style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
+              display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%",
               fontSize: 13, color: "var(--accent-text)", textDecoration: "none", fontWeight: 500,
             }}
           >
-            {domain}
-            <ExternalLink size={12} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{domain}</span>
+            <ExternalLink size={12} style={{ flexShrink: 0 }} />
           </a>
         ) : (
           <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Internal service</span>
