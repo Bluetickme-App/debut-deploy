@@ -19,6 +19,7 @@ import Servers from "./pages/Servers.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
 import Projects from "./pages/Projects.jsx";
 import ProjectDetail from "./pages/ProjectDetail.jsx";
+import DocsCustomDomains from "./pages/DocsCustomDomains.jsx";
 import Customers from "./pages/Customers.jsx";
 import Team from "./pages/Team.jsx";
 import Clients from "./pages/Clients.jsx";
@@ -529,6 +530,7 @@ function AppShell() {
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/docs/custom-domains" element={<DocsCustomDomains />} />
           </Routes>
           </ErrorBoundary>
         </main>

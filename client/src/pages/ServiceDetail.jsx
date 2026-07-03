@@ -12,6 +12,7 @@ import { StatusPill, Spinner, Button, Mono, timeAgo } from "../components/ui.jsx
 import { SettingsSection, SettingsRow, AnchorNav } from "../components/SettingsSection.jsx";
 import ConfirmDelete from "../components/ConfirmDelete.jsx";
 import MoveToProject from "../components/MoveToProject.jsx";
+import AddDomainModal from "../components/AddDomainModal.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
 
@@ -1052,12 +1053,8 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
   const [buildBusy, setBuildBusy] = useState(false);
   const [buildMsg, setBuildMsg] = useState(null);
 
-  // custom domain (wired to /domain + /domain/verify)
-  const [fqdn, setFqdn] = useState(svc.domain || "");
-  const [domainBusy, setDomainBusy] = useState(false);
-  const [domainMsg, setDomainMsg] = useState(null);
-  const [verifyBusy, setVerifyBusy] = useState(false);
-  const [verifyResult, setVerifyResult] = useState(null);
+  // custom domain (Render-style wizard modal)
+  const [domainModal, setDomainModal] = useState(false);
   const [subdomainOn, setSubdomainOn] = useState(true);
 
   // health check (wired to /build alongside commands; falls through if unsupported)
@@ -1100,36 +1097,6 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
     } catch (err) {
       setBuildMsg({ ok: false, text: err.message });
     } finally { setBuildBusy(false); }
-  }
-
-  async function saveDomain(e) {
-    e.preventDefault();
-    setDomainBusy(true); setDomainMsg(null); setVerifyResult(null);
-    try {
-      const r = await fetch(`/api/services/${serviceId}/domain`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fqdn: fqdn.trim() }),
-      });
-      if (!r.ok) { const e2 = await r.json().catch(() => ({})); throw new Error(e2.error || String(r.status)); }
-      setDomainMsg({ ok: true, text: "Domain saved." });
-    } catch (err) {
-      setDomainMsg({ ok: false, text: err.message });
-    } finally { setDomainBusy(false); }
-  }
-
-  async function verifyDns() {
-    if (!fqdn.trim()) return;
-    setVerifyBusy(true); setVerifyResult(null);
-    try {
-      const r = await fetch(`/api/services/${serviceId}/domain/verify?fqdn=${encodeURIComponent(fqdn.trim())}`, { credentials: "same-origin" });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || String(r.status));
-      setVerifyResult(data);
-    } catch (err) {
-      setVerifyResult({ error: err.message });
-    } finally { setVerifyBusy(false); }
   }
 
   const [confirmDel, setConfirmDel] = useState(false);
@@ -1267,22 +1234,18 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
         {/* 4 · Custom Domains */}
         <SettingsSection id="domains" title="Custom Domains">
           <SettingsRow label="Add custom domain" desc="Point your own domain, verify DNS, then TLS is issued.">
-            <form onSubmit={saveDomain} className="flex flex-col gap-2.5">
-              <div className="flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-center">
-                <TextInput mono value={fqdn} onChange={(v) => { setFqdn(v); setVerifyResult(null); }} placeholder="app.example.com" />
-                <Button type="submit" variant="primary" disabled={domainBusy || !fqdn.trim()}>
-                  {domainBusy ? <Spinner /> : "Add custom domain"}
-                </Button>
-                <Button type="button" variant="secondary" onClick={verifyDns} disabled={verifyBusy || !fqdn.trim()}>
-                  {verifyBusy ? <Spinner /> : "Verify DNS"}
-                </Button>
-              </div>
-              <DomainSteps platformIp={platformIp} host={fqdn} />
-              {domainMsg && <p className="text-xs" style={{ color: domainMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{domainMsg.text}</p>}
-              {verifyResult && !verifyResult.error && <DnsResult result={verifyResult} />}
-              {verifyResult?.error && <p className="text-xs" style={{ color: "var(--err-text)" }}>Verify failed: {verifyResult.error}</p>}
-            </form>
+            <div>
+              <Button variant="primary" onClick={() => setDomainModal(true)}>Add Custom Domain</Button>
+            </div>
           </SettingsRow>
+          {domainModal && (
+            <AddDomainModal
+              serviceId={serviceId}
+              subdomain={subdomain}
+              platformIp={platformIp}
+              onClose={() => setDomainModal(false)}
+            />
+          )}
           <SettingsRow label="DebutDeploy subdomain" desc="A free subdomain always reachable for this service.">
             <div className="flex flex-col gap-2">
               <ToggleRow on={subdomainOn} onToggle={() => setSubdomainOn((v) => !v)} label="Enable free subdomain" />
@@ -1685,97 +1648,6 @@ function PathList({ label, items, onChange }) {
           />
         )}
       </div>
-    </div>
-  );
-}
-
-// ── Custom-domain setup steps (always shown) ────────────────────────────────────
-
-function DomainSteps({ platformIp, host }) {
-  const [copied, setCopied] = useState(false);
-  const name = host?.trim() ? (host.trim().split(".").length > 2 ? host.trim().split(".")[0] : "@") : "@";
-  const copy = () => {
-    if (!platformIp) return;
-    navigator.clipboard?.writeText(platformIp).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <div className="rounded-lg border p-3 text-xs" style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
-      <p className="mb-1.5 font-semibold" style={{ color: "var(--text-muted)" }}>How to point a domain here</p>
-      <ol className="space-y-1.5" style={{ color: "var(--text)" }}>
-        <li>
-          1. At your DNS provider, create an <Mono>A</Mono> record:{" "}
-          <Mono>{name}</Mono> →{" "}
-          {platformIp
-            ? <button onClick={copy} title="Copy IP" className="inline-flex items-center gap-1" style={{ color: copied ? "var(--ok-text)" : "var(--accent-text)" }}>
-                <Mono>{platformIp}</Mono><Copy className="h-3 w-3" />{copied && " copied"}
-              </button>
-            : <Mono>(server IP)</Mono>}
-          . Replace any old host (e.g. a Render <Mono>A</Mono>/<Mono>CNAME</Mono>).
-        </li>
-        <li>2. Add <Mono>www</Mono> the same way (a second <Mono>A</Mono> record → same IP), then add it here as its own domain.</li>
-        <li>3. Enter the domain above, click <span style={{ color: "var(--text)" }}>Add custom domain</span>, then <span style={{ color: "var(--text)" }}>Verify DNS</span>. TLS is issued automatically once DNS points here.</li>
-      </ol>
-    </div>
-  );
-}
-
-// ── DNS verification result ────────────────────────────────────────────────────
-
-function DnsResult({ result }) {
-  // dns.verifyDomain (the live route) returns { fqdn, expectedIp, pointsToServer }
-  const { fqdn: host, expectedIp: serverIp, resolvedIps, pointsToServer: pointsAt } = result;
-  const [copied, setCopied] = useState(false);
-
-  function copy(text) {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }
-
-  return (
-    <div
-      className="space-y-2 rounded-lg border p-3 text-xs"
-      style={{ background: "var(--surface-2)", borderColor: pointsAt ? "var(--ok)" : "var(--warn)" }}
-    >
-      <div className="flex items-center gap-2">
-        {pointsAt
-          ? <Check className="h-4 w-4 shrink-0" style={{ color: "var(--ok-text)" }} strokeWidth={3} />
-          : <X className="h-4 w-4 shrink-0" style={{ color: "var(--warn-text)" }} />}
-        <span style={{ color: "var(--text)" }}>
-          {pointsAt
-            ? `${host} points at the server — DNS is correct.`
-            : resolvedIps?.length
-              ? `${host} resolves to ${resolvedIps.join(", ")} but expected ${serverIp || "??"}.`
-              : `${host} did not resolve — no DNS record found.`}
-        </span>
-      </div>
-
-      {!pointsAt && serverIp && (
-        <div
-          className="flex items-start justify-between gap-2 rounded-md border p-2.5"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
-          <div>
-            <p className="mb-1 font-semibold" style={{ color: "var(--text-muted)" }}>Create an A record:</p>
-            <p style={{ color: "var(--text)" }}>
-              <Mono>@</Mono> or <Mono>{host.split(".")[0]}</Mono> → <Mono>{serverIp}</Mono>
-            </p>
-          </div>
-          <button
-            onClick={() => copy(`A\t${host}\t${serverIp}`)}
-            className="flex shrink-0 items-center gap-1 rounded px-2 py-1 transition"
-            style={{ color: copied ? "var(--ok-text)" : "var(--text-muted)", background: "var(--surface-2)" }}
-            title="Copy"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
