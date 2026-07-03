@@ -172,13 +172,13 @@ function ListTable({ services, onRowClick }) {
   return (
     <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
     <div style={{
-      minWidth: 620,
+      minWidth: 720,
       border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden",
       background: "var(--surface)", boxShadow: "var(--shadow)",
     }}>
       {/* Header */}
       <div style={{
-        display: "grid", gridTemplateColumns: "1.6fr 1.3fr 1.6fr 1fr 0.9fr",
+        display: "grid", gridTemplateColumns: "1.6fr 1fr 1.5fr 0.9fr 0.9fr 0.8fr",
         gap: 12, padding: "11px 18px",
         background: "var(--surface-2)", borderBottom: "1px solid var(--border)",
         fontSize: 11, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase",
@@ -188,6 +188,7 @@ function ListTable({ services, onRowClick }) {
         <span>Status</span>
         <span>Domain</span>
         <span>Runtime</span>
+        <span>Region</span>
         <span style={{ textAlign: "right" }}>Last deploy</span>
       </div>
 
@@ -208,7 +209,7 @@ function ListRow({ s, onClick }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display: "grid", gridTemplateColumns: "1.6fr 1.3fr 1.6fr 1fr 0.9fr",
+        display: "grid", gridTemplateColumns: "1.6fr 1fr 1.5fr 0.9fr 0.9fr 0.8fr",
         gap: 12, padding: "13px 18px",
         borderBottom: "1px solid var(--border)",
         alignItems: "center", cursor: "pointer",
@@ -237,6 +238,12 @@ function ListRow({ s, onClick }) {
           background: RT_COLOR[s.runtime] || "var(--text-muted)",
         }} />
         {s.runtime || "—"}
+      </div>
+      <div style={{
+        fontSize: 12.5, color: "var(--text-muted)",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {s.region || "—"}
       </div>
       <div style={{ textAlign: "right", fontSize: 12.5, color: "var(--text-muted)" }}>
         {s.lastDeployedAt ? timeAgo(s.lastDeployedAt) : "—"}
