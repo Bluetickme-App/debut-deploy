@@ -223,36 +223,52 @@ app.get("/api/health", (_req, res) =>
 // buildStatus never throws — a status page that 500s is worse than useless.
 async function buildStatus() {
   const RANK = { operational: 0, degraded: 1, unknown: 2, outage: 3 };
+  // Platform infrastructure only — NOT individual customer apps. A customer
+  // stopping their own service is not a DebutDeploy incident, so nothing here
+  // rolls up per-app running state.
   const components = [
-    // This handler is running, so the control panel is up by definition.
-    { name: "Control Panel", status: "operational", note: "Dashboard & API" },
+    // This handler is running, so the panel API is up by definition.
+    { name: "Control Panel API", status: "operational", note: "Dashboard & API" },
   ];
 
-  // One live Coolify fetch backs both the orchestrator check and the fleet rollup.
-  let services = null;
+  // One live Coolify fetch backs both the orchestrator-API row and the servers row.
+  let servers = null;
   try {
-    services = await Promise.race([
-      coolify.listServices(),
+    servers = await Promise.race([
+      coolify.listServers(),
       new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
     ]);
-  } catch { /* services stays null → orchestrator down */ }
+  } catch { /* servers stays null → Coolify unreachable */ }
 
   components.push({
-    name: "Deployment Engine",
-    status: services ? "operational" : "outage",
-    note: "Coolify orchestrator",
+    name: "Coolify Orchestrator",
+    status: servers ? "operational" : "outage",
+    note: "Deployment API",
   });
 
-  if (services) {
-    const down = services.filter((s) => s.status !== "running").length;
+  if (servers) {
+    const total = servers.length;
+    const reachable = servers.filter((s) => s.reachable !== false).length;
+    const critical = servers.filter((s) => (s.disk ?? 0) >= 90 || (s.memory ?? 0) >= 90).length;
     components.push({
-      name: "Hosted Services",
-      status: down === 0 ? "operational" : down < services.length ? "degraded" : "outage",
-      note: services.length ? `${services.length - down}/${services.length} running` : "no services",
+      name: "Servers",
+      status: total === 0 ? "unknown"
+        : reachable === 0 ? "outage"
+        : reachable < total || critical > 0 ? "degraded"
+        : "operational",
+      note: total
+        ? `${reachable}/${total} reachable${critical ? ` · ${critical} resource-critical` : ""}`
+        : "no servers",
     });
   } else {
-    components.push({ name: "Hosted Services", status: "unknown", note: "orchestrator unreachable" });
+    components.push({ name: "Servers", status: "unknown", note: "orchestrator unreachable" });
   }
+
+  // Platform data store (the panel's own DB) — a running API with an unreachable
+  // store is still an outage, so probe it directly.
+  let dbOk = true;
+  try { db.prepare("SELECT 1").get(); } catch { dbOk = false; }
+  components.push({ name: "Database", status: dbOk ? "operational" : "outage", note: "Control-plane store" });
 
   const overall = components.reduce((w, c) => (RANK[c.status] > RANK[w] ? c.status : w), "operational");
   return { overall, components, mode: demoMode ? "demo" : "live", checkedAt: Date.now() };
