@@ -45,6 +45,17 @@ export function splitBuildCommand(cmd) {
   };
 }
 
+// Map a Render service's runtime to Coolify's build_pack + build fields. Render "docker"
+// services build from the repo's Dockerfile (Coolify build_pack "dockerfile", which ignores
+// install/build/start commands); everything else uses Nixpacks with split commands.
+// Without this, a Dockerfile repo gets built by Nixpacks and the deploy fails.
+export function renderBuildConfig(service = {}) {
+  const isDocker = /docker|image/i.test(service.env || "");
+  if (isDocker) return { buildPack: "dockerfile", installCommand: undefined, buildCommand: undefined, startCommand: undefined };
+  const { installCommand, buildCommand } = splitBuildCommand(service.buildCommand);
+  return { buildPack: "nixpacks", installCommand, buildCommand, startCommand: service.startCommand };
+}
+
 export function assertPgUrl(url) {
   if (typeof url !== "string" || !/^postgres(ql)?:\/\//i.test(url)) {
     throw Object.assign(new Error("Invalid Postgres connection URL"), { status: 400 });
@@ -200,16 +211,17 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     // createDeployKeyApp's default params — an empty git_branch 422s at Coolify.
     if (!service.repo) throw Object.assign(new Error("Render service has no git repository to migrate (image-based services aren't supported)"), { status: 422 });
     const dedicated = target.mode === "dedicated";
-    const { installCommand, buildCommand } = splitBuildCommand(service.buildCommand);
+    const { buildPack, installCommand, buildCommand, startCommand } = renderBuildConfig(service);
     const { uuid } = await d.createDeployKeyApp({
       keyUuid,
       repo: d.toSshUrl(service.repo),
       branch: service.branch || "main",
       name: service.name,
       port,
+      buildPack,
       installCommand,
       buildCommand,
-      startCommand: service.startCommand,
+      startCommand,
       ...(dedicated ? { serverUuid, destinationUuid: await d.getDefaultDestination(serverUuid) } : {}),
     });
     appUuid = uuid;

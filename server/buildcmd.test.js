@@ -13,3 +13,13 @@ test("handles && separator and install-only / build-only", () => {
   assert.deepEqual(splitBuildCommand("go build ./..."), { installCommand: undefined, buildCommand: "go build ./..." });
   assert.deepEqual(splitBuildCommand(""), { installCommand: undefined, buildCommand: undefined });
 });
+
+const { renderBuildConfig } = await import("./migrate.js");
+test("renderBuildConfig: docker → dockerfile, no commands", () => {
+  assert.deepEqual(renderBuildConfig({ env: "docker", buildCommand: "make" }),
+    { buildPack: "dockerfile", installCommand: undefined, buildCommand: undefined, startCommand: undefined });
+});
+test("renderBuildConfig: node → nixpacks + split commands", () => {
+  assert.deepEqual(renderBuildConfig({ env: "node", buildCommand: "npm install; npm run build", startCommand: "npm start" }),
+    { buildPack: "nixpacks", installCommand: "npm install", buildCommand: "npm run build", startCommand: "npm start" });
+});
