@@ -116,6 +116,11 @@ export const api = {
   billingPortal: () => req("/billing/portal", { method: "POST" }),
   setServicePlan: (id, planId) => req(`/services/${id}/plan`, { method: "PATCH", body: { planId } }),
   setDatabasePlan: (id, planId) => req(`/databases/${id}/plan`, { method: "PATCH", body: { planId } }),
+  // Client self-service billing (org owner)
+  orgBillingInfo: () => req("/org/billing-info"),
+  saveOrgBillingInfo: (body) => req("/org/billing-info", { method: "PATCH", body }),
+  orgInvoiceUrl: (period, download) => `/api/org/invoice${period ? `?period=${period}` : ""}${download ? `${period ? "&" : "?"}download=1` : ""}`,
+  adminInvoiceUrl: (id, period, download) => `/api/admin/orgs/${id}/invoice${period ? `?period=${period}` : ""}${download ? `${period ? "&" : "?"}download=1` : ""}`,
   // Usage metering
   usage: (period) => req(`/org/usage${period ? `?period=${period}` : ""}`),
   usageCurrent: () => req("/org/usage/current"),

@@ -209,7 +209,12 @@ function BillingPanel({ org, onChange }) {
       </Section>
 
       {/* Billing information */}
-      <Section title="Billing information" right={<button className="btn" disabled={savingInfo} onClick={saveInfo}>{savingInfo ? "Saving…" : "Save"}</button>}>
+      <Section title="Billing information" right={
+        <div className="flex gap-2">
+          <a className="btn" href={api.adminInvoiceUrl(org.id)} target="_blank" rel="noreferrer">Invoice</a>
+          <button className="btn" disabled={savingInfo} onClick={saveInfo}>{savingInfo ? "Saving…" : "Save"}</button>
+        </div>
+      }>
         <div className="flex flex-wrap gap-2">
           <input className="input" style={{ minWidth: 200 }} placeholder="billing email" value={info?.billing_email || ""} onChange={(e) => setInfo({ ...info, billing_email: e.target.value })} />
           <input className="input" style={{ minWidth: 160 }} placeholder="company name" value={info?.billing_company || ""} onChange={(e) => setInfo({ ...info, billing_company: e.target.value })} />

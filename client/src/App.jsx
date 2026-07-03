@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge, Settings as SettingsIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -26,6 +26,7 @@ import NewServiceGit from "./pages/NewServiceGit.jsx";
 import Billing from "./pages/Billing.jsx";
 import WalletPage from "./pages/Wallet.jsx";
 import Usage from "./pages/Usage.jsx";
+import Settings from "./pages/Settings.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
@@ -268,12 +269,14 @@ const CRUMB_MAP = {
   "/billing": "Billing & Plans",
   "/wallet": "Wallet",
   "/usage": "Usage",
+  "/settings": "Account settings",
 };
 
 function Topbar({ onMenuClick }) {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState(null);
   const [logoutHov, setLogoutHov] = useState(false);
   const [themeHov, setThemeHov] = useState(false);
@@ -420,6 +423,18 @@ function Topbar({ onMenuClick }) {
                 </span>
               </div>
               <button
+                onClick={() => { setMenuOpen(false); navigate("/settings"); }}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 14px",
+                  background: "transparent", border: "none", cursor: "pointer", fontSize: 13,
+                  color: "var(--text)", fontFamily: "inherit", borderTop: "1px solid var(--border)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <SettingsIcon size={15} /> Account settings
+              </button>
+              <button
                 onClick={() => { setMenuOpen(false); logout(); }}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "10px 14px",
@@ -502,6 +517,7 @@ function AppShell() {
             <Route path="/billing" element={<Billing />} />
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/usage" element={<Usage />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/import" element={<ImportRender />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />

@@ -52,6 +52,7 @@ import {
   getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod, usdToPence,
 } from "./billing.js";
 import { planPriceUsd } from "./plans.js";
+import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
 import { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } from "./notifications.js";
 import { runHealthCheck } from "./monitor.js";
@@ -374,15 +375,23 @@ app.get(
 );
 
 // --- projects: list + move a service/database into one ---
-app.get("/api/projects", requireAuth, h(async () => coolify.listProjects()));
+// Coolify projects are GLOBAL (the operator's organisational structure), so a
+// customer must NOT see them — otherwise every new customer's dropdown leaks
+// deploy-7/debutdeploy/etc. Only admins (the operator) get the project list; org-
+// scoped per-customer projects are a follow-up. // ponytail: replace [] with the
+// caller's org-owned projects once an org→project mapping exists.
+async function visibleProjects(user) {
+  if (user?.role !== "admin") return [];
+  return coolify.listProjects();
+}
+app.get("/api/projects", requireAuth, h(async (req) => visibleProjects(req.user)));
 
-// Only allow moving into a real, panel-managed Coolify project — never an arbitrary
-// or other-tenant project uuid submitted by the client (IDOR guard). // ponytail:
-// filter listProjects by org once projects are org-partitioned.
-async function assertKnownProject(projectUuid) {
-  const projects = await coolify.listProjects();
+// Only allow moving into a project the caller can actually SEE (IDOR + tenancy
+// guard) — never an arbitrary or other-tenant project uuid submitted by the client.
+async function assertKnownProject(user, projectUuid) {
+  const projects = await visibleProjects(user);
   if (!projectUuid || !projects.some((p) => p.uuid === projectUuid)) {
-    throw Object.assign(new Error("Unknown or missing target project"), { status: 400 });
+    throw Object.assign(new Error("Unknown or inaccessible target project"), { status: 400 });
   }
 }
 
@@ -391,7 +400,7 @@ app.post(
   requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    await assertKnownProject(req.body?.projectUuid);
+    await assertKnownProject(req.user, req.body?.projectUuid);
     const r = await coolify.moveToProject(req.params.id, req.body.projectUuid, "app");
     record(req, "service.move", { resourceType: "application", resourceUuid: req.params.id, metadata: { projectUuid: req.body.projectUuid } });
     return r;
@@ -403,7 +412,7 @@ app.post(
   requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "database", req.params.id);
-    await assertKnownProject(req.body?.projectUuid);
+    await assertKnownProject(req.user, req.body?.projectUuid);
     const r = await coolify.moveToProject(req.params.id, req.body.projectUuid, "postgres");
     record(req, "database.move", { resourceType: "database", resourceUuid: req.params.id, metadata: { projectUuid: req.body.projectUuid } });
     return r;
@@ -509,7 +518,7 @@ app.post(
     const userId = req.user.id;
     const { type, name, projectUuid, version } = req.body || {};
     if (!type || !name) throw Object.assign(new Error("type and name are required"), { status: 400 });
-    if (projectUuid) await assertKnownProject(projectUuid); // reject arbitrary/other-tenant project targets
+    if (projectUuid) await assertKnownProject(req.user, projectUuid); // reject arbitrary/inaccessible project targets
     // projectUuid unset → createDatabase's verified-good default project. Ownership via assign().
     const { uuid } = await databases.createDatabase({ type, name, projectUuid, version });
     assign(uuid, "database", userId);
@@ -723,6 +732,48 @@ app.patch("/api/admin/orgs/:id/billing-info", requireAuth, requireAdmin, mutateG
   record(req, "billing.info_updated", { metadata: { org_id: orgId } });
   return getOrgBillingInfo(orgId);
 }));
+
+// Master-Admin: a downloadable/printable invoice for one client + period (HTML → Save as PDF).
+// Not h()-wrapped: returns HTML, not JSON. Same-origin navigation carries the admin session.
+app.get("/api/admin/orgs/:id/invoice", requireAuth, requireAdmin, (req, res, next) => {
+  try {
+    const orgId = Number(req.params.id);
+    const detail = getOrgDetail(orgId);
+    if (!detail) return res.status(404).json({ error: "Organization not found" });
+    const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
+    const planLines = listOrgResources(orgId)
+      .filter((r) => r.plan_id)
+      .map((r) => ({
+        label: `${r.type === "application" ? "service" : r.type} ${String(r.uuid).slice(0, 12)} · ${r.plan_id}`,
+        amount_pence: usdToPence(planPriceUsd(r.plan_id)),
+      }));
+    const planTotalPence = planLines.reduce((s, l) => s + l.amount_pence, 0);
+    const summary = usageSummary(orgId, period, detail.org.name);
+    const usageLines = (summary.lines || []).map((l) => ({
+      label: l.type,
+      detail:
+        l.type === "compute" ? `${(l.computeHours ?? 0).toFixed(1)} hr`
+        : l.type === "disk" ? `${l.allocatedGb ?? 0} GB × ${(l.hours ?? 0).toFixed(0)} hr`
+        : `${l.usedGb ?? 0} / ${l.allowanceGb ?? 0} GB`,
+      pence: l.pence,
+    }));
+    const charge = db.prepare(
+      "SELECT amount_pence, created_at FROM credit_ledger WHERE org_id = ? AND type = 'hardware_charge' AND period = ? ORDER BY id DESC LIMIT 1"
+    ).get(orgId, period);
+    const html = renderInvoiceHtml({
+      issuer: { name: "DebutDeploy" }, // ponytail: move operator billing details to app_settings when needed
+      org: detail.org,
+      info: getOrgBillingInfo(orgId),
+      period,
+      invoiceNo: `INV-${orgId}-${period}`,
+      planLines, planTotalPence, usageLines,
+      charge: charge || null,
+      balancePence: walletBalance(orgId),
+    });
+    if (req.query.download) res.setHeader("Content-Disposition", `attachment; filename="invoice-${orgId}-${period}.html"`);
+    res.type("html").send(html);
+  } catch (err) { next(err); }
+});
 
 // Master-Admin: manual credit/debit adjustment (comp credit, refund, correction).
 // Writes an audited 'adjustment' ledger row; positive = credit, negative = debit.
@@ -1614,6 +1665,53 @@ app.get("/api/billing/wallet", requireAuth, attachOrgContext, requireCapability(
     };
   })
 );
+
+// Client self-service: the org's own billing information (VAT/company/email).
+app.get("/api/org/billing-info", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => getOrgBillingInfo(req.org.id))
+);
+app.patch("/api/org/billing-info", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const clean = (v) => (v == null ? null : String(v).slice(0, 200).trim() || null);
+    setOrgBillingInfo(req.org.id, {
+      email: clean(req.body?.billing_email),
+      company: clean(req.body?.billing_company),
+      vat: clean(req.body?.billing_vat),
+    });
+    record(req, "billing.info_updated", { metadata: { org_id: req.org.id } });
+    return getOrgBillingInfo(req.org.id);
+  })
+);
+
+// Client self-service: download their own invoice (HTML → Save as PDF).
+app.get("/api/org/invoice", requireAuth, attachOrgContext, requireCapability("read"), (req, res, next) => {
+  try {
+    const orgId = req.org.id;
+    const detail = getOrgDetail(orgId);
+    const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
+    const planLines = listOrgResources(orgId).filter((r) => r.plan_id).map((r) => ({
+      label: `${r.type === "application" ? "service" : r.type} ${String(r.uuid).slice(0, 12)} · ${r.plan_id}`,
+      amount_pence: usdToPence(planPriceUsd(r.plan_id)),
+    }));
+    const planTotalPence = planLines.reduce((s, l) => s + l.amount_pence, 0);
+    const summary = usageSummary(orgId, period, detail.org.name);
+    const usageLines = (summary.lines || []).map((l) => ({
+      label: l.type,
+      detail: l.type === "compute" ? `${(l.computeHours ?? 0).toFixed(1)} hr`
+        : l.type === "disk" ? `${l.allocatedGb ?? 0} GB × ${(l.hours ?? 0).toFixed(0)} hr`
+        : `${l.usedGb ?? 0} / ${l.allowanceGb ?? 0} GB`,
+      pence: l.pence,
+    }));
+    const charge = db.prepare("SELECT amount_pence, created_at FROM credit_ledger WHERE org_id = ? AND type = 'hardware_charge' AND period = ? ORDER BY id DESC LIMIT 1").get(orgId, period);
+    const html = renderInvoiceHtml({
+      issuer: { name: "DebutDeploy" }, org: detail.org, info: getOrgBillingInfo(orgId), period,
+      invoiceNo: `INV-${orgId}-${period}`, planLines, planTotalPence, usageLines,
+      charge: charge || null, balancePence: walletBalance(orgId),
+    });
+    if (req.query.download) res.setHeader("Content-Disposition", `attachment; filename="invoice-${period}.html"`);
+    res.type("html").send(html);
+  } catch (err) { next(err); }
+});
 
 app.post("/api/billing/topup", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
   h(async (req) => {
