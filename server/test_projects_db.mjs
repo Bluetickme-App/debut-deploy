@@ -16,6 +16,10 @@ test("createProject slugifies and is org-unique-scoped", () => {
   assert.throws(() => db.createProject(org, "Aurora Travel")); // UNIQUE(org_id, slug)
 });
 
+test("createProject requires an org context (400 when orgId is null)", () => {
+  assert.throws(() => db.createProject(null, "X"), (e) => e.status === 400);
+});
+
 test("createProject in a different org with the same name is allowed", () => {
   const a = newOrg("p2a@x.com"), b = newOrg("p2b@x.com");
   db.createProject(a, "Shared Name");

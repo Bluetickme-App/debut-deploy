@@ -662,6 +662,9 @@ function uniqueEnvSlug(projectId, base) {
 }
 
 export function createProject(orgId, name) {
+  // orgId is NOT NULL in the schema; guard so an admin (org context = null) gets a clean
+  // 400 instead of a raw NOT NULL constraint 500. Admins must act within an org context.
+  if (!orgId) throw Object.assign(new Error("An organization context is required"), { status: 400 });
   const slug = slugify(name);
   // Enforce the UNIQUE(org_id, slug) exactly (no silent suffixing on create — callers
   // want a clear "already exists" error). uniqueProjectSlug is used only for backfill/default.
