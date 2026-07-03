@@ -643,3 +643,92 @@ export const getOrgBillingInfo = (orgId) =>
 export const setOrgBillingInfo = (orgId, { email = null, company = null, vat = null, address = null }) =>
   db.prepare("UPDATE organizations SET billing_email = ?, billing_company = ?, billing_vat = ?, billing_address = ? WHERE id = ?")
     .run(email, company, vat, address, orgId).changes;
+
+// --- projects & environments (panel-native grouping) ------------------------
+
+const notFound = (m = "Not found") => Object.assign(new Error(m), { status: 404 });
+
+function uniqueProjectSlug(orgId, base) {
+  const taken = db.prepare("SELECT 1 FROM projects WHERE org_id = ? AND slug = ?");
+  let slug = base, n = 1;
+  while (taken.get(orgId, slug)) { n += 1; slug = `${base}-${n}`; }
+  return slug;
+}
+function uniqueEnvSlug(projectId, base) {
+  const taken = db.prepare("SELECT 1 FROM environments WHERE project_id = ? AND slug = ?");
+  let slug = base, n = 1;
+  while (taken.get(projectId, slug)) { n += 1; slug = `${base}-${n}`; }
+  return slug;
+}
+
+export function createProject(orgId, name) {
+  const slug = slugify(name);
+  // Enforce the UNIQUE(org_id, slug) exactly (no silent suffixing on create — callers
+  // want a clear "already exists" error). uniqueProjectSlug is used only for backfill/default.
+  const exists = db.prepare("SELECT 1 FROM projects WHERE org_id = ? AND slug = ?").get(orgId, slug);
+  if (exists) throw Object.assign(new Error("A project with that name already exists"), { status: 409 });
+  const now = nowIso();
+  const id = db.prepare("INSERT INTO projects (org_id, name, slug, created_at, updated_at) VALUES (?,?,?,?,?)")
+    .run(orgId, name, slug, now, now).lastInsertRowid;
+  return { id, name, slug };
+}
+
+export const listProjects = (orgId) =>
+  db.prepare("SELECT id, name, slug, created_at FROM projects WHERE org_id = ? ORDER BY created_at").all(orgId);
+
+export const getProject = (orgId, id) =>
+  db.prepare("SELECT id, name, slug, created_at FROM projects WHERE org_id = ? AND id = ?").get(orgId, id);
+
+export const renameProject = (orgId, id, name) =>
+  db.prepare("UPDATE projects SET name = ?, slug = ?, updated_at = ? WHERE org_id = ? AND id = ?")
+    .run(name, slugify(name), nowIso(), orgId, id).changes;
+
+export const deleteProject = (orgId, id) =>
+  db.prepare("DELETE FROM projects WHERE org_id = ? AND id = ?").run(orgId, id).changes;
+
+// Validates the project belongs to the org before creating the env under it.
+export function createEnvironment(orgId, projectId, name) {
+  const proj = db.prepare("SELECT id FROM projects WHERE org_id = ? AND id = ?").get(orgId, projectId);
+  if (!proj) throw notFound();
+  const slug = uniqueEnvSlug(projectId, slugify(name));
+  const now = nowIso();
+  const id = db.prepare("INSERT INTO environments (project_id, name, slug, created_at, updated_at) VALUES (?,?,?,?,?)")
+    .run(projectId, name, slug, now, now).lastInsertRowid;
+  return { id, name, slug };
+}
+
+export const listEnvironments = (projectId) =>
+  db.prepare("SELECT id, name, slug FROM environments WHERE project_id = ? ORDER BY (slug='production') DESC, name").all(projectId);
+
+export const renameEnvironment = (orgId, envId, name) =>
+  db.prepare(`UPDATE environments SET name = ?, slug = ?, updated_at = ?
+              WHERE id = ? AND project_id IN (SELECT id FROM projects WHERE org_id = ?)`)
+    .run(name, slugify(name), nowIso(), envId, orgId).changes;
+
+export const deleteEnvironment = (orgId, envId) =>
+  db.prepare(`DELETE FROM environments WHERE id = ? AND project_id IN (SELECT id FROM projects WHERE org_id = ?)`)
+    .run(envId, orgId).changes;
+
+// Env → project → org, in one row. Used by the placement service's target check.
+export const getEnvironmentWithOrg = (envId) =>
+  db.prepare(`SELECT e.id, e.project_id, p.org_id
+              FROM environments e JOIN projects p ON p.id = e.project_id WHERE e.id = ?`).get(envId);
+
+// Idempotent Default project + Production env for an org (first-login / empty state).
+export function ensureDefaultProjectEnv(orgId) {
+  let proj = db.prepare("SELECT id FROM projects WHERE org_id = ? AND slug = 'default'").get(orgId);
+  if (!proj) {
+    const now = nowIso();
+    const id = db.prepare("INSERT INTO projects (org_id, name, slug, created_at, updated_at) VALUES (?, 'Default', 'default', ?, ?)")
+      .run(orgId, now, now).lastInsertRowid;
+    proj = { id };
+  }
+  let env = db.prepare("SELECT id FROM environments WHERE project_id = ? AND slug = 'production'").get(proj.id);
+  if (!env) {
+    const now = nowIso();
+    const id = db.prepare("INSERT INTO environments (project_id, name, slug, created_at, updated_at) VALUES (?, 'Production', 'production', ?, ?)")
+      .run(proj.id, now, now).lastInsertRowid;
+    env = { id };
+  }
+  return { projectId: proj.id, environmentId: env.id };
+}
