@@ -325,6 +325,12 @@ const MIGRATIONS = [
     const unplaced = d.prepare("SELECT COUNT(*) c FROM resource_ownership WHERE org_id IS NOT NULL AND environment_id IS NULL").get().c;
     if (unplaced) throw new Error(`migration 18 backfill incomplete: ${unplaced} owned resources unplaced`);
   },
+  // -> user_version 19: per-service notification preference ('default' = use the
+  // owner's workspace webhook settings, 'failures' = only failure events, 'off' = mute).
+  (d) => {
+    d.exec(`ALTER TABLE resource_ownership ADD COLUMN notify_pref TEXT NOT NULL DEFAULT 'default'
+      CHECK(notify_pref IN ('default','failures','off'));`);
+  },
 ];
 
 function resolveDbFile() {

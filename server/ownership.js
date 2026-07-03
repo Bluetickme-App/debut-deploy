@@ -70,6 +70,20 @@ export function setAutoDeploy(uuid, enabled) {
     .run(enabled ? 1 : 0, uuid).changes;
 }
 
+// Per-service notification preference: 'default' (defer to the owner's workspace
+// webhook settings), 'failures' (only failure events), 'off' (mute this service).
+const NOTIFY_PREFS = new Set(["default", "failures", "off"]);
+
+export function getNotifyPref(uuid) {
+  const row = db.prepare("SELECT notify_pref FROM resource_ownership WHERE coolify_uuid = ?").get(uuid);
+  return row?.notify_pref || "default";
+}
+
+export function setNotifyPref(uuid, pref) {
+  const p = NOTIFY_PREFS.has(pref) ? pref : "default";
+  return db.prepare("UPDATE resource_ownership SET notify_pref = ? WHERE coolify_uuid = ?").run(p, uuid).changes;
+}
+
 export function listOwnedTypesForUser(userId) {
   const orgId = orgIdForUser(userId);
   if (orgId == null) return [];

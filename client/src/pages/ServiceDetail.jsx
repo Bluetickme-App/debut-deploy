@@ -16,6 +16,10 @@ import AddDomainModal from "../components/AddDomainModal.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
 
+// Service-notification pref <-> dropdown label (backend stores the pref value).
+const NOTIFY_LABEL = { default: "Workspace default", failures: "Failures only", off: "Off" };
+const NOTIFY_PREF = { "Workspace default": "default", "Failures only": "failures", Off: "off" };
+
 export default function ServiceDetail() {
   const { id } = useParams();
   const [svc, setSvc] = useState(null);
@@ -1072,10 +1076,21 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
     }).catch(() => {});
   }
 
+  // service notifications (wired to /notifications; label <-> pref value)
+  const [svcNotify, setSvcNotify] = useState(NOTIFY_LABEL[svc.notifyPref] || "Workspace default");
+  async function changeSvcNotify(label) {
+    setSvcNotify(label);
+    await fetch(`/api/services/${serviceId}/notifications`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pref: NOTIFY_PREF[label] || "default" }),
+    }).catch(() => {});
+  }
+
   // display-only local state (no backend)
   const [prPreview, setPrPreview] = useState("Off");
   const [edgeCache, setEdgeCache] = useState("Static assets");
-  const [svcNotify, setSvcNotify] = useState("Workspace default");
   const [previewNotify, setPreviewNotify] = useState("Off");
   const [maintenance, setMaintenance] = useState(false);
   const [maintenanceUrl, setMaintenanceUrl] = useState("");
@@ -1307,7 +1322,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
         {/* 8 · Notifications */}
         <SettingsSection id="notifications" title="Notifications">
           <SettingsRow label="Service notifications" desc="Alerts for failed deploys and downtime.">
-            <SelectInput value={svcNotify} onChange={setSvcNotify} options={["Workspace default", "All events", "Failures only", "Off"]} />
+            <SelectInput value={svcNotify} onChange={changeSvcNotify} options={["Workspace default", "Failures only", "Off"]} />
           </SettingsRow>
           <SettingsRow label="Preview-env notifications" desc="Alerts for PR preview environments.">
             <SelectInput value={previewNotify} onChange={setPreviewNotify} options={["Off", "Failures only", "All events"]} />

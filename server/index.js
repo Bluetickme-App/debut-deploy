@@ -10,7 +10,7 @@ import * as githubApp from "./github-app.js";
 import * as databases from "./databases.js";
 import * as lifecycle from "./lifecycle.js";
 import { setupAuth } from "./auth.js";
-import { assertOwns, assign, ownedUuids, release, getAutoDeploy, setAutoDeploy } from "./ownership.js";
+import { assertOwns, assign, ownedUuids, release, getAutoDeploy, setAutoDeploy, getNotifyPref, setNotifyPref } from "./ownership.js";
 import {
   db,
   listUsers,
@@ -319,7 +319,7 @@ app.get(
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const svc = ensureFound(await coolify.getService(req.params.id), "Service");
-    return { ...svc, autoDeploy: getAutoDeploy(req.params.id) };
+    return { ...svc, autoDeploy: getAutoDeploy(req.params.id), notifyPref: getNotifyPref(req.params.id) };
   })
 );
 
@@ -336,10 +336,29 @@ app.patch(
   })
 );
 
+// Per-service notification preference: 'default' | 'failures' | 'off' (see notifyOwner).
+app.patch(
+  "/api/services/:id/notifications",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    setNotifyPref(req.params.id, String(req.body?.pref || "default"));
+    return { ok: true, notifyPref: getNotifyPref(req.params.id) };
+  })
+);
+
 // Notify a resource's OWNER (not the actor) of an event — fire-and-forget.
+// Honours the per-service notify preference before deferring to the owner's
+// workspace webhook settings (single choke point for both deploy + health events).
+const FAILURE_EVENTS = new Set(["deploy.failed", "service.down"]);
 function notifyOwner(uuid, event) {
   const owner = db.prepare("SELECT user_id FROM resource_ownership WHERE coolify_uuid = ?").get(uuid);
-  if (owner?.user_id) notify({ userId: owner.user_id, event: { ...event, resource_uuid: event.resource_uuid ?? uuid } }).catch(() => {});
+  if (!owner?.user_id) return;
+  const pref = getNotifyPref(uuid);
+  if (pref === "off") return;
+  if (pref === "failures" && !FAILURE_EVENTS.has(event.type)) return;
+  notify({ userId: owner.user_id, event: { ...event, resource_uuid: event.resource_uuid ?? uuid } }).catch(() => {});
 }
 
 // Poll a deployment to a terminal state, then notify deploy.succeeded/failed.
@@ -1936,17 +1955,10 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
             resourceUuid: t.uuid,
             metadata: { name: t.name, from: t.from, to: t.to },
           });
-          const owner = db.prepare("SELECT user_id FROM resource_ownership WHERE coolify_uuid = ?").get(t.uuid);
-          if (owner?.user_id) {
-            await notify({
-              userId: owner.user_id,
-              event: {
-                type: t.down ? "service.down" : "service.up",
-                resource_uuid: t.uuid,
-                message: `${t.name}: ${t.from} → ${t.to}`,
-              },
-            });
-          }
+          notifyOwner(t.uuid, {
+            type: t.down ? "service.down" : "service.up",
+            message: `${t.name}: ${t.from} → ${t.to}`,
+          });
         },
       });
       healthSnapshot = snapshot;
