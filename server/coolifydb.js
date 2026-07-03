@@ -55,7 +55,7 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   if (!u) return [];
   const n = Math.min(50, Math.max(1, Number(limit) || 20));
   const raw = await runSql(
-    `SELECT deployment_uuid||'|'||status||'|'||coalesce(commit,'')||'|'||replace(split_part(coalesce(commit_message,''),chr(10),1),'|','/')||'|'||coalesce(is_webhook::text,'f')||'|'||created_at||'|'||coalesce(updated_at,'') ` +
+    `SELECT deployment_uuid||'|'||status||'|'||coalesce(commit,'')||'|'||replace(split_part(coalesce(commit_message,''),chr(10),1),'|','/')||'|'||coalesce(is_webhook::text,'f')||'|'||created_at::text||'|'||coalesce(updated_at::text,'') ` +
     `FROM application_deployment_queues WHERE application_id=(SELECT id::text FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT ${n}`
   );
   return String(raw || "").trim().split("\n").filter(Boolean).map((line) => {
