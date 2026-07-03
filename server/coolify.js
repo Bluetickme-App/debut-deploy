@@ -71,7 +71,7 @@ async function sharedRegion() {
     if (!K) return _regionCache;
     const j = await (await fetch("https://api.hetzner.cloud/v1/servers", { headers: { Authorization: `Bearer ${K}` } })).json();
     const s = (j.servers || [])[0];
-    _regionCache = s?.datacenter?.location?.city || s?.datacenter?.location?.name || "";
+    _regionCache = s?.location?.city || s?.location?.name || ""; // Hetzner puts it on `location`, not `datacenter`
   } catch { /* leave blank on failure */ }
   return _regionCache;
 }
