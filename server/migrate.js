@@ -15,6 +15,7 @@ import {
 } from "./coolify.js";
 import { fetchBlueprint, applyBlueprint, ownerRepo } from "./renderyaml.js";
 import { createProjectDatabase, provisionDedicatedDatabase } from "./sharedcluster.js";
+import { deleteApp } from "./lifecycle.js";
 import { assign } from "./ownership.js";
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
@@ -82,6 +83,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     ownerRepo,
     removeCoolifyServer,
     deleteServer,
+    deleteApp,
     ...deps,
   };
 
@@ -97,6 +99,21 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     provisioned = null;
     try { if (coolifyUuid) await d.removeCoolifyServer(coolifyUuid); } catch { /* best effort */ }
     try { if (hetznerId) await d.deleteServer(hetznerId); } catch { /* best effort */ }
+  }
+
+  // Tear down a half-created app so a failed shared-mode import doesn't leave an
+  // orphan the user never asked for (and can't see — it has no ownership row yet).
+  // SHARED ONLY: on dedicated the app lives on a billed server whose teardown the
+  // admin flow owns, so deleting the app there would strand the paid VM.
+  // ponytail: a shared logical DB created before a migrate-db failure may linger —
+  // it's uniquely named + empty, so low-harm; full DB teardown is a follow-up.
+  let createdAppUuid = null;
+  const canCleanupApp = target.mode === "shared";
+  async function cleanupApp() {
+    if (!createdAppUuid || !canCleanupApp) return;
+    const u = createdAppUuid;
+    createdAppUuid = null;
+    try { await d.deleteApp(u); } catch { /* best effort */ }
   }
 
   // Step 1 — read Render service + env vars
@@ -166,6 +183,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       ...(dedicated ? { serverUuid, destinationUuid: await d.getDefaultDestination(serverUuid) } : {}),
     });
     appUuid = uuid;
+    createdAppUuid = uuid; // track for shared-mode cleanup if a later pre-deploy step fails
     provisioned = null; // app now lives on the server — it's committed, not an orphan
     steps.push({ step: "create-app", status: "ok", detail: { appUuid } });
   } catch (err) {
@@ -219,6 +237,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       steps.push({ step: "migrate-db", status: "ok", detail: null });
     } catch (err) {
       steps.push({ step: "migrate-db", status: "error", detail: errDetail(err) });
+      await cleanupApp();
       return { ok: false, appUuid: null, steps };
     }
   } else {
@@ -243,6 +262,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     steps.push({ step: "push-env", status: "ok", detail: { count: envVars.length } });
   } catch (err) {
     steps.push({ step: "push-env", status: "error", detail: errDetail(err) });
+    await cleanupApp();
     return { ok: false, appUuid: null, steps };
   }
 
@@ -252,6 +272,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     steps.push({ step: "deploy", status: "ok", detail: null });
   } catch (err) {
     steps.push({ step: "deploy", status: "error", detail: errDetail(err) });
+    await cleanupApp();
     return { ok: false, appUuid: null, steps };
   }
 
@@ -260,8 +281,10 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     d.assign(appUuid, "application", userId);
     steps.push({ step: "assign-ownership", status: "ok", detail: null });
   } catch (err) {
+    // App is deployed and running — a bookkeeping failure, not a reason to tear it
+    // down. Return the real appUuid so ownership can be reconciled/retried.
     steps.push({ step: "assign-ownership", status: "error", detail: errDetail(err) });
-    return { ok: false, appUuid: null, steps };
+    return { ok: false, appUuid, steps };
   }
 
   return { ok: true, appUuid, url: "https://" + service.name + ".demo", steps };
