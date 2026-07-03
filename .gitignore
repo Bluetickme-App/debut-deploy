@@ -11,3 +11,11 @@ server/data/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# session scratch (browser dumps, screenshots, deploy pokers)
+.playwright-mcp/
+*.jpeg
+premium-agent-hub-*.png
+server/_tok.mjs
+server/_deploydd.mjs
+server/_dodeploy.mjs
