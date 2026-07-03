@@ -13,6 +13,31 @@ const RT_COLOR = {
   Node: "#4f9d4f", Go: "#00acd7", Python: "#ffd43b", Static: "#94a3b8",
 };
 
+// Turn a git remote (git@github.com:owner/repo.git or https://github.com/owner/repo)
+// into a browsable GitHub URL, or null if it isn't recognisably a repo.
+function repoHref(repo) {
+  const m = String(repo || "").match(/github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?$/i);
+  if (m) return `https://github.com/${m[1]}`;
+  return /^https?:\/\//.test(repo || "") ? repo : null;
+}
+
+// Repo text that links straight to the repo when possible. stopPropagation so clicking
+// it inside a clickable card/row opens GitHub instead of navigating to the service.
+function RepoText({ repo, name }) {
+  const href = repoHref(repo);
+  const label = repo || name;
+  if (!href) return label;
+  return (
+    <a href={href} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+       title="Open repository on GitHub"
+       style={{ color: "inherit", textDecoration: "none" }}
+       onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+       onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
+      {label}
+    </a>
+  );
+}
+
 function RuntimeChip({ runtime }) {
   const color = RT_COLOR[runtime] || "var(--text-muted)";
   return (
@@ -127,7 +152,7 @@ function GridCard({ s, onClick }) {
         }}>
           <GitBranch size={13} style={{ flexShrink: 0 }} />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {s.repo || s.name}
+            <RepoText repo={s.repo} name={s.name} />
           </span>
           <span style={{ color: "var(--border-strong)" }}>·</span>
           <span style={{ color: "var(--text)" }}>{s.branch || "main"}</span>
@@ -196,7 +221,7 @@ function ListRow({ s, onClick }) {
           {s.name}
         </span>
         <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--text-muted)" }}>
-          {s.repo || s.name} · {s.branch || "main"}
+          <RepoText repo={s.repo} name={s.name} /> · {s.branch || "main"}
         </span>
       </div>
       <div><StatusPill status={s.status} /></div>

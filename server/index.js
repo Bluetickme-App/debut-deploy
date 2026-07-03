@@ -504,7 +504,9 @@ app.get(
 );
 
 // --- panel-native projects / environments / placement ---
-const orgOf = (user) => user.role === "admin" ? null : (getMembership(user.id)?.org_id ?? ensureUserOrg(user.id));
+// Admins are first-class users here (the operator owns resources in their own org), so
+// resolve everyone to their real org. ensureUserOrg is idempotent (existing org reused).
+const orgOf = (user) => getMembership(user.id)?.org_id ?? ensureUserOrg(user.id);
 
 app.get("/api/projects", requireAuth, h(async (req) => listProjects(orgOf(req.user))));
 
