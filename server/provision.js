@@ -78,11 +78,20 @@ export async function removeCoolifyServer(uuid) {
 // check, the upgrade path noted in the header.
 const inFlight = new Set();
 
+// Pre-install Docker at first boot so the box is Coolify-usable even when Coolify's
+// own Docker install doesn't complete (observed: reachable=true, usable=false).
+const DOCKER_CLOUD_INIT = `#cloud-config
+runcmd:
+  - [ sh, -c, "curl -fsSL https://get.docker.com -o /tmp/gd.sh && sh /tmp/gd.sh" ]
+  - [ systemctl, enable, --now, docker ]
+`;
+
 export async function provisionServer({
   name,
   serverType,
   location,
   image = "ubuntu-22.04", // Coolify's Docker install is flaky on 24.04; 22.04 is battle-tested
+  userData = DOCKER_CLOUD_INIT, // boot-time Docker install (bypasses Coolify's failing install)
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   maxPollMs = 120_000,
 } = {}) {
@@ -114,7 +123,7 @@ export async function provisionServer({
   // Step 3 — create Hetzner server (with the key in authorized_keys)
   let serverId, ip;
   try {
-    ({ id: serverId, ip } = await createServer({ name, serverType, location, image, sshKeys: [sshKeyName] }));
+    ({ id: serverId, ip } = await createServer({ name, serverType, location, image, userData, sshKeys: [sshKeyName] }));
     steps.push({ step: "create-server", status: "ok", detail: { id: serverId, ip } });
   } catch (err) {
     steps.push({ step: "create-server", status: "error", detail: err.message });

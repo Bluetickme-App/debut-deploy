@@ -80,7 +80,7 @@ export async function listLocations() {
   return data.locations.map(({ name, city, country }) => ({ name, city, country }));
 }
 
-export async function createServer({ name, serverType, location, image = "ubuntu-24.04", sshKeys = [] } = {}) {
+export async function createServer({ name, serverType, location, image = "ubuntu-24.04", sshKeys = [], userData } = {}) {
   if (!name) throw Object.assign(new Error("name is required"), { status: 400 });
   if (!serverType) throw Object.assign(new Error("serverType is required"), { status: 400 });
 
@@ -90,7 +90,7 @@ export async function createServer({ name, serverType, location, image = "ubuntu
   // VERIFY LIVE — creating a server costs real money
   const data = await hz("/servers", {
     method: "POST",
-    body: { name, server_type: serverType, location, image, ssh_keys: sshKeys },
+    body: { name, server_type: serverType, location, image, ssh_keys: sshKeys, ...(userData ? { user_data: userData } : {}) },
   });
   return {
     id: data.server.id,
