@@ -52,30 +52,60 @@ the coupling and leakage we're removing).
 ```sql
 CREATE TABLE projects (
   id          INTEGER PRIMARY KEY,
-  org_id      INTEGER NOT NULL REFERENCES orgs(id),
+  org_id      INTEGER NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
   name        TEXT    NOT NULL,
+  slug        TEXT    NOT NULL,           -- normalised lowercase; used for routing
   created_at  TEXT    NOT NULL,
-  UNIQUE(org_id, name)
+  updated_at  TEXT    NOT NULL,
+  UNIQUE(org_id, slug)                    -- slug uniqueness also gives case-insensitive names
 );
 
 CREATE TABLE environments (
   id          INTEGER PRIMARY KEY,
-  project_id  INTEGER NOT NULL REFERENCES projects(id),
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   name        TEXT    NOT NULL,
+  slug        TEXT    NOT NULL,
   created_at  TEXT    NOT NULL,
-  UNIQUE(project_id, name)
+  updated_at  TEXT    NOT NULL,
+  UNIQUE(project_id, slug)
 );
 
--- resource_ownership (existing) gains:
-ALTER TABLE resource_ownership ADD COLUMN environment_id INTEGER REFERENCES environments(id); -- nullable
-ALTER TABLE resource_ownership ADD COLUMN kind TEXT;  -- render-style display kind (see below)
+-- resource_ownership (existing) gains (via table rebuild so the FK action + CHECK stick;
+-- SQLite ALTER ADD COLUMN can't add ON DELETE / CHECK to an existing table cleanly):
+--   environment_id INTEGER REFERENCES environments(id) ON DELETE SET NULL   -- nullable
+--   kind TEXT NOT NULL DEFAULT 'web_service'
+--     CHECK (kind IN ('web_service','background_worker','cron_job','static_site','postgres','key_value'))
 ```
 
+- **`slug`** is the routing key (`/projects/aurora-travel`), normalised to lowercase
+  `[a-z0-9-]`. Uniqueness is on `(org_id, slug)` / `(project_id, slug)`, which also prevents
+  case-only-different names ("Production" vs "production"). `id` remains the real identifier.
 - `org_id` on `resource_ownership` stays the authorization field, unchanged. A resource's
-  `environment_id` MUST resolve (env → project → org) to that same `org_id`; enforced in
-  app logic on placement.
-- Deleting a project cascades to its environments; resources in a deleted environment fall
-  back to `environment_id = NULL` (unplaced), never deleted.
+  `environment_id` MUST resolve (env → project → org) to that same `org_id`; enforced by the
+  placement service (below), never by ad-hoc SQL.
+- **FK actions (with `PRAGMA foreign_keys = ON` on every connection):** deleting a project
+  `ON DELETE CASCADE`s its environments; a resource whose environment is deleted has its
+  `environment_id` set to `NULL` (`ON DELETE SET NULL`) — the resource is never deleted.
+- **Deferred (noted, not built in phase 1):** `archived_at` soft-delete (hard delete is
+  already non-destructive to resources; add if project-delete regret appears) and
+  `display_order` (phase 1 sorts Production-first then alphabetical).
+
+## Placement service (single writer)
+
+All `environment_id` writes go through ONE function — routes, import flows, admin actions,
+and the backfill all call it; no route issues `UPDATE resource_ownership SET environment_id`
+directly (that is where IDOR/consistency bugs creep in):
+
+```
+placeResourceInEnvironment({ callerOrgId, resourceUuid, environmentId })
+  1. assertOwns(callerOrgId, resourceUuid)                    -- caller owns the resource
+  2. env = getEnvironmentWithProject(environmentId)
+  3. if !env || env.project.org_id !== callerOrgId → 404      -- target env is in caller's org
+  4. UPDATE resource_ownership SET environment_id = env.id WHERE coolify_uuid = resourceUuid
+```
+
+`environmentId: null` (unplace) is allowed only for admins or the deleted-environment
+fallback — never a normal customer move.
 
 ### `kind` derivation
 
@@ -97,44 +127,86 @@ crons/static as deployable kinds.
 
 ## Backfill (existing resources)
 
-Idempotent migration, per org that owns resources:
+Two separate, idempotent migrations — the generic backfill must not bake in a named
+customer:
 
-1. Create a **"Default"** project + **"Production"** environment if absent.
-2. Set `environment_id` to that Production env for every owned resource with a NULL
-   `environment_id`.
-3. Populate `kind` for existing rows via the derivation table.
+- **`00N_backfill_default_project_environment`** (generic): per org that owns resources,
+  create a **"Default"** project + **"Production"** environment if absent, set
+  `environment_id` to that env for every owned resource still `NULL`, and populate `kind`
+  via the derivation table. After this, every existing resource is *placed* — `NULL` is
+  reserved for the deleted-environment fallback only.
+- **`00N+1_seed_known_customer_projects`** (fixture, separate, skippable): seed billal's
+  four resources into an **"Aurora Travel"** project (Production). Environment-specific,
+  idempotent, safe to skip; never part of the generic migration.
 
-Then customers reorganise in the UI. As the worked example, seed billal's four resources
-into an **"Aurora Travel"** project (Production) instead of Default.
+Then customers reorganise in the UI.
 
 ## API
 
-All org-scoped; non-admins only ever see/act on their own org's projects (IDOR guard by
-resolving project→org and comparing to the caller's org, mirroring `assertOwns`).
+All org-scoped; non-admins only ever see/act on their own org's projects. Tenant mismatch
+(unknown resource, project, environment, or a foreign target env) returns **404** — never
+leak whether another org's id exists.
 
-- `GET/POST/PATCH/DELETE /api/projects` — CRUD projects.
-- `GET/POST/PATCH/DELETE /api/projects/:id/environments` — CRUD environments.
-- `GET /api/projects/:id` — project + its environments + resources grouped by `kind`.
-- `PATCH /api/resources/:id/placement { environmentId }` — move a resource between
-  environments/projects. **Replaces** the Coolify-backed `POST /api/services/:id/move`
-  and `/api/databases/:id/move`, which are removed from the customer UI. (`resource id`
-  is the coolify_uuid; the route validates ownership + that the target env is in the
-  caller's org.)
+- `GET /api/projects` · `POST /api/projects` — list / create.
+- `GET /api/projects/:projectId` · `PATCH` · `DELETE`.
+- `GET /api/projects/:projectId/environments` · `POST` (create under a project).
+- `PATCH /api/environments/:environmentId` · `DELETE`.
+- `PATCH /api/resources/:resourceId/placement { environmentId }` — via the placement
+  service. **Replaces** `POST /api/services/:id/move` and `/api/databases/:id/move`, which
+  are removed from the customer UI. `resourceId` is the coolify_uuid.
+- **Admin mutations require an explicit `orgId`** in the body when creating/placing on a
+  customer's behalf — admin bypass must be deliberate, never implicit cross-org.
 
-The existing admin-only `GET /api/projects` that returned Coolify projects is repurposed
-to the panel projects above; Coolify's own project list is no longer surfaced.
+`GET /api/projects/:id` returns a **Render-shaped** payload with an empty array per kind
+(so the UI renders every category consistently):
+
+```json
+{
+  "project": { "id": 1, "name": "Aurora Travel", "slug": "aurora-travel" },
+  "environments": [
+    { "id": 10, "name": "Production", "slug": "production",
+      "resourcesByKind": {
+        "web_service": [], "background_worker": [], "cron_job": [],
+        "postgres": [], "key_value": [], "static_site": []
+      } }
+  ]
+}
+```
+
+The existing admin-only `GET /api/projects` (Coolify projects) is repurposed to the panel
+projects above. **Audit its two consumers first** — `client/src/lib/api.js` and
+`client/src/pages/Projects.jsx` (both rewritten by this work) — then remove the Coolify
+`moveToProject`/`listProjects` paths from the customer surface.
 
 ## UI (Render-matched)
 
-- **`/projects`** — the org's projects as cards, with counts; **New Project** button.
-- **`/projects/:id`** — **Environment tabs** across the top (Production, …, **+ New
-  Environment**). Within the active tab, resources are rendered in **kind sections**:
-  *Web Services · Background Workers · Cron Jobs · Databases · Key Value*, each a labelled
-  group of resource cards, with per-resource **Move** (to another env/project) and an
-  **Add resource** affordance.
-- The existing flat **Services** and **Infrastructure** pages remain as quick "all my
-  resources" views; **Projects** becomes the organised home. Import / New-service flows
-  gain a project + environment selector (defaulting to Default/Production).
+- **`/projects`** — the org's projects as cards with resource counts; **New Project**.
+  `Projects` becomes the primary nav home; **Services** and **Infrastructure** stay but are
+  **demoted** to operational "all my resources" indexes (All Web Services / Workers /
+  Databases / Key Value).
+- **`/projects/:slug`** — **Environment tabs** (Production, …, **+ New Environment**).
+  Within the active tab, resources render in **kind sections** (*Web Services · Background
+  Workers · Cron Jobs · Databases · Key Value*), each a labelled group of cards with
+  per-resource **Move** and an **Add resource** affordance. Empty kinds render as empty
+  sections (payload guarantees the arrays).
+- **Empty state:** a new org is created with **Default → Production** already present (on
+  org creation / first login) so the Projects page is never a blank slate — it shows
+  Default/Production with "No resources yet" + New Web Service / New Database / Import.
+- **Move modal is project-first:** choose **Project**, then **Environment** (envs only make
+  sense inside a project) — not a flat env list.
+- **Import / New flows default silently** to **Default / Production**, but show a
+  project + environment selector with those preselected, so organised users can place
+  correctly and new users can ignore it.
+
+## Build order (for the plan)
+
+1. **DB + service layer:** migrations (tables, `environment_id`, `kind`), project/env
+   repository fns, `placeResourceInEnvironment()`, `deriveResourceKind()`, backfill +
+   tests.
+2. **API:** project/env CRUD, `GET /projects/:id` (grouped), placement route; retire the
+   Coolify move routes from the customer surface (after the consumer audit).
+3. **UI:** `/projects`, `/projects/:slug` with env tabs + kind sections, move modal,
+   project/env selectors in import/create.
 
 ## Isolation & security
 
@@ -165,7 +237,16 @@ to the panel projects above; Coolify's own project list is no longer surfaced.
 
 ## Open items
 
-- Whether Import/New flows should *require* choosing a project or default silently to
-  Default/Production (leaning: default silently, editable after).
-- Per-environment shared env vars (Render "environment groups") — out of scope here;
-  the panel already has `sharedvars`/variable-groups that can later bind to an environment.
+- Per-environment shared env vars (Render "environment groups") — out of scope here; the
+  panel already has `sharedvars`/variable-groups that can later bind to an environment.
+- Whether `archived_at` soft-delete replaces hard project-delete — deferred (see data
+  model); revisit if accidental project deletes become a support issue.
+
+## Review amendments folded in (2026-07-03)
+
+`slug` routing keys (+ case-insensitive uniqueness), `updated_at`, explicit `ON DELETE`
+actions + `PRAGMA foreign_keys=ON`, single `placeResourceInEnvironment()` writer with
+both-side org validation, `kind NOT NULL + CHECK`, separate customer-seed migration,
+admin-explicit-`orgId`, Render-shaped grouped response, and UI empty-state / project-first
+move / demoted flat pages / default-with-selector. Deferred: `archived_at`, `display_order`.
+Kept `/api/projects` (repurposed) over a new `/api/panel` namespace, with a consumer audit.
