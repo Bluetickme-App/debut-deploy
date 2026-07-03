@@ -44,6 +44,15 @@ import {
   listOrgResources,
   getOrgBillingInfo,
   setOrgBillingInfo,
+  ensureUserOrg,
+  listProjects,
+  createProject,
+  getProject,
+  renameProject,
+  deleteProject,
+  createEnvironment,
+  renameEnvironment,
+  deleteEnvironment,
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
@@ -74,6 +83,8 @@ import { createRenderCredential, listRenderCredentials, getRenderCredential, del
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
+import { placeResourceInEnvironment } from "./placement.js";
+import { buildProjectDetail } from "./projectview.js";
 import { renderStatusHtml } from "./status.js";
 
 const app = express();
@@ -492,50 +503,45 @@ app.get(
   })
 );
 
-// --- projects: list + move a service/database into one ---
-// Coolify projects are GLOBAL (the operator's organisational structure), so a
-// customer must NOT see them — otherwise every new customer's dropdown leaks
-// deploy-7/debutdeploy/etc. Only admins (the operator) get the project list; org-
-// scoped per-customer projects are a follow-up. // ponytail: replace [] with the
-// caller's org-owned projects once an org→project mapping exists.
-async function visibleProjects(user) {
-  if (user?.role !== "admin") return [];
-  return coolify.listProjects();
-}
-app.get("/api/projects", requireAuth, h(async (req) => visibleProjects(req.user)));
+// --- panel-native projects / environments / placement ---
+const orgOf = (user) => getMembership(user.id)?.org_id ?? ensureUserOrg(user.id);
 
-// Only allow moving into a project the caller can actually SEE (IDOR + tenancy
-// guard) — never an arbitrary or other-tenant project uuid submitted by the client.
-async function assertKnownProject(user, projectUuid) {
-  const projects = await visibleProjects(user);
-  if (!projectUuid || !projects.some((p) => p.uuid === projectUuid)) {
-    throw Object.assign(new Error("Unknown or inaccessible target project"), { status: 400 });
-  }
-}
+app.get("/api/projects", requireAuth, h(async (req) => listProjects(orgOf(req.user))));
 
-app.post(
-  "/api/services/:id/move",
-  requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+app.post("/api/projects", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => createProject(orgOf(req.user), String(req.body?.name || "").trim() || "Untitled")));
+
+app.get("/api/projects/:id", requireAuth, h(async (req) => {
+  const detail = buildProjectDetail(orgOf(req.user), Number(req.params.id));
+  if (!detail) throw Object.assign(new Error("Not found"), { status: 404 });
+  return detail;
+}));
+
+app.patch("/api/projects/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => ({ changed: renameProject(orgOf(req.user), Number(req.params.id), String(req.body?.name || "").trim()) })));
+
+app.delete("/api/projects/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => ({ changed: deleteProject(orgOf(req.user), Number(req.params.id)) })));
+
+app.post("/api/projects/:id/environments", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => createEnvironment(orgOf(req.user), Number(req.params.id), String(req.body?.name || "").trim() || "Untitled")));
+
+app.patch("/api/environments/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => ({ changed: renameEnvironment(orgOf(req.user), Number(req.params.id), String(req.body?.name || "").trim()) })));
+
+app.delete("/api/environments/:id", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => ({ changed: deleteEnvironment(orgOf(req.user), Number(req.params.id)) })));
+
+// type ∈ application|database; id is the coolify_uuid. Replaces the old /move routes.
+app.patch("/api/resources/:type/:id/placement", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => {
-    assertOwns(req.user, "application", req.params.id);
-    await assertKnownProject(req.user, req.body?.projectUuid);
-    const r = await coolify.moveToProject(req.params.id, req.body.projectUuid, "app");
-    record(req, "service.move", { resourceType: "application", resourceUuid: req.params.id, metadata: { projectUuid: req.body.projectUuid } });
+    const r = placeResourceInEnvironment({
+      user: req.user, type: req.params.type, resourceUuid: req.params.id,
+      environmentId: req.body?.environmentId ?? null,
+    });
+    record(req, "resource.place", { resourceType: req.params.type, resourceUuid: req.params.id, metadata: { environmentId: req.body?.environmentId } });
     return r;
-  })
-);
-
-app.post(
-  "/api/databases/:id/move",
-  requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
-  h(async (req) => {
-    assertOwns(req.user, "database", req.params.id);
-    await assertKnownProject(req.user, req.body?.projectUuid);
-    const r = await coolify.moveToProject(req.params.id, req.body.projectUuid, "postgres");
-    record(req, "database.move", { resourceType: "database", resourceUuid: req.params.id, metadata: { projectUuid: req.body.projectUuid } });
-    return r;
-  })
-);
+  }));
 
 // --- env vars ---
 app.get(
@@ -636,8 +642,7 @@ app.post(
     const userId = req.user.id;
     const { type, name, projectUuid, version } = req.body || {};
     if (!type || !name) throw Object.assign(new Error("type and name are required"), { status: 400 });
-    if (projectUuid) await assertKnownProject(req.user, projectUuid); // reject arbitrary/inaccessible project targets
-    // projectUuid unset → createDatabase's verified-good default project. Ownership via assign().
+    // projectUuid is passed through to Coolify's createDatabase for its own grouping; ownership via assign().
     const { uuid } = await databases.createDatabase({ type, name, projectUuid, version });
     assign(uuid, "database", userId);
     const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
