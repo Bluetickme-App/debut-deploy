@@ -537,7 +537,8 @@ export const deleteInvite = (orgId, id) =>
 
 export const listOrgsWithCounts = () =>
   db.prepare(`
-    SELECT o.id, o.name, o.slug, o.created_at,
+    SELECT o.id, o.name, o.slug, o.created_at, o.billing_status,
+      (SELECT COALESCE(SUM(amount_pence),0) FROM credit_ledger cl WHERE cl.org_id = o.id) AS balance_pence,
       (SELECT COUNT(*) FROM memberships m WHERE m.org_id = o.id) AS members,
       (SELECT COUNT(*) FROM memberships m WHERE m.org_id = o.id AND m.role = 'owner') AS owners,
       (SELECT COUNT(*) FROM resource_ownership r WHERE r.org_id = o.id AND r.type = 'application') AS applications,

@@ -45,7 +45,7 @@ import {
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
 import {
-  walletBalance, recentLedger, createTopupSession, handleWebhookEvent, stripeClient,
+  walletBalance, recentLedger, creditWallet, createTopupSession, handleWebhookEvent, stripeClient,
   getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod,
 } from "./billing.js";
 import { planPriceUsd } from "./plans.js";
@@ -612,6 +612,31 @@ app.get("/api/admin/orgs/:id/usage", requireAuth, requireAdmin, h((req) => {
   if (!detail) throw Object.assign(new Error("Organization not found"), { status: 404 });
   const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
   return usageSummary(Number(req.params.id), period, detail.org.name);
+}));
+
+// Master-Admin: read one client org's wallet (balance + recent ledger).
+app.get("/api/admin/orgs/:id/wallet", requireAuth, requireAdmin, h((req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  return { balance_pence: walletBalance(orgId), recent_ledger: recentLedger(orgId) };
+}));
+
+// Master-Admin: manual credit/debit adjustment (comp credit, refund, correction).
+// Writes an audited 'adjustment' ledger row; positive = credit, negative = debit.
+app.post("/api/admin/orgs/:id/credit", requireAuth, requireAdmin, mutateGuard, h((req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const amountPence = Number(req.body?.amount_pence);
+  if (!Number.isInteger(amountPence) || amountPence === 0) {
+    throw Object.assign(new Error("amount_pence must be a non-zero integer"), { status: 400 });
+  }
+  const notes = String(req.body?.notes || "").slice(0, 500) || null;
+  creditWallet({ orgId, amountPence, type: "adjustment", notes });
+  // An adjustment can clear or trigger arrears — recompute advisory status from the new balance.
+  db.prepare("UPDATE organizations SET billing_status = ? WHERE id = ?")
+    .run(walletBalance(orgId) < 0 ? "arrears" : "ok", orgId);
+  record(req, "billing.admin_adjust", { metadata: { org_id: orgId, amount_pence: amountPence, notes } });
+  return { ok: true, balance_pence: walletBalance(orgId) };
 }));
 
 // Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.

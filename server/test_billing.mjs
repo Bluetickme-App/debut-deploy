@@ -173,3 +173,22 @@ test("webhook ignores unpaid / non-payment sessions", () => {
   billing.handleWebhookEvent({ type: "payment_intent.created", data: { object: {} } });
   assert.equal(billing.walletBalance(org), 0);
 });
+
+test("admin billing view: listOrgsWithCounts exposes balance_pence + billing_status", () => {
+  const u = db.createUser({ email: "adminview@x.com", role: "customer" });
+  const orgId = db.ensureUserOrg(u.id);
+  billing.creditWallet({ orgId, amountPence: 5000, type: "topup", stripeSessionId: "cs_adminview" });
+  billing.creditWallet({ orgId, amountPence: -1200, type: "adjustment", notes: "manual debit" });
+  const row = db.listOrgsWithCounts().find((o) => o.id === orgId);
+  assert.equal(row.balance_pence, 3800);          // 5000 - 1200
+  assert.equal(row.billing_status, "ok");         // default from migration 11
+});
+
+test("admin credit adjustment: negative drives arrears balance, positive comps credit", () => {
+  const u = db.createUser({ email: "adjust@x.com", role: "customer" });
+  const orgId = db.ensureUserOrg(u.id);
+  billing.creditWallet({ orgId, amountPence: -900, type: "adjustment", notes: "correction" });
+  assert.equal(billing.walletBalance(orgId), -900);   // debit → arrears territory
+  billing.creditWallet({ orgId, amountPence: 2000, type: "adjustment", notes: "comp" });
+  assert.equal(billing.walletBalance(orgId), 1100);   // comped back to positive
+});

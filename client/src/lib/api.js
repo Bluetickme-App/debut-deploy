@@ -117,4 +117,6 @@ export const api = {
   usage: (period) => req(`/org/usage${period ? `?period=${period}` : ""}`),
   usageCurrent: () => req("/org/usage/current"),
   adminOrgUsage: (id, period) => req(`/admin/orgs/${id}/usage${period ? `?period=${period}` : ""}`),
+  adminOrgWallet: (id) => req(`/admin/orgs/${id}/wallet`),
+  adminAdjustCredit: (id, body) => req(`/admin/orgs/${id}/credit`, { method: "POST", body }),
 };
