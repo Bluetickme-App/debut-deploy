@@ -130,8 +130,10 @@ export async function getBuildLogs(appUuid, { limit = 600 } = {}) {
   let arr;
   try { arr = JSON.parse(text); } catch { return text.split("\n").filter(Boolean).slice(-limit).map((l) => ({ message: l })); }
   if (!Array.isArray(arr)) return [];
+  // Include `hidden` entries — Coolify marks the detailed docker-build output (the
+  // pnpm install/build lines where failures actually happen) as hidden, so dropping
+  // them left "no debug logs". Show everything.
   return arr
-    .filter((x) => !x.hidden)
     .map((x) => ({ time: x.timestamp || null, type: x.type || "stdout", message: x.output ?? x.line ?? "" }))
     .slice(-limit);
 }
