@@ -323,7 +323,6 @@ export async function listServers() {
       region: s.region || "",
       spec: "",
       reachable: s.is_reachable ?? true,
-      usable: s.is_usable ?? true, // Coolify's "in active service" flag — false = taken out of rotation
       cpu: res?.cpu_usage_percent ?? null,
       memory: res?.memory_usage_percent ?? null,
       disk: res?.disk_usage_percent ?? null,

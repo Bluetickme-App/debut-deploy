@@ -247,12 +247,11 @@ async function buildStatus() {
   });
 
   if (servers) {
-    // Only servers Coolify keeps in active service — an unusable/decommissioned
-    // host (often a customer's own attached server) isn't a platform incident.
-    const inService = servers.filter((s) => s.usable !== false);
-    const total = inService.length;
-    const reachable = inService.filter((s) => s.reachable !== false).length;
-    const critical = inService.filter((s) => (s.disk ?? 0) >= 90 || (s.memory ?? 0) >= 90).length;
+    // Every registered server counts — an attached host that's unreachable (incl.
+    // a customer's own server) is a real degradation, not something to hide.
+    const total = servers.length;
+    const reachable = servers.filter((s) => s.reachable !== false).length;
+    const critical = servers.filter((s) => (s.disk ?? 0) >= 90 || (s.memory ?? 0) >= 90).length;
     components.push({
       name: "Servers",
       status: total === 0 ? "unknown"
