@@ -83,7 +83,7 @@ async function resolveDefaultProject() {
 const SERVER_UUID = "odtl07eovoo6f40gqwztsyhq";
 const DESTINATION_UUID = "pnecqcf9akvlwqp3wnky60ml";
 
-export async function createDeployKeyApp({ keyUuid, repo, branch = "main", name, buildPack = "nixpacks", installCommand, buildCommand, startCommand, port = "3000", serverUuid = SERVER_UUID, destinationUuid = DESTINATION_UUID }) {
+export async function createDeployKeyApp({ keyUuid, repo, branch = "main", name, buildPack = "nixpacks", installCommand, buildCommand, startCommand, dockerfileLocation, baseDirectory, port = "3000", serverUuid = SERVER_UUID, destinationUuid = DESTINATION_UUID }) {
   if (isDemo()) return { uuid: `demo-app-${name}` };
   const project = await resolveDefaultProject();
   const body = {
@@ -95,6 +95,10 @@ export async function createDeployKeyApp({ keyUuid, repo, branch = "main", name,
   if (installCommand) body.install_command = installCommand;
   if (buildCommand) body.build_command = buildCommand;
   if (startCommand) body.start_command = startCommand;
+  // Docker build_pack: where the Dockerfile + build context live (Coolify defaults
+  // /Dockerfile + /). Only set when non-default so Coolify's defaults still apply.
+  if (dockerfileLocation) body.dockerfile_location = dockerfileLocation;
+  if (baseDirectory) body.base_directory = baseDirectory;
   const app = await cf("/applications/private-deploy-key", { method: "POST", body });
   return { uuid: app.uuid };
 }

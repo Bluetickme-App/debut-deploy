@@ -51,9 +51,19 @@ export function splitBuildCommand(cmd) {
 // Without this, a Dockerfile repo gets built by Nixpacks and the deploy fails.
 export function renderBuildConfig(service = {}) {
   const isDocker = /docker|image/i.test(service.env || "");
-  if (isDocker) return { buildPack: "dockerfile", installCommand: undefined, buildCommand: undefined, startCommand: undefined };
+  if (isDocker) {
+    // Render "./docker/x.Dockerfile" → Coolify "/docker/x.Dockerfile"; context "." = root
+    // (leave unset so Coolify's "/" default applies).
+    const norm = (p) => { p = String(p || "").trim(); return p ? "/" + p.replace(/^\.?\/+/, "") : undefined; };
+    const ctx = String(service.dockerContext || "").trim();
+    return {
+      buildPack: "dockerfile", installCommand: undefined, buildCommand: undefined, startCommand: undefined,
+      dockerfileLocation: norm(service.dockerfilePath),
+      baseDirectory: (!ctx || ctx === ".") ? undefined : norm(ctx),
+    };
+  }
   const { installCommand, buildCommand } = splitBuildCommand(service.buildCommand);
-  return { buildPack: "nixpacks", installCommand, buildCommand, startCommand: service.startCommand };
+  return { buildPack: "nixpacks", installCommand, buildCommand, startCommand: service.startCommand, dockerfileLocation: undefined, baseDirectory: undefined };
 }
 
 export function assertPgUrl(url) {
@@ -211,7 +221,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     // createDeployKeyApp's default params — an empty git_branch 422s at Coolify.
     if (!service.repo) throw Object.assign(new Error("Render service has no git repository to migrate (image-based services aren't supported)"), { status: 422 });
     const dedicated = target.mode === "dedicated";
-    const { buildPack, installCommand, buildCommand, startCommand } = renderBuildConfig(service);
+    const { buildPack, installCommand, buildCommand, startCommand, dockerfileLocation, baseDirectory } = renderBuildConfig(service);
     const { uuid } = await d.createDeployKeyApp({
       keyUuid,
       repo: d.toSshUrl(service.repo),
@@ -222,6 +232,8 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       installCommand,
       buildCommand,
       startCommand,
+      dockerfileLocation,
+      baseDirectory,
       ...(dedicated ? { serverUuid, destinationUuid: await d.getDefaultDestination(serverUuid) } : {}),
     });
     appUuid = uuid;

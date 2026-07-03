@@ -104,6 +104,10 @@ export function normaliseService(r) {
     region: sd.region ?? "",
     plan: sd.plan ?? "",
     healthCheckPath: (sd.healthCheckPath ?? "").trim(),
+    // Docker services: where the Dockerfile + build context live (Render defaults
+    // "./Dockerfile" + repo root). Captured defensively across the shapes Render uses.
+    dockerfilePath: (sd.dockerfilePath ?? sd.dockerDetails?.dockerfilePath ?? esd.dockerfilePath ?? "").trim(),
+    dockerContext: (sd.dockerContext ?? sd.dockerDetails?.dockerContext ?? esd.dockerContext ?? "").trim(),
     autoDeploy: s.autoDeploy ?? null,
     dashboardUrl: s.dashboardUrl ?? null,
   };

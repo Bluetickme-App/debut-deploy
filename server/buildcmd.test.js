@@ -17,9 +17,21 @@ test("handles && separator and install-only / build-only", () => {
 const { renderBuildConfig } = await import("./migrate.js");
 test("renderBuildConfig: docker → dockerfile, no commands", () => {
   assert.deepEqual(renderBuildConfig({ env: "docker", buildCommand: "make" }),
-    { buildPack: "dockerfile", installCommand: undefined, buildCommand: undefined, startCommand: undefined });
+    { buildPack: "dockerfile", installCommand: undefined, buildCommand: undefined, startCommand: undefined, dockerfileLocation: undefined, baseDirectory: undefined });
 });
 test("renderBuildConfig: node → nixpacks + split commands", () => {
   assert.deepEqual(renderBuildConfig({ env: "node", buildCommand: "npm install; npm run build", startCommand: "npm start" }),
-    { buildPack: "nixpacks", installCommand: "npm install", buildCommand: "npm run build", startCommand: "npm start" });
+    { buildPack: "nixpacks", installCommand: "npm install", buildCommand: "npm run build", startCommand: "npm start", dockerfileLocation: undefined, baseDirectory: undefined });
+});
+
+test("renderBuildConfig: docker Dockerfile path → normalized dockerfile_location", () => {
+  const c = renderBuildConfig({ env: "docker", dockerfilePath: "./docker/research-browser.Dockerfile", dockerContext: "." });
+  assert.equal(c.buildPack, "dockerfile");
+  assert.equal(c.dockerfileLocation, "/docker/research-browser.Dockerfile");
+  assert.equal(c.baseDirectory, undefined); // "." context = root → leave default
+});
+test("renderBuildConfig: docker with subdir context", () => {
+  const c = renderBuildConfig({ env: "docker", dockerfilePath: "Dockerfile", dockerContext: "./app" });
+  assert.equal(c.dockerfileLocation, "/Dockerfile");
+  assert.equal(c.baseDirectory, "/app");
 });
