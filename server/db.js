@@ -331,6 +331,11 @@ const MIGRATIONS = [
     d.exec(`ALTER TABLE resource_ownership ADD COLUMN notify_pref TEXT NOT NULL DEFAULT 'default'
       CHECK(notify_pref IN ('default','failures','off'));`);
   },
+  // -> user_version 20: correct database rows mis-stored as a non-DB kind by an early
+  // claim-on-place (which defaulted kind='web_service'). A database is never a web service.
+  (d) => {
+    d.exec("UPDATE resource_ownership SET kind = 'postgres' WHERE type = 'database' AND kind NOT IN ('postgres','key_value')");
+  },
 ];
 
 function resolveDbFile() {

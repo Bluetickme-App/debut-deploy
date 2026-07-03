@@ -31,6 +31,17 @@ test("claim-on-place creates ownership for a never-imported resource", () => {
   assert.equal(row.org_id, org, "owned by the env's org");
 });
 
+test("claiming a database stores a DB kind, not web_service", () => {
+  const admin = mkAdmin("dbops@x.com");
+  const org = ensureUserOrg(admin.id);
+  const proj = createProject(org, "DbOps");
+  const env = createEnvironment(org, proj.id, "Production");
+
+  placeResourceInEnvironment({ user: admin, type: "database", resourceUuid: "db-1", environmentId: env.id });
+  const row = db.prepare("SELECT kind FROM resource_ownership WHERE type='database' AND coolify_uuid='db-1'").get();
+  assert.equal(row.kind, "postgres", "database claimed as postgres, so it groups under Databases");
+});
+
 test("a non-admin cannot claim an unowned resource (no IDOR)", () => {
   const cust = mkUser("c1@x.com", "customer");
   const org = ensureUserOrg(cust.id);
