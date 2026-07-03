@@ -73,6 +73,22 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   });
 }
 
+// A server's standalone-docker destination (needed to create an app on a freshly
+// provisioned dedicated server). Coolify's REST API has NO destinations endpoint
+// (GET /destinations → 404) and the server detail omits them, so read the
+// standalone_dockers table over SSH. Coolify creates the row asynchronously after
+// the server validates + docker installs, so callers should poll.
+export async function getServerDestination(serverUuid) {
+  if (DEMO) return "demo-dest-uuid";
+  const u = String(serverUuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) return null;
+  const raw = await runSql(
+    `SELECT uuid FROM standalone_dockers WHERE server_id=(SELECT id FROM servers WHERE uuid='${u}') ORDER BY id LIMIT 1`
+  );
+  const uuid = String(raw || "").trim().split("\n")[0].trim();
+  return uuid || null;
+}
+
 // Coolify keeps build/deploy logs ONLY in its own DB (the REST API never returns
 // them) — a JSON array in application_deployment_queue.logs. Read the latest
 // deployment's logs for an app over the SSH channel so the panel can show WHY a

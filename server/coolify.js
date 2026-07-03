@@ -6,6 +6,7 @@
 import * as fx from "./fixtures.js";
 import { randomBytes } from "node:crypto";
 import { rememberEnv, storedEnvs } from "./envstore.js";
+import * as coolifydb from "./coolifydb.js";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
@@ -294,20 +295,18 @@ export async function listServers() {
   return mapped;
 }
 
-export async function getDefaultDestination(serverUuid) {
+export async function getDefaultDestination(serverUuid, { tries = 24, delayMs = 5000, _get = coolifydb.getServerDestination } = {}) {
   if (isDemo()) return "demo-dest-uuid";
-  // ponytail: prefer the server detail endpoint; fall back to /destinations list
-  const server = await cf(`/servers/${serverUuid}`);
-  const dest = (server?.destinations || []).find(
-    (d) => d.type === "standalone-docker" || !d.type
-  );
-  if (dest?.uuid) return dest.uuid;
-  const all = await cf("/destinations");
-  const match = (Array.isArray(all) ? all : []).find(
-    (d) => d.server_uuid === serverUuid && (d.type === "standalone-docker" || !d.type)
-  );
-  if (!match) throw Object.assign(new Error("No standalone-docker destination found"), { status: 404 });
-  return match.uuid;
+  // Coolify's REST API exposes NO destinations (GET /destinations → 404; the server
+  // detail omits them), so read the standalone-docker destination from Coolify's DB
+  // over SSH. On a freshly provisioned server Coolify creates it asynchronously, so
+  // poll until it appears (~2 min) rather than failing the migration immediately.
+  for (let i = 0; i < tries; i++) {
+    const uuid = await _get(serverUuid).catch(() => null);
+    if (uuid) return uuid;
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  throw Object.assign(new Error("The new server has no docker destination yet — Coolify is still installing it. Retry the migration in a minute."), { status: 503 });
 }
 
 export async function createProject(name) {
