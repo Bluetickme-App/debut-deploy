@@ -192,3 +192,22 @@ test("admin credit adjustment: negative drives arrears balance, positive comps c
   billing.creditWallet({ orgId, amountPence: 2000, type: "adjustment", notes: "comp" });
   assert.equal(billing.walletBalance(orgId), 1100);   // comped back to positive
 });
+
+test("migration 13: org billing info columns exist + round-trip", () => {
+  const u = db.createUser({ email: "bizinfo@x.com", role: "customer" });
+  const orgId = db.ensureUserOrg(u.id);
+  assert.deepEqual(db.getOrgBillingInfo(orgId), { billing_email: null, billing_company: null, billing_vat: null });
+  db.setOrgBillingInfo(orgId, { email: "ap@acme.com", company: "Acme Ltd", vat: "GB123" });
+  assert.deepEqual(db.getOrgBillingInfo(orgId), { billing_email: "ap@acme.com", billing_company: "Acme Ltd", billing_vat: "GB123" });
+});
+
+test("listOrgResources returns each resource with its plan_id (null = free)", () => {
+  const u = db.createUser({ email: "res@x.com", role: "customer" });
+  const orgId = db.ensureUserOrg(u.id);
+  assign("app-res-1", "application", u.id);
+  db.db.prepare("UPDATE resource_ownership SET plan_id='pro' WHERE coolify_uuid='app-res-1'").run();
+  assign("app-res-2", "application", u.id); // no plan → free
+  const rows = db.listOrgResources(orgId).filter((r) => r.coolify_uuid.startsWith("app-res"));
+  assert.equal(rows.find((r) => r.coolify_uuid === "app-res-1").plan_id, "pro");
+  assert.equal(rows.find((r) => r.coolify_uuid === "app-res-2").plan_id, null);
+});

@@ -253,6 +253,14 @@ const MIGRATIONS = [
     // No backfill: there is no historical usage. No UNIQUE — the tick's reentrancy
     // guard is the duplicate-suppression, not the schema.
   },
+  // -> user_version 13: org billing information (for statements / invoices)
+  (d) => {
+    d.exec(`
+      ALTER TABLE organizations ADD COLUMN billing_email   TEXT;
+      ALTER TABLE organizations ADD COLUMN billing_company TEXT;
+      ALTER TABLE organizations ADD COLUMN billing_vat     TEXT;
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -556,3 +564,15 @@ export const getOrgDetail = (orgId) => {
     ownedDatabases: db.prepare("SELECT coolify_uuid FROM resource_ownership WHERE org_id = ? AND type = 'database'").all(orgId).map((r) => r.coolify_uuid),
   };
 };
+
+// Every resource an org owns, with its assigned plan (null = free tier).
+export const listOrgResources = (orgId) =>
+  db.prepare("SELECT type, coolify_uuid, plan_id, created_at FROM resource_ownership WHERE org_id = ? ORDER BY type, created_at").all(orgId);
+
+// Org billing information (for statements / invoices). All fields nullable.
+export const getOrgBillingInfo = (orgId) =>
+  db.prepare("SELECT billing_email, billing_company, billing_vat FROM organizations WHERE id = ?").get(orgId);
+
+export const setOrgBillingInfo = (orgId, { email = null, company = null, vat = null }) =>
+  db.prepare("UPDATE organizations SET billing_email = ?, billing_company = ?, billing_vat = ? WHERE id = ?")
+    .run(email, company, vat, orgId).changes;

@@ -122,5 +122,8 @@ export const api = {
   adminOrgUsage: (id, period) => req(`/admin/orgs/${id}/usage${period ? `?period=${period}` : ""}`),
   adminOrgWallet: (id) => req(`/admin/orgs/${id}/wallet`),
   adminOrgPayments: (id) => req(`/admin/orgs/${id}/payments`),
+  adminOrgResources: (id) => req(`/admin/orgs/${id}/resources`),
+  adminOrgBillingInfo: (id) => req(`/admin/orgs/${id}/billing-info`),
+  adminSaveBillingInfo: (id, body) => req(`/admin/orgs/${id}/billing-info`, { method: "PATCH", body }),
   adminAdjustCredit: (id, body) => req(`/admin/orgs/${id}/credit`, { method: "POST", body }),
 };
