@@ -20,7 +20,7 @@ function BillingPanel({ org, onChange }) {
   const [err, setErr] = useState(null);
 
   const load = () => api.adminOrgWallet(org.id).then(setWallet).catch((e) => setErr(e));
-  useEffect(load, [org.id]);
+  useEffect(() => { load(); }, [org.id]); // wrap so the effect returns undefined, not a Promise
 
   const adjust = async (sign) => {
     const pounds = Number(amount);
@@ -37,15 +37,17 @@ function BillingPanel({ org, onChange }) {
   if (err && !wallet) return <div style={{ padding: 16, color: "var(--err)" }}>Failed to load wallet: {err.message}</div>;
   if (!wallet) return <div style={{ padding: 16, color: "var(--text-muted)" }}><Spinner className="mr-2" /> Loading wallet…</div>;
 
+  const ledger = Array.isArray(wallet.recent_ledger) ? wallet.recent_ledger : [];
+
   return (
     <div style={{ padding: 16, background: "var(--surface-2)", display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
       <div>
         <div className="text-sm font-semibold mb-2" style={{ color: "var(--text)" }}>Recent ledger</div>
-        {wallet.recent_ledger.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>No transactions yet.</div>}
-        {wallet.recent_ledger.length > 0 && (
+        {ledger.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>No transactions yet.</div>}
+        {ledger.length > 0 && (
           <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
             <tbody>
-              {wallet.recent_ledger.map((l) => (
+              {ledger.map((l) => (
                 <tr key={l.id} style={{ borderTop: "1px solid var(--border)" }}>
                   <td className="py-1.5" style={{ color: "var(--text-muted)" }}>{l.created_at ? timeAgo(l.created_at) : "—"}</td>
                   <td className="py-1.5"><span className="pill pill-neutral">{l.type}</span></td>

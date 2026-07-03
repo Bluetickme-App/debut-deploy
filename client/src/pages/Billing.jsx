@@ -19,9 +19,13 @@ export default function Billing() {
   if (error) return <div className="page"><p style={{ color: "var(--err)" }}>Failed to load billing: {error.message}</p></div>;
   if (!data) return <div className="flex h-40 items-center justify-center" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2" /> Loading…</div>;
 
-  const { infra, computePlans, dbPlans } = data;
-  const eur = (n) => `€${Number(n).toFixed(2)}`;
-  const usd = (n) => `$${Number(n)}`;
+  // Defensive defaults: a malformed /api/billing payload must not blank the page.
+  const infra = { servers: [], totalMonthly: 0, totalHourly: 0, ...(data.infra || {}) };
+  if (!Array.isArray(infra.servers)) infra.servers = [];
+  const computePlans = Array.isArray(data.computePlans) ? data.computePlans : [];
+  const dbPlans = Array.isArray(data.dbPlans) ? data.dbPlans : [];
+  const eur = (n) => `€${Number(n || 0).toFixed(2)}`;
+  const usd = (n) => `$${Number(n || 0)}`;
 
   return (
     <div className="page">

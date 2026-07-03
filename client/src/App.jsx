@@ -26,6 +26,7 @@ import NewServiceGit from "./pages/NewServiceGit.jsx";
 import Billing from "./pages/Billing.jsx";
 import WalletPage from "./pages/Wallet.jsx";
 import Usage from "./pages/Usage.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Login from "./pages/Login.jsx";
 import { AuthProvider, RequireAuth, useAuth } from "./auth.jsx";
 import { ThemeProvider, useTheme } from "./lib/theme.jsx";
@@ -482,6 +483,7 @@ function AppShell() {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%" }}>
         <Topbar onMenuClick={() => setDrawerOpen((o) => !o)} />
         <main key={location.pathname} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--bg)" }}>
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
@@ -504,6 +506,7 @@ function AppShell() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
           </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </div>
