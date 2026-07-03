@@ -19,11 +19,17 @@ export function placeResourceInEnvironment({ user, type, resourceUuid, environme
     const callerOrg = getMembership(user.id)?.org_id;   // admins may place across orgs deliberately
     if (env.org_id !== callerOrg) throw Object.assign(new Error("Not found"), { status: 404 });
   }
-  const res = db.prepare("UPDATE resource_ownership SET environment_id = ? WHERE type = ? AND coolify_uuid = ?").run(env.id, type, resourceUuid);
+  // Set org_id = env.org_id too: a resource must belong to whichever org's environment
+  // it sits in, else an admin cross-org placement leaves a split org/env state that
+  // leaks the resource into the target org's project view. No-op for same-org placement.
+  const res = db.prepare("UPDATE resource_ownership SET environment_id = ?, org_id = ? WHERE type = ? AND coolify_uuid = ?").run(env.id, env.org_id, type, resourceUuid);
   if (!res.changes) {
     // No ownership row yet — the resource was deployed straight in Coolify and never
-    // claimed through the panel. Placing it into an environment claims it for that
-    // environment's org (kind uses its NOT NULL default; can be refined later).
+    // claimed through the panel. Placing it claims it for the target env's org.
+    // ADMIN-ONLY: claiming an arbitrary Coolify UUID is a cross-tenant takeover if a
+    // non-admin could reach it. assertOwns already 404s non-admins on unowned UUIDs,
+    // but gate it explicitly here so the invariant doesn't depend on assertOwns internals.
+    if (user?.role !== "admin") throw Object.assign(new Error("Not found"), { status: 404 });
     db.prepare(`INSERT INTO resource_ownership (coolify_uuid, type, user_id, org_id, environment_id, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)`)
       .run(resourceUuid, type, user.id, env.org_id, env.id, new Date().toISOString());

@@ -8,12 +8,13 @@ process.env.DATABASE_FILE = ":memory:";
 const { db, createUser, getUserByEmail, ensureUserOrg, createProject, createEnvironment } = await import("./db.js");
 const { placeResourceInEnvironment } = await import("./placement.js");
 
-function mkAdmin(email) {
-  createUser({ email, name: email.split("@")[0], role: "admin" });
+function mkUser(email, role) {
+  createUser({ email, name: email.split("@")[0], role });
   const u = getUserByEmail(email);
   ensureUserOrg(u.id);
   return u;
 }
+const mkAdmin = (email) => mkUser(email, "admin");
 
 test("claim-on-place creates ownership for a never-imported resource", () => {
   const admin = mkAdmin("ops@x.com");
@@ -28,6 +29,19 @@ test("claim-on-place creates ownership for a never-imported resource", () => {
   assert.ok(row, "ownership row created");
   assert.equal(row.environment_id, env.id, "placed into the target env");
   assert.equal(row.org_id, org, "owned by the env's org");
+});
+
+test("a non-admin cannot claim an unowned resource (no IDOR)", () => {
+  const cust = mkUser("c1@x.com", "customer");
+  const org = ensureUserOrg(cust.id);
+  const proj = createProject(org, "Cust");
+  const env = createEnvironment(org, proj.id, "Production");
+  assert.throws(
+    () => placeResourceInEnvironment({ user: cust, type: "application", resourceUuid: "ghost-uuid", environmentId: env.id }),
+    /Not found/,
+  );
+  const row = db.prepare("SELECT 1 FROM resource_ownership WHERE coolify_uuid='ghost-uuid'").get();
+  assert.equal(row, undefined, "no ownership row was created");
 });
 
 test("re-placing an existing resource updates (no duplicate row)", () => {
