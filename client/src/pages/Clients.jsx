@@ -158,7 +158,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
               {wallet && (wallet.recent_ledger || []).length === 0 && <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>No credit transactions yet.</p>}
               {wallet && (wallet.recent_ledger || []).map((l) => (
                 <div key={l.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
-                  <div style={{ minWidth: 0 }}><div style={{ fontSize: 12.5, color: "var(--text)", fontWeight: 500 }}>{l.notes || LEDGER_DESC[l.type] || l.type}</div><div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{l.created_at ? timeAgo(l.created_at) : ""} · {l.type}</div></div>
+                  <div style={{ minWidth: 0 }}><div style={{ fontSize: 12.5, color: "var(--text)", fontWeight: 500 }}>{l.notes || LEDGER_DESC[l.type] || l.type}</div><div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{l.created_at ? timeAgo(l.created_at) : ""} · {l.by || "system"}</div></div>
                   <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums", fontFamily: "var(--mono, monospace)", color: l.amount_pence < 0 ? "var(--text)" : "var(--ok-text)" }}>{l.amount_pence < 0 ? "−" : "+"}{gbp(Math.abs(l.amount_pence))}</span>
                 </div>
               ))}
@@ -229,7 +229,9 @@ export default function Clients() {
   const [q, setQ] = useState("");
 
   const load = () => api.adminOrgs().then(setOrgs).catch(setError);
-  useEffect(load, []);
+  // Block body → effect returns undefined; passing `load` directly returned its
+  // Promise as the effect cleanup, which React calls on unmount → "r is not a function".
+  useEffect(() => { load(); }, []);
 
   if (error) return <div className="page"><p style={{ color: "var(--err)" }}>Failed: {error.message}</p></div>;
   if (!orgs) return <div className="flex h-40 items-center justify-center" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2" /> Loading…</div>;

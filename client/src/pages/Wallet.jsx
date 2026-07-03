@@ -16,7 +16,9 @@ export default function Wallet() {
   const [busy, setBusy] = useState(false);
 
   const load = () => api.wallet().then(setData).catch(setError);
-  useEffect(load, []);
+  // Wrap in a block so the effect returns undefined — passing `load` directly made
+  // the effect's "cleanup" its returned Promise, which React calls on unmount → crash.
+  useEffect(() => { load(); }, []);
 
   const topup = async (pence) => {
     setBusy(true);
