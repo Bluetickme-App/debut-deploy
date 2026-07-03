@@ -30,6 +30,21 @@ const errStep = (step, err, resource = null) => ({
   step, status: "error", detail: errDetail(err), friendly: friendlyError(err, { step, resource }),
 });
 
+// Render packs install+build into ONE "build command" (often "npm install; npm run
+// build"), but Coolify validates build_command and rejects multi-statement strings.
+// Split the install step into install_command so each field is a single command.
+export function splitBuildCommand(cmd) {
+  if (!cmd) return { installCommand: undefined, buildCommand: undefined };
+  const parts = String(cmd).split(/;|&&/).map((p) => p.trim()).filter(Boolean);
+  const isInstall = (p) => /\b(install|ci)\b/i.test(p);
+  const install = parts.filter(isInstall);
+  const build = parts.filter((p) => !isInstall(p));
+  return {
+    installCommand: install.length ? install.join(" && ") : undefined,
+    buildCommand: build.length ? build.join(" && ") : undefined,
+  };
+}
+
 export function assertPgUrl(url) {
   if (typeof url !== "string" || !/^postgres(ql)?:\/\//i.test(url)) {
     throw Object.assign(new Error("Invalid Postgres connection URL"), { status: 400 });
@@ -185,13 +200,15 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     // createDeployKeyApp's default params — an empty git_branch 422s at Coolify.
     if (!service.repo) throw Object.assign(new Error("Render service has no git repository to migrate (image-based services aren't supported)"), { status: 422 });
     const dedicated = target.mode === "dedicated";
+    const { installCommand, buildCommand } = splitBuildCommand(service.buildCommand);
     const { uuid } = await d.createDeployKeyApp({
       keyUuid,
       repo: d.toSshUrl(service.repo),
       branch: service.branch || "main",
       name: service.name,
       port,
-      buildCommand: service.buildCommand,
+      installCommand,
+      buildCommand,
       startCommand: service.startCommand,
       ...(dedicated ? { serverUuid, destinationUuid: await d.getDefaultDestination(serverUuid) } : {}),
     });

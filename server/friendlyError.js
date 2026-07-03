@@ -20,8 +20,18 @@ const RULES = [
     mcpFixable: false,
   },
   {
+    // Build/install/start command validation — tighter than a bare 422 so it doesn't
+    // swallow other validation errors (Render combines "install; build", Coolify rejects it).
+    code: "BUILD_CONFIG",
+    test: (h) => /build command field|install command field|start command field|command field format/i.test(h),
+    title: "Invalid build or start command",
+    message: "Coolify rejected the build/install/start command format — often a combined \"install; build\" string that Coolify won't accept in one field.",
+    fix: "The importer now splits install and build automatically — retry the import.",
+    mcpFixable: false,
+  },
+  {
     code: "REPO_ACCESS",
-    test: (h) => /\b422\b|git_branch|no git repository|could not.*clone|repository not found/i.test(h),
+    test: (h) => /git_branch|no git repository|could not.*clone|repository not found|repository.*access/i.test(h),
     title: "Couldn't access the repository or branch",
     message: "Coolify couldn't reach the repo, or the branch doesn't exist — usually a GitHub connection issue or a wrong branch name.",
     fix: "Connect the GitHub App to this repo and confirm the branch name, then retry.",
