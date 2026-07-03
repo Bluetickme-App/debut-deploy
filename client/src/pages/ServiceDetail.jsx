@@ -1176,17 +1176,8 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           <SettingsRow label="Project" desc="Group this service under a project & environment.">
             <MoveToProject kind="service" resourceId={serviceId} />
           </SettingsRow>
-          <SettingsRow label="Instance type" desc="Scaling is managed at the workspace level.">
-            <div
-              className="flex items-center justify-between gap-3 rounded-md border px-3.5 py-3"
-              style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
-            >
-              <div>
-                <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>Pro · 2 CPU · 4 GB</p>
-                <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>Current plan for this service.</p>
-              </div>
-              <Button variant="secondary" title="Plan changes are workspace-level (display only)">Change plan</Button>
-            </div>
+          <SettingsRow label="Instance type" desc="Container CPU & memory limits. Applied on next deploy.">
+            <InstanceType serviceId={serviceId} resources={svc.resources} />
           </SettingsRow>
         </SettingsSection>
 
@@ -1498,6 +1489,71 @@ function DiskSection({ serviceId }) {
         </div>
       </SettingsRow>
     </SettingsSection>
+  );
+}
+
+// ── Instance type (real Docker resource limits, editable) ──────────────────────
+
+const CPU_OPTS = [
+  { v: "0", label: "Shared (no limit)" },
+  { v: "0.5", label: "0.5 vCPU" },
+  { v: "1", label: "1 vCPU" },
+  { v: "2", label: "2 vCPU" },
+];
+const MEM_OPTS = [
+  { v: "0", label: "No limit" },
+  { v: "256M", label: "256 MB" },
+  { v: "512M", label: "512 MB" },
+  { v: "1G", label: "1 GB" },
+  { v: "2G", label: "2 GB" },
+];
+const fmtCpu = (v) => (v === "0" || v == null ? "Shared" : `${v} vCPU`);
+const fmtMem = (v) => (v === "0" || v == null ? "No limit" : String(v).replace(/M$/, " MB").replace(/G$/, " GB"));
+
+function InstanceType({ serviceId, resources }) {
+  const cur = { cpus: String(resources?.cpus ?? "0"), memory: String(resources?.memory ?? "0") };
+  const [cpus, setCpus] = useState(cur.cpus);
+  const [memory, setMemory] = useState(cur.memory);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const dirty = cpus !== cur.cpus || memory !== cur.memory;
+  // Keep the live value visible even if it isn't one of the presets.
+  const cpuOpts = CPU_OPTS.some((o) => o.v === cpus) ? CPU_OPTS : [{ v: cpus, label: fmtCpu(cpus) }, ...CPU_OPTS];
+  const memOpts = MEM_OPTS.some((o) => o.v === memory) ? MEM_OPTS : [{ v: memory, label: fmtMem(memory) }, ...MEM_OPTS];
+
+  async function save() {
+    setBusy(true); setMsg(null);
+    try {
+      await api.updateResources(serviceId, { cpus, memory });
+      cur.cpus = cpus; cur.memory = memory; // reflect saved baseline so the row un-dirties
+      setMsg({ ok: true, text: "Saved — redeploy to apply the new limits." });
+    } catch (e) {
+      setMsg({ ok: false, text: e.message || "Update failed" });
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border px-3.5 py-3"
+      style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)", letterSpacing: ".04em" }}>CPU</span>
+          <select className="input" value={cpus} onChange={(e) => setCpus(e.target.value)} style={{ minWidth: 160 }}>
+            {cpuOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)", letterSpacing: ".04em" }}>Memory</span>
+          <select className="input" value={memory} onChange={(e) => setMemory(e.target.value)} style={{ minWidth: 160 }}>
+            {memOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+          </select>
+        </label>
+        <Button variant="secondary" onClick={save} disabled={!dirty || busy}>{busy ? "Saving…" : "Save"}</Button>
+      </div>
+      <p className="text-[11.5px]" style={{ color: msg ? (msg.ok ? "var(--ok-text)" : "var(--err-text)") : "var(--text-muted)" }}>
+        {msg ? msg.text : `Current: ${fmtCpu(cur.cpus)} · ${fmtMem(cur.memory)}. "0"/no-limit means it shares the host freely.`}
+      </p>
+    </div>
   );
 }
 

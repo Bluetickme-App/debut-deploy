@@ -56,6 +56,8 @@ function mapApp(a, region = "") {
     domain: a.fqdn ? a.fqdn.replace(/^https?:\/\//, "").split(",")[0] : null,
     lastDeployedAt: a.updated_at || null,
     health: a.status?.split(":")[1] || "healthy",
+    // Real Docker resource limits ("0" = unlimited/shared). Editable via updateServiceResources.
+    resources: { cpus: a.limits_cpus ?? "0", memory: a.limits_memory ?? "0" },
   };
 }
 
@@ -330,6 +332,17 @@ export async function patchApp(uuid, fields) {
   await cf(`/applications/${uuid}`, { method: "PATCH", body: clean });
   return { ok: true };
 }
+// Update a service's Docker resource limits. Coolify accepts limits_cpus (e.g. "0"|"1"|"0.5")
+// and limits_memory (e.g. "0"|"512M"|"1G"). "0" = unlimited. Applied on next deploy.
+export async function updateServiceResources(uuid, { cpus, memory }) {
+  if (isDemo()) return { ok: true, resources: { cpus: String(cpus ?? "0"), memory: String(memory ?? "0") } };
+  const body = {};
+  if (cpus !== undefined) body.limits_cpus = String(cpus);
+  if (memory !== undefined) body.limits_memory = String(memory);
+  await cf(`/applications/${uuid}`, { method: "PATCH", body });
+  return { ok: true, resources: { cpus: String(cpus ?? "0"), memory: String(memory ?? "0") } };
+}
+
 export async function renameDatabase(uuid, name) {
   if (isDemo()) return { ok: true, uuid, name };
   await cf(`/databases/${uuid}`, { method: "PATCH", body: { name } });

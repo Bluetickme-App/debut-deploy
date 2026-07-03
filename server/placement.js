@@ -20,6 +20,13 @@ export function placeResourceInEnvironment({ user, type, resourceUuid, environme
     if (env.org_id !== callerOrg) throw Object.assign(new Error("Not found"), { status: 404 });
   }
   const res = db.prepare("UPDATE resource_ownership SET environment_id = ? WHERE type = ? AND coolify_uuid = ?").run(env.id, type, resourceUuid);
-  if (!res.changes) throw Object.assign(new Error("Not found"), { status: 404 });
+  if (!res.changes) {
+    // No ownership row yet — the resource was deployed straight in Coolify and never
+    // claimed through the panel. Placing it into an environment claims it for that
+    // environment's org (kind uses its NOT NULL default; can be refined later).
+    db.prepare(`INSERT INTO resource_ownership (coolify_uuid, type, user_id, org_id, environment_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(resourceUuid, type, user.id, env.org_id, env.id, new Date().toISOString());
+  }
   return { ok: true };
 }

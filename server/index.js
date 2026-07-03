@@ -457,6 +457,25 @@ app.patch(
   })
 );
 
+// Update a service's container resource limits (CPU / memory). Owner-scoped.
+// Applied on next deploy — Coolify recreates the container with the new cgroup limits.
+app.patch(
+  "/api/services/:id/resources",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const cpus = req.body?.cpus, memory = req.body?.memory;
+    if (cpus === undefined && memory === undefined) {
+      throw Object.assign(new Error("cpus or memory is required"), { status: 400 });
+    }
+    record(req, "service.resources", { resourceType: "application", resourceUuid: req.params.id, metadata: { cpus, memory } });
+    return coolify.updateServiceResources(req.params.id, { cpus, memory });
+  })
+);
+
 // --- deployments & logs ---
 app.get(
   "/api/services/:id/deployments",
