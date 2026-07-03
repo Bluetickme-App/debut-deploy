@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
-  Layers, Search, GitBranch, ExternalLink, LayoutGrid, List, Plus,
+  Layers, Search, GitBranch, ExternalLink, LayoutGrid, List, Plus, Lock,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
@@ -23,17 +23,22 @@ function repoHref(repo) {
 
 // Repo text that links straight to the repo when possible. stopPropagation so clicking
 // it inside a clickable card/row opens GitHub instead of navigating to the service.
-function RepoText({ repo, name }) {
+function RepoText({ repo, name, isPrivate }) {
   const href = repoHref(repo);
   const label = repo || name;
-  if (!href) return label;
+  // Lock marks private repos — GitHub 404s their web URL for anyone not signed in
+  // with access, so the icon explains "not a broken link, just private".
+  const lock = isPrivate ? (
+    <Lock size={11} style={{ flexShrink: 0, opacity: 0.7 }} aria-label="Private repository" />
+  ) : null;
+  if (!href) return <>{lock}{label}</>;
   return (
     <a href={href} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-       title="Open repository on GitHub"
-       style={{ color: "inherit", textDecoration: "none" }}
+       title={isPrivate ? "Private repository — opens on GitHub (sign-in required)" : "Open repository on GitHub"}
+       style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "inherit", textDecoration: "none" }}
        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
-      {label}
+      {lock}{label}
     </a>
   );
 }
@@ -152,7 +157,7 @@ function GridCard({ s, onClick }) {
         }}>
           <GitBranch size={13} style={{ flexShrink: 0 }} />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            <RepoText repo={s.repo} name={s.name} />
+            <RepoText repo={s.repo} name={s.name} isPrivate={s.repoPrivate} />
           </span>
           <span style={{ color: "var(--border-strong)" }}>·</span>
           <span style={{ color: "var(--text)" }}>{s.branch || "main"}</span>
@@ -222,7 +227,7 @@ function ListRow({ s, onClick }) {
           {s.name}
         </span>
         <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--text-muted)" }}>
-          <RepoText repo={s.repo} name={s.name} /> · {s.branch || "main"}
+          <RepoText repo={s.repo} name={s.name} isPrivate={s.repoPrivate} /> · {s.branch || "main"}
         </span>
       </div>
       <div><StatusPill status={s.status} /></div>

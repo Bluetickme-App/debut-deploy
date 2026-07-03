@@ -76,6 +76,36 @@ async function sharedRegion() {
   return _regionCache;
 }
 
+// Is a repo private? GitHub returns 404 to unauthenticated callers for private
+// repos and 200 for public ones, so an anon API call IS the signal — no token
+// needed. Cache per owner/repo. // ponytail: 6h TTL keeps us under the 60/hr
+// unauth rate limit for a handful of repos; add GITHUB_TOKEN if that ceiling bites.
+const _visCache = new Map(); // "owner/repo" -> { private, ts }
+const VIS_TTL = 6 * 3600 * 1000;
+function ownerRepo(repo) {
+  if (!repo) return null;
+  const s = String(repo);
+  const m = s.match(/github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?$/i) || s.match(/^([^/\s]+\/[^/\s]+?)(?:\.git)?$/);
+  return m ? m[1] : null;
+}
+async function repoIsPrivate(repo) {
+  const key = ownerRepo(repo);
+  if (!key) return false;
+  const c = _visCache.get(key);
+  if (c && Date.now() - c.ts < VIS_TTL) return c.private;
+  try {
+    const h = { "User-Agent": "debutdeploy", Accept: "application/vnd.github+json" };
+    if (process.env.GITHUB_TOKEN) h.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    const r = await fetch(`https://api.github.com/repos/${key}`, { headers: h });
+    let priv;
+    if (r.status === 200) priv = !!(await r.json()).private;
+    else if (r.status === 404) priv = true; // private or gone — either way not publicly linkable
+    else return false; // rate-limited/unknown: no lock, don't poison the cache
+    _visCache.set(key, { private: priv, ts: Date.now() });
+    return priv;
+  } catch { return false; }
+}
+
 function mapDb(d) {
   return {
     uuid: d.uuid,
@@ -96,7 +126,9 @@ function mapDb(d) {
 export async function listServices() {
   if (isDemo()) return fx.services;
   const [apps, region] = await Promise.all([cf("/applications"), sharedRegion()]);
-  return (Array.isArray(apps) ? apps : []).map((a) => mapApp(a, region));
+  const list = (Array.isArray(apps) ? apps : []).map((a) => mapApp(a, region));
+  await Promise.all(list.map(async (s) => { s.repoPrivate = await repoIsPrivate(s.repo); }));
+  return list;
 }
 
 // Coolify projects, for the "Move to project" picker.
