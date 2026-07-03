@@ -1040,7 +1040,6 @@ const NAV = [
   { id: "log-stream", label: "Log Stream" },
   { id: "health", label: "Health Checks" },
   { id: "disk", label: "Disk" },
-  { id: "maintenance", label: "Maintenance Mode" },
   { id: "danger", label: "Delete or suspend" },
 ];
 
@@ -1092,8 +1091,6 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
   const [prPreview, setPrPreview] = useState("Off");
   const [edgeCache, setEdgeCache] = useState("Static assets");
   const [previewNotify, setPreviewNotify] = useState("Off");
-  const [maintenance, setMaintenance] = useState(false);
-  const [maintenanceUrl, setMaintenanceUrl] = useState("");
   const [hookRevealed, setHookRevealed] = useState(false);
   const [included, setIncluded] = useState([]);
   const [ignored, setIgnored] = useState([]);
@@ -1362,17 +1359,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
         {/* 10b · Disk */}
         <DiskSection serviceId={serviceId} />
 
-        {/* 11 · Maintenance Mode */}
-        <SettingsSection id="maintenance" title="Maintenance Mode">
-          <SettingsRow label="Enable maintenance mode" desc="Serve a maintenance page instead of your service.">
-            <ToggleRow on={maintenance} onToggle={() => setMaintenance((v) => !v)} label="Maintenance mode" />
-          </SettingsRow>
-          <SettingsRow label="Custom maintenance page" desc="Optional. URL to redirect visitors to.">
-            <TextInput mono value={maintenanceUrl} onChange={setMaintenanceUrl} placeholder="https://status.example.com" />
-          </SettingsRow>
-        </SettingsSection>
-
-        {/* 12 · Delete or suspend */}
+        {/* 11 · Delete or suspend */}
         <section
           id="danger"
           className="scroll-mt-24 rounded-lg px-5 py-[18px]"
