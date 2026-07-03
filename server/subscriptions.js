@@ -11,9 +11,10 @@
 //     down to -£10 / -$10 (a small overdraft) before the account is suspended.
 //   • Top-up minimum         -> £25/$25 for the first top-up; thereafter max(£25, last
 //     month's usage). e.g. £75/mo usage -> £75 minimum, never below £25.
-import { db, getSetting } from "./db.js";
+import { db, getSetting, setSetting } from "./db.js";
 import { planPriceUsd } from "./plans.js";
-import { usdGbpRate } from "./billing.js";
+import { usdGbpRate, stripeClient, stripeMode, getOrCreateStripeCustomer, walletBalance } from "./billing.js";
+import { priceIdFor } from "./stripecatalog.js";
 
 export const BASE_MIN_TOPUP_MINOR = 2500;       // £25 / $25 (minor units)
 export const OVERDRAFT_ALLOWANCE_MINOR = 1000;  // wallet may reach -£10 / -$10 before suspend
@@ -78,4 +79,108 @@ export const walletShouldSuspend = (balanceMinor) => balanceMinor <= -OVERDRAFT_
 export function graceDeadlineMs(failedAtMs) { return failedAtMs + SUBSCRIPTION_GRACE_DAYS * DAY_MS; }
 export function subscriptionShouldSuspend(failedAtMs, nowMs) {
   return failedAtMs != null && nowMs > graceDeadlineMs(failedAtMs);
+}
+
+// --- Stage 3: subscription lifecycle (state in app_settings, Stripe checkout, ----
+// webhooks, suspension sweep). Per-org billing state is a JSON blob in app_settings
+// so this needs no schema migration:
+//   { status:'active'|'past_due'|'suspended'|'canceled'|null, failedAt:ms|null,
+//     suspendedAt:ms|null, reason:string|null, subscriptionId:string|null }
+const subKey = (orgId) => `org_sub_${orgId}`;
+export function getSubState(orgId) {
+  try { return { status: null, failedAt: null, suspendedAt: null, reason: null, subscriptionId: null, ...JSON.parse(getSetting(subKey(orgId)) || "{}") }; }
+  catch { return { status: null, failedAt: null, suspendedAt: null, reason: null, subscriptionId: null }; }
+}
+export function setSubState(orgId, patch) {
+  const next = { ...getSubState(orgId), ...patch };
+  setSetting(subKey(orgId), JSON.stringify(next));
+  return next;
+}
+
+// Start a subscription for an org: a Stripe Checkout session in `subscription` mode
+// (collects the card AND creates the subscription) from the org's plan price ids in
+// its currency. The org must have priced services and a synced catalog.
+export async function startSubscriptionCheckout(orgId, { successUrl, cancelUrl } = {}) {
+  const stripe = stripeClient();
+  if (!stripe) throw Object.assign(new Error("Stripe is not configured for this mode"), { status: 400 });
+  const currency = orgCurrency(orgId);
+  const mode = stripeMode();
+  const lines = subscriptionLinesFor(orgId, currency);
+  if (!lines.length) throw Object.assign(new Error("This client has no priced services to subscribe"), { status: 400 });
+  const line_items = lines.map((l) => {
+    const price = priceIdFor(mode, l.planId, currency);
+    if (!price) throw Object.assign(new Error(`No ${currency.toUpperCase()} price for ${l.planId} — sync the plan catalog first`), { status: 400 });
+    return { price, quantity: l.quantity };
+  });
+  const customer = await getOrCreateStripeCustomer(orgId);
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer,
+    line_items,
+    metadata: { org_id: String(orgId), kind: "service_subscription" },
+    subscription_data: { metadata: { org_id: String(orgId) } },
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  });
+  return { url: session.url };
+}
+
+// Resolve org id from an invoice: subscription metadata first, then the customer.
+function orgFromInvoice(inv) {
+  const meta = Number(inv?.subscription_details?.metadata?.org_id || inv?.metadata?.org_id);
+  if (Number.isInteger(meta) && meta > 0) return meta;
+  const cust = inv?.customer;
+  if (cust) {
+    const row = db.prepare("SELECT id FROM organizations WHERE stripe_customer_id = ?").get(cust);
+    if (row) return row.id;
+  }
+  return null;
+}
+
+// Apply a Stripe subscription/invoice webhook to our per-org state. Idempotent.
+export function applySubscriptionEvent(event) {
+  const obj = event?.data?.object || {};
+  switch (event?.type) {
+    case "invoice.paid": {
+      const orgId = orgFromInvoice(obj);
+      if (orgId) setSubState(orgId, { status: "active", failedAt: null, reason: null, suspendedAt: null, subscriptionId: obj.subscription || getSubState(orgId).subscriptionId });
+      return { handled: true, orgId };
+    }
+    case "invoice.payment_failed": {
+      const orgId = orgFromInvoice(obj);
+      if (orgId) {
+        const st = getSubState(orgId);
+        if (!st.failedAt) setSubState(orgId, { status: "past_due", failedAt: (event.created || 0) * 1000, subscriptionId: obj.subscription || st.subscriptionId });
+      }
+      return { handled: true, orgId };
+    }
+    case "customer.subscription.deleted": {
+      const orgId = Number(obj.metadata?.org_id) || orgFromInvoice({ customer: obj.customer });
+      if (orgId) setSubState(orgId, { status: "canceled" });
+      return { handled: true, orgId };
+    }
+    default:
+      return { handled: false };
+  }
+}
+
+// Suspend orgs past the 14-day subscription grace OR past the -£10/-$10 wallet
+// overdraft; un-suspend those whose conditions have cleared. Returns the changes.
+// Marks state + returns list — the caller notifies/enforces (no destructive action here).
+export function runSuspensionSweep(nowMs) {
+  const changed = [];
+  for (const { id } of db.prepare("SELECT id FROM organizations").all()) {
+    const st = getSubState(id);
+    const subDue = subscriptionShouldSuspend(st.failedAt, nowMs);
+    const walletDue = walletShouldSuspend(walletBalance(id));
+    if ((subDue || walletDue) && st.status !== "suspended") {
+      const reason = subDue ? "subscription_unpaid" : "credit_overdrawn";
+      setSubState(id, { status: "suspended", suspendedAt: nowMs, reason });
+      changed.push({ orgId: id, action: "suspended", reason });
+    } else if (st.status === "suspended" && !subDue && !walletDue) {
+      setSubState(id, { status: "active", suspendedAt: null, reason: null });
+      changed.push({ orgId: id, action: "restored" });
+    }
+  }
+  return changed;
 }

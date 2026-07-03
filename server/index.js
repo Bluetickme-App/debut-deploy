@@ -65,6 +65,7 @@ import {
 } from "./billing.js";
 import * as stripeadmin from "./stripeadmin.js";
 import { ensureCatalog } from "./stripecatalog.js";
+import * as subscriptions from "./subscriptions.js";
 import { planPriceUsd } from "./plans.js";
 import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -963,6 +964,20 @@ app.post("/api/admin/orgs/:id/credit", requireAuth, requireAdmin, mutateGuard, h
   return { ok: true, balance_pence: walletBalance(orgId) };
 }));
 
+// Start a service subscription for a client — returns a Stripe Checkout URL (subscription
+// mode: collects the card + creates the subscription from the org's plans). Send the URL
+// to the client to complete. Charges only after they enter a card in Checkout.
+app.post("/api/admin/orgs/:id/subscribe", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const result = await subscriptions.startSubscriptionCheckout(orgId, {
+    successUrl: `${clientOrigin}/clients?subscribe=success`,
+    cancelUrl: `${clientOrigin}/clients?subscribe=cancel`,
+  });
+  record(req, "billing.subscribe_initiated", { metadata: { org_id: orgId } });
+  return result;
+}));
+
 // Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.
 app.get(
   "/api/billing",
@@ -1216,6 +1231,7 @@ app.post("/api/stripe/webhook", (req, res) => {
   }
   try {
     handleWebhookEvent(event); // idempotent credit (INSERT OR IGNORE) — safe to retry
+    subscriptions.applySubscriptionEvent(event); // subscription lifecycle: paid/failed/cancelled → org billing state
   } catch (err) {
     // 500 so Stripe retries; handler is idempotent so a retry is always safe.
     console.error("stripe webhook handler error:", err.message);
@@ -1980,6 +1996,15 @@ app.post("/api/billing/topup", requireAuth, mutateGuard, attachOrgContext, requi
     if (!Number.isInteger(amountPence) || amountPence < 100) {
       throw Object.assign(new Error("amount_pence must be an integer >= 100"), { status: 400 });
     }
+    // Minimum top-up = max(£25, last month's usage) — protects against tiny top-ups
+    // that don't cover a month of metered usage.
+    const now = new Date();
+    const prev = currentPeriod(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+    const lastMonthPence = (usageSummary(req.org.id, prev)?.lines || []).reduce((s, l) => s + (l.pence || 0), 0);
+    const minPence = subscriptions.minTopUpMinor(lastMonthPence);
+    if (amountPence < minPence) {
+      throw Object.assign(new Error(`Minimum top-up is £${(minPence / 100).toFixed(2)}`), { status: 400 });
+    }
     record(req, "billing.topup_initiated", { metadata: { org_id: req.org.id, amount_pence: amountPence } });
     return createTopupSession({
       orgId: req.org.id, amountPence,
@@ -2124,6 +2149,20 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
   };
   const billingTimer = setInterval(runMonthly, 60 * 60_000); // hourly; guard makes it idempotent
   billingTimer.unref?.();
+
+  // Suspension sweep: suspend orgs past the 14-day subscription grace or the -£10/-$10
+  // wallet overdraft (and restore those whose conditions cleared). Marks state + audits;
+  // no destructive action here. ponytail: 6h cadence; a failed sub already has a 14-day
+  // runway so nothing is time-critical.
+  const runSweep = () => {
+    try {
+      for (const c of subscriptions.runSuspensionSweep(Date.now())) {
+        recordSystem(c.action === "suspended" ? "billing.suspended" : "billing.restored", { metadata: { org_id: c.orgId, reason: c.reason } });
+      }
+    } catch (err) { console.error("suspension sweep:", err.message); }
+  };
+  const sweepTimer = setInterval(runSweep, 6 * 60 * 60_000);
+  sweepTimer.unref?.();
 }
 
 const PORT = process.env.PORT || 8787;

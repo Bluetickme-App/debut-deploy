@@ -17,6 +17,11 @@ const parseStored = (raw) => {
   return priceId ? { priceId, amount: Number(amt) } : null;
 };
 
+// The Stripe Price id for a plan in a given currency + mode (null if not yet synced).
+export function priceIdFor(mode, plan, currency) {
+  return parseStored(getSetting(priceKey(mode, plan, currency)))?.priceId || null;
+}
+
 // Read-only: what's configured for the active mode + whether each price matches the
 // current target amount (no Stripe call — reads stored ids).
 export function catalogStatus() {
