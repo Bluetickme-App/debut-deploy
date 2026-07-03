@@ -1173,8 +1173,8 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           <SettingsRow label="Region" desc="The region this service runs in.">
             <ReadOnly value={region} />
           </SettingsRow>
-          <SettingsRow label="Project" desc="Group this service under a Coolify project.">
-            <MoveToProject kind="service" resourceId={serviceId} current={svc.project} />
+          <SettingsRow label="Project" desc="Group this service under a project & environment.">
+            <MoveToProject kind="service" resourceId={serviceId} />
           </SettingsRow>
           <SettingsRow label="Instance type" desc="Scaling is managed at the workspace level.">
             <div

@@ -134,8 +134,8 @@ export default function DatabaseDetail() {
           <SettingsRow label="Region" desc="The server this database runs on.">
             <ReadOnly value={region} />
           </SettingsRow>
-          <SettingsRow label="Project" desc="Group this database under a Coolify project.">
-            <MoveToProject kind="database" resourceId={db.uuid} current={null} />
+          <SettingsRow label="Project" desc="Group this database under a project & environment.">
+            <MoveToProject kind="database" resourceId={db.uuid} />
           </SettingsRow>
         </SettingsSection>
 
