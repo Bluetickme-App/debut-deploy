@@ -49,6 +49,10 @@ export default defineConfig({
       },
     }),
   ],
+  // Ship source maps so a production stack trace (shown in the error card's Details)
+  // can be resolved back to the real file/line. // ponytail: internal tool; the small
+  // exposure is worth being able to debug crashes.
+  build: { sourcemap: true },
   server: {
     port: 5180,
     proxy: {

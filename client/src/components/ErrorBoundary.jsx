@@ -26,6 +26,15 @@ export default class ErrorBoundary extends Component {
             <div className="text-xs mono" style={{ color: "var(--text-muted)", whiteSpace: "pre-wrap" }}>
               {String(this.state.error?.message || this.state.error)}
             </div>
+            {/* First stack frames — minified, but map back to source so we can pinpoint the crash. */}
+            {this.state.error?.stack && (
+              <details className="mt-2">
+                <summary className="text-xs" style={{ color: "var(--text-muted)", cursor: "pointer" }}>Details</summary>
+                <pre className="text-[10px] mono mt-1" style={{ color: "var(--text-muted)", whiteSpace: "pre-wrap", maxHeight: 160, overflow: "auto" }}>
+                  {String(this.state.error.stack).split("\n").slice(0, 6).join("\n")}
+                </pre>
+              </details>
+            )}
             <button className="btn btn-primary mt-3" onClick={() => this.setState({ error: null })}>
               Try again
             </button>

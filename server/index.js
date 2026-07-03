@@ -1658,6 +1658,8 @@ app.delete("/api/org/members/:userId", requireAuth, mutateGuard, attachOrgContex
 // --- billing (prepaid wallet) ---
 app.get("/api/billing/wallet", requireAuth, attachOrgContext, requireCapability("read"),
   h((req) => {
+    // No org (e.g. an admin) → empty wallet instead of dereferencing null → 500.
+    if (!req.org?.id) return { balance_pence: 0, billing_status: "ok", recent_ledger: [] };
     const org = db.prepare("SELECT billing_status FROM organizations WHERE id = ?").get(req.org.id);
     return {
       balance_pence: walletBalance(req.org.id),
