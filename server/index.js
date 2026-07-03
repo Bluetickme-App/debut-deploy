@@ -224,6 +224,7 @@ app.get("/api/me", requireAuth, h((req) => {
     role: req.user.role,
     orgId: m?.org_id ?? null,
     orgRole: m?.role ?? null,
+    platformIp: dns.expectedIp, // IP custom domains must A-record to (from COOLIFY_BASE_URL)
   };
 }));
 
@@ -602,16 +603,6 @@ app.post(
     const result = await lifecycle.setDomain(req.params.id, req.body?.fqdn);
     record(req, "app.domain", { resourceType: "application", resourceUuid: req.params.id, metadata: { fqdn: req.body?.fqdn } });
     return result;
-  })
-);
-
-app.get(
-  "/api/services/:id/domain/verify",
-  requireAuth,
-  h(async (req) => {
-    assertOwns(req.user, "application", req.params.id);
-    const { fqdn } = req.query;
-    return lifecycle.verifyDomain(req.params.id, fqdn);
   })
 );
 

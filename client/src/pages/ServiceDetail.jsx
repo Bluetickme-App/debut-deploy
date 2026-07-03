@@ -6,6 +6,7 @@ import {
   ChevronDown, KeyRound, FileText, Database, HardDrive,
 } from "lucide-react";
 import { api } from "../lib/api.js";
+import { useAuth } from "../auth.jsx";
 import { actionLabel } from "../lib/eventLabels.js";
 import { StatusPill, Spinner, Button, Mono, timeAgo } from "../components/ui.jsx";
 import { SettingsSection, SettingsRow, AnchorNav } from "../components/SettingsSection.jsx";
@@ -1040,6 +1041,8 @@ const NAV = [
 
 function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const platformIp = user?.platformIp;
 
   // build & deploy (wired to /build; backend may 404 until added)
   const [rootDir, setRootDir] = useState(svc.rootDirectory || "");
@@ -1161,7 +1164,9 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
     setActiveSection(secId);
   }
 
-  const subdomain = `${svc.name}.debutdepoly.app`;
+  // Live wildcard is *.debutdepoly.com → the Coolify host (e.g. claude-trader.debutdepoly.com).
+  // Host names are case-insensitive but lowercase matches the deployed convention.
+  const subdomain = `${svc.name.toLowerCase()}.debutdepoly.com`;
 
   return (
     <div className="flex gap-8">
@@ -1272,6 +1277,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
                   {verifyBusy ? <Spinner /> : "Verify DNS"}
                 </Button>
               </div>
+              <DomainSteps platformIp={platformIp} host={fqdn} />
               {domainMsg && <p className="text-xs" style={{ color: domainMsg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{domainMsg.text}</p>}
               {verifyResult && !verifyResult.error && <DnsResult result={verifyResult} />}
               {verifyResult?.error && <p className="text-xs" style={{ color: "var(--err-text)" }}>Verify failed: {verifyResult.error}</p>}
@@ -1683,10 +1689,44 @@ function PathList({ label, items, onChange }) {
   );
 }
 
+// ── Custom-domain setup steps (always shown) ────────────────────────────────────
+
+function DomainSteps({ platformIp, host }) {
+  const [copied, setCopied] = useState(false);
+  const name = host?.trim() ? (host.trim().split(".").length > 2 ? host.trim().split(".")[0] : "@") : "@";
+  const copy = () => {
+    if (!platformIp) return;
+    navigator.clipboard?.writeText(platformIp).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div className="rounded-lg border p-3 text-xs" style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
+      <p className="mb-1.5 font-semibold" style={{ color: "var(--text-muted)" }}>How to point a domain here</p>
+      <ol className="space-y-1.5" style={{ color: "var(--text)" }}>
+        <li>
+          1. At your DNS provider, create an <Mono>A</Mono> record:{" "}
+          <Mono>{name}</Mono> →{" "}
+          {platformIp
+            ? <button onClick={copy} title="Copy IP" className="inline-flex items-center gap-1" style={{ color: copied ? "var(--ok-text)" : "var(--accent-text)" }}>
+                <Mono>{platformIp}</Mono><Copy className="h-3 w-3" />{copied && " copied"}
+              </button>
+            : <Mono>(server IP)</Mono>}
+          . Replace any old host (e.g. a Render <Mono>A</Mono>/<Mono>CNAME</Mono>).
+        </li>
+        <li>2. Add <Mono>www</Mono> the same way (a second <Mono>A</Mono> record → same IP), then add it here as its own domain.</li>
+        <li>3. Enter the domain above, click <span style={{ color: "var(--text)" }}>Add custom domain</span>, then <span style={{ color: "var(--text)" }}>Verify DNS</span>. TLS is issued automatically once DNS points here.</li>
+      </ol>
+    </div>
+  );
+}
+
 // ── DNS verification result ────────────────────────────────────────────────────
 
 function DnsResult({ result }) {
-  const { host, serverIp, resolvedIps, pointsAt } = result;
+  // dns.verifyDomain (the live route) returns { fqdn, expectedIp, pointsToServer }
+  const { fqdn: host, expectedIp: serverIp, resolvedIps, pointsToServer: pointsAt } = result;
   const [copied, setCopied] = useState(false);
 
   function copy(text) {

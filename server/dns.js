@@ -1,7 +1,7 @@
 import { resolve4 } from "node:dns/promises";
 
 const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
-const expectedIp = BASE ? new URL(BASE).hostname : "";
+export const expectedIp = BASE ? new URL(BASE).hostname : "";
 
 export async function verifyDomain(fqdn) {
   if (!fqdn || typeof fqdn !== "string" || !/^[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}$/.test(fqdn.trim())) {
