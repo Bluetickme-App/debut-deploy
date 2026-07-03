@@ -37,20 +37,22 @@ export function walletBalance(orgId) {
 // Returns { inserted } so the webhook can tell a first delivery from a replay.
 export function creditWallet({
   orgId, amountPence, type,
-  stripeSessionId = null, stripePaymentIntentId = null, period = null, notes = null,
+  stripeSessionId = null, stripePaymentIntentId = null, period = null, notes = null, createdBy = null,
 }) {
   const info = db.prepare(
     `INSERT OR IGNORE INTO credit_ledger
-       (org_id, amount_pence, type, stripe_session_id, stripe_payment_intent_id, period, notes, created_at)
-     VALUES (?,?,?,?,?,?,?,?)`
-  ).run(orgId, amountPence, type, stripeSessionId, stripePaymentIntentId, period, notes, nowIso());
+       (org_id, amount_pence, type, stripe_session_id, stripe_payment_intent_id, period, notes, created_at, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?)`
+  ).run(orgId, amountPence, type, stripeSessionId, stripePaymentIntentId, period, notes, nowIso(), createdBy);
   return { inserted: info.changes > 0 };
 }
 
+// `by` is the actor's email for admin actions, null for system/webhook entries.
 export const recentLedger = (orgId, limit = 20) =>
   db.prepare(
-    "SELECT id, amount_pence, type, period, notes, created_at FROM credit_ledger " +
-      "WHERE org_id = ? ORDER BY created_at DESC, id DESC LIMIT ?"
+    "SELECT cl.id, cl.amount_pence, cl.type, cl.period, cl.notes, cl.created_at, u.email AS by " +
+      "FROM credit_ledger cl LEFT JOIN users u ON u.id = cl.created_by " +
+      "WHERE cl.org_id = ? ORDER BY cl.created_at DESC, cl.id DESC LIMIT ?"
   ).all(orgId, limit);
 
 // --- monthly hardware charge ------------------------------------------------

@@ -265,6 +265,10 @@ const MIGRATIONS = [
   (d) => {
     d.exec(`ALTER TABLE organizations ADD COLUMN billing_address TEXT;`);
   },
+  // -> user_version 15: who created each ledger row (null = system/webhook)
+  (d) => {
+    d.exec(`ALTER TABLE credit_ledger ADD COLUMN created_by INTEGER REFERENCES users(id);`);
+  },
 ];
 
 function resolveDbFile() {

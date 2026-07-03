@@ -12,9 +12,19 @@ fs.rmSync(file, { force: true });
 {
   const d = new Database(file);
   d.pragma("foreign_keys = ON");
+  // A realistic v11 schema: usage-migration tests only read usage_events, but later
+  // migrations (15) ALTER credit_ledger + reference users, so those must exist too.
   d.exec(`
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL
+    );
     CREATE TABLE organizations (
       id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL
+    );
+    CREATE TABLE credit_ledger (
+      id INTEGER PRIMARY KEY, org_id INTEGER NOT NULL, amount_pence INTEGER NOT NULL,
+      type TEXT NOT NULL, stripe_session_id TEXT UNIQUE, stripe_payment_intent_id TEXT UNIQUE,
+      period TEXT, notes TEXT, created_at TEXT NOT NULL
     );
   `);
   d.prepare("INSERT INTO organizations (name, slug, created_at) VALUES (?,?,?)")

@@ -12,6 +12,9 @@ fs.rmSync(file, { force: true });
 {
   const d = new Database(file);
   d.exec(`
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL
+    );
     CREATE TABLE organizations (
       id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL
     );

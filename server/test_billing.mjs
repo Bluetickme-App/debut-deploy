@@ -211,3 +211,14 @@ test("listOrgResources returns each resource with its plan_id (null = free)", ()
   assert.equal(rows.find((r) => r.coolify_uuid === "app-res-1").plan_id, "pro");
   assert.equal(rows.find((r) => r.coolify_uuid === "app-res-2").plan_id, null);
 });
+
+test("recentLedger surfaces the actor email (created_by) for admin entries; null for system", () => {
+  const admin = db.createUser({ email: "op@debut.io", role: "admin" });
+  const u = db.createUser({ email: "ledgeractor@x.com", role: "customer" });
+  const orgId = db.ensureUserOrg(u.id);
+  billing.creditWallet({ orgId, amountPence: 500, type: "adjustment", notes: "comp", createdBy: admin.id });
+  billing.creditWallet({ orgId, amountPence: 200, type: "topup", stripeSessionId: "cs_actor" }); // system → no createdBy
+  const rows = billing.recentLedger(orgId);
+  assert.equal(rows.find((r) => r.type === "adjustment").by, "op@debut.io");
+  assert.equal(rows.find((r) => r.type === "topup").by, null);
+});

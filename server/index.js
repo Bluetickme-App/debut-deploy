@@ -786,7 +786,7 @@ app.post("/api/admin/orgs/:id/credit", requireAuth, requireAdmin, mutateGuard, h
     throw Object.assign(new Error("amount_pence must be a non-zero integer"), { status: 400 });
   }
   const notes = String(req.body?.notes || "").slice(0, 500) || null;
-  creditWallet({ orgId, amountPence, type: "adjustment", notes });
+  creditWallet({ orgId, amountPence, type: "adjustment", notes, createdBy: req.user.id });
   // An adjustment can clear or trigger arrears — recompute advisory status from the new balance.
   db.prepare("UPDATE organizations SET billing_status = ? WHERE id = ?")
     .run(walletBalance(orgId) < 0 ? "arrears" : "ok", orgId);
