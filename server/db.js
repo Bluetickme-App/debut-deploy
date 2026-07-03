@@ -278,6 +278,53 @@ const MIGRATIONS = [
   (d) => {
     d.exec(`ALTER TABLE resource_ownership ADD COLUMN auto_deploy INTEGER NOT NULL DEFAULT 1;`);
   },
+  // -> user_version 18: panel-native projects + environments; resource placement + kind
+  (d) => {
+    d.exec(`
+      CREATE TABLE projects (
+        id         INTEGER PRIMARY KEY,
+        org_id     INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        slug       TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(org_id, slug)
+      );
+      CREATE TABLE environments (
+        id         INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        slug       TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(project_id, slug)
+      );
+      ALTER TABLE resource_ownership ADD COLUMN environment_id INTEGER REFERENCES environments(id) ON DELETE SET NULL;
+      ALTER TABLE resource_ownership ADD COLUMN kind TEXT NOT NULL DEFAULT 'web_service'
+        CHECK(kind IN ('web_service','background_worker','cron_job','static_site','postgres','key_value'));
+      CREATE INDEX idx_projects_org         ON projects(org_id);
+      CREATE INDEX idx_environments_project ON environments(project_id);
+      CREATE INDEX idx_resource_env         ON resource_ownership(environment_id);
+    `);
+
+    // Generic backfill: per org that owns resources, a Default project + Production env,
+    // place all its resources there; databases get kind='postgres' (naive; editable later).
+    const now = new Date().toISOString();
+    const orgIds = d.prepare("SELECT DISTINCT org_id FROM resource_ownership WHERE org_id IS NOT NULL").all().map((r) => r.org_id);
+    const insProj = d.prepare("INSERT INTO projects (org_id, name, slug, created_at, updated_at) VALUES (?,?,?,?,?)");
+    const insEnv  = d.prepare("INSERT INTO environments (project_id, name, slug, created_at, updated_at) VALUES (?,?,?,?,?)");
+    const place   = d.prepare("UPDATE resource_ownership SET environment_id = ? WHERE org_id = ? AND environment_id IS NULL");
+    for (const orgId of orgIds) {
+      const projId = insProj.run(orgId, "Default", "default", now, now).lastInsertRowid;
+      const envId  = insEnv.run(projId, "Production", "production", now, now).lastInsertRowid;
+      place.run(envId, orgId);
+    }
+    d.exec("UPDATE resource_ownership SET kind = 'postgres' WHERE type = 'database'");
+
+    // Validation — throw (rolls back the migration) if anything is left unplaced.
+    const unplaced = d.prepare("SELECT COUNT(*) c FROM resource_ownership WHERE org_id IS NOT NULL AND environment_id IS NULL").get().c;
+    if (unplaced) throw new Error(`migration 18 backfill incomplete: ${unplaced} owned resources unplaced`);
+  },
 ];
 
 function resolveDbFile() {
