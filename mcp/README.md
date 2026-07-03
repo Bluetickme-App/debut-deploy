@@ -64,8 +64,19 @@ claude mcp add debutdeploy -e DEBUTDEPLOY_TOKEN=your-token-here -- node C:\\Dev\
 | `service_deployments` | `GET /api/services/:id/deployments`       |
 | `rollback_service`    | `POST /api/services/:id/rollback`         |
 | `service_envs`        | `GET /api/services/:id/envs`              |
+| `set_service_env`     | `POST /api/services/:id/envs`             |
+| `service_build_logs`  | `GET /api/services/:id/build-logs`        |
+| `update_service_resources` | `PATCH /api/services/:id/resources`  |
 | `create_service`      | `POST /api/apps`                          |
 | `list_databases`      | `GET /api/databases`                      |
 | `get_database`        | `GET /api/databases/:uuid`                |
 | `list_events`         | `GET /api/events?limit=N`                 |
 | `billing`             | `GET /api/billing` (admin only)           |
+
+## Fixing failed imports/deploys
+
+When an import or deploy fails, DebutDeploy attaches a **friendly error** with a
+copy-pasteable prompt (shown in the import results UI). Paste it into Claude with
+this MCP connected and it will remediate using the tools above — e.g. read
+`service_build_logs`, `set_service_env`, then `deploy_service`. Credential and
+GitHub-connection problems are marked as manual (the MCP can't fix those).

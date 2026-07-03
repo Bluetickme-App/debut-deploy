@@ -16,6 +16,7 @@ import {
 import { fetchBlueprint, applyBlueprint, ownerRepo } from "./renderyaml.js";
 import { createProjectDatabase, provisionDedicatedDatabase } from "./sharedcluster.js";
 import { deleteApp } from "./lifecycle.js";
+import { friendlyError } from "./friendlyError.js";
 import { assign } from "./ownership.js";
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
@@ -23,6 +24,11 @@ import { assign } from "./ownership.js";
 // Surface Coolify/Render validation bodies (err.detail) so a 4xx step says WHY it
 // failed, not just the bare status — e.g. "git_branch field is required" vs "→ 422".
 const errDetail = (err) => (err.detail ? `${err.message} — ${String(err.detail).slice(0, 400)}` : err.message);
+// Build an error step that also carries a friendly, MCP-actionable remediation.
+// resource = { type:"application", id } once the app exists (enables MCP fix hints).
+const errStep = (step, err, resource = null) => ({
+  step, status: "error", detail: errDetail(err), friendly: friendlyError(err, { step, resource }),
+});
 
 export function assertPgUrl(url) {
   if (typeof url !== "string" || !/^postgres(ql)?:\/\//i.test(url)) {
@@ -125,7 +131,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     ]);
     steps.push({ step: "read-render", status: "ok", detail: { name: service.name } });
   } catch (err) {
-    steps.push({ step: "read-render", status: "error", detail: errDetail(err) });
+    steps.push(errStep("read-render", err));
     return { ok: false, appUuid: null, steps };
   }
 
@@ -147,7 +153,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     }
     steps.push({ step: "resolve-server", status: "ok", detail: { serverUuid } });
   } catch (err) {
-    steps.push({ step: "resolve-server", status: "error", detail: errDetail(err) });
+    steps.push(errStep("resolve-server", err));
     return { ok: false, appUuid: null, steps };
   }
 
@@ -159,7 +165,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     ({ uuid: keyUuid } = await d.ensureAccountKey());
     steps.push({ step: "resolve-key", status: "ok", detail: null });
   } catch (err) {
-    steps.push({ step: "resolve-key", status: "error", detail: errDetail(err) });
+    steps.push(errStep("resolve-key", err));
     await cleanupProvisioned();
     return { ok: false, appUuid: null, steps };
   }
@@ -187,7 +193,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     provisioned = null; // app now lives on the server — it's committed, not an orphan
     steps.push({ step: "create-app", status: "ok", detail: { appUuid } });
   } catch (err) {
-    steps.push({ step: "create-app", status: "error", detail: errDetail(err) });
+    steps.push(errStep("create-app", err));
     await cleanupProvisioned();
     return { ok: false, appUuid: null, steps };
   }
@@ -236,7 +242,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       dbMigrated = true;
       steps.push({ step: "migrate-db", status: "ok", detail: null });
     } catch (err) {
-      steps.push({ step: "migrate-db", status: "error", detail: errDetail(err) });
+      steps.push(errStep("migrate-db", err, { type: "application", id: appUuid }));
       await cleanupApp();
       return { ok: false, appUuid: null, steps };
     }
@@ -261,7 +267,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     }
     steps.push({ step: "push-env", status: "ok", detail: { count: envVars.length } });
   } catch (err) {
-    steps.push({ step: "push-env", status: "error", detail: errDetail(err) });
+    steps.push(errStep("push-env", err, { type: "application", id: appUuid }));
     await cleanupApp();
     return { ok: false, appUuid: null, steps };
   }
@@ -271,7 +277,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     await d.deployService(appUuid);
     steps.push({ step: "deploy", status: "ok", detail: null });
   } catch (err) {
-    steps.push({ step: "deploy", status: "error", detail: errDetail(err) });
+    steps.push(errStep("deploy", err, { type: "application", id: appUuid }));
     await cleanupApp();
     return { ok: false, appUuid: null, steps };
   }
@@ -283,7 +289,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   } catch (err) {
     // App is deployed and running — a bookkeeping failure, not a reason to tear it
     // down. Return the real appUuid so ownership can be reconciled/retried.
-    steps.push({ step: "assign-ownership", status: "error", detail: errDetail(err) });
+    steps.push(errStep("assign-ownership", err, { type: "application", id: appUuid }));
     return { ok: false, appUuid, steps };
   }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 // ponytail: Set for selected ids; toggle via new Set copy so React sees a change.
-import { Download, CheckCircle, XCircle, MinusCircle, ExternalLink, X } from "lucide-react";
+import { Download, CheckCircle, XCircle, MinusCircle, ExternalLink, X, Copy, Sparkles } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Button, Card, Field, Input, PageHeader, Select, Spinner } from "../components/ui.jsx";
 
@@ -9,6 +9,44 @@ function StepBadge({ status }) {
   if (status === "ok") return <CheckCircle className="h-4 w-4 shrink-0" style={{ color: "var(--ok)" }} />;
   if (status === "error") return <XCircle className="h-4 w-4 shrink-0" style={{ color: "var(--err)" }} />;
   return <MinusCircle className="h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />;
+}
+
+// A friendly, actionable explanation of a failed step. When the failure is fixable
+// with the DebutDeploy MCP, show a copy-pasteable instruction the user can hand to
+// Claude (Desktop or Claude Code) to remediate it.
+function FriendlyFix({ f }) {
+  const [copied, setCopied] = useState(false);
+  if (!f) return null;
+  const copy = () => {
+    navigator.clipboard?.writeText(f.mcp.hint).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div className="mx-4 mb-3 rounded-md border p-3" style={{ borderColor: "var(--err-border, var(--border))", background: "var(--err-soft, var(--surface-2))" }}>
+      <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{f.title}</div>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{f.message}</p>
+      <p className="mt-1.5 text-xs" style={{ color: "var(--text)" }}><span className="font-medium">Fix:</span> {f.fix}</p>
+      {f.mcp ? (
+        <div className="mt-2 rounded border p-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--accent-text)" }}>
+            <Sparkles className="h-3.5 w-3.5" /> Fix it with Claude
+          </div>
+          <p className="text-xs" style={{ color: "var(--text)", fontFamily: "'Geist Mono', monospace" }}>{f.mcp.hint}</p>
+          <button
+            onClick={copy}
+            className="mt-2 inline-flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-medium"
+            style={{ border: "1px solid var(--border)", color: "var(--text-muted)", background: "transparent", cursor: "pointer" }}
+          >
+            <Copy className="h-3 w-3" /> {copied ? "Copied" : "Copy prompt"}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>This one needs a manual step — the MCP can't fix credential or connection problems.</p>
+      )}
+    </div>
+  );
 }
 
 export default function ImportRender() {
@@ -414,6 +452,9 @@ export default function ImportRender() {
                 </li>
               ))}
             </ul>
+            {(r.steps ?? []).filter((s) => s.friendly).map((s, i) => (
+              <FriendlyFix key={`fix-${i}`} f={s.friendly} />
+            ))}
             {r.ok && r.url && (
               <div className="px-4 pb-4 pt-2">
                 <a

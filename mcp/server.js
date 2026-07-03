@@ -58,8 +58,11 @@ server.registerTool(
 
 server.registerTool(
   "deploy_service",
-  { description: "Trigger a deploy of a service.", inputSchema: { id } },
-  tool(({ id }) => api(`/api/services/${id}/deploy`, { method: "POST" }))
+  {
+    description: "Trigger a deploy of a service. Set clearCache to rebuild from scratch (clears the build cache).",
+    inputSchema: { id, clearCache: z.boolean().optional().describe("Rebuild without the build cache") },
+  },
+  tool(({ id, clearCache }) => api(`/api/services/${id}/deploy`, { method: "POST", body: clearCache ? { clearCache: true } : undefined }))
 );
 
 server.registerTool(
@@ -96,6 +99,41 @@ server.registerTool(
   "service_envs",
   { description: "List a service's environment variables.", inputSchema: { id } },
   tool(({ id }) => api(`/api/services/${id}/envs`))
+);
+
+server.registerTool(
+  "set_service_env",
+  {
+    description: "Set (create or update) one environment variable on a service. Redeploy afterwards for it to take effect.",
+    inputSchema: {
+      id,
+      key: z.string().describe("Env var name, e.g. DATABASE_URL"),
+      value: z.string().describe("Env var value"),
+      is_secret: z.boolean().optional().describe("Mask the value in the UI (default true)"),
+    },
+  },
+  tool(({ id, key, value, is_secret }) =>
+    api(`/api/services/${id}/envs`, { method: "POST", body: { key, value, is_secret: is_secret ?? true } })
+  )
+);
+
+server.registerTool(
+  "service_build_logs",
+  { description: "Build logs for a service's latest deploy — use this to diagnose a failed build.", inputSchema: { id } },
+  tool(({ id }) => api(`/api/services/${id}/build-logs`))
+);
+
+server.registerTool(
+  "update_service_resources",
+  {
+    description: "Set a service's CPU and/or memory limits. Values: cpus '0'|'0.5'|'1'|'2', memory '0'|'256M'|'512M'|'1G'|'2G' ('0' = no limit). Applied on next deploy.",
+    inputSchema: {
+      id,
+      cpus: z.string().optional().describe("CPU limit, e.g. '1' or '0' for no limit"),
+      memory: z.string().optional().describe("Memory limit, e.g. '512M' or '0' for no limit"),
+    },
+  },
+  tool(({ id, cpus, memory }) => api(`/api/services/${id}/resources`, { method: "PATCH", body: { cpus, memory } }))
 );
 
 server.registerTool(
