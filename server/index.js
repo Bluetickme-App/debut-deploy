@@ -1239,6 +1239,30 @@ app.patch(
   })
 );
 
+// Save build/runtime config (build+start+pre-deploy commands, root dir, health path).
+// The panel's ServiceDetail "Build" section posts here; patchApp maps to Coolify's
+// field names and drops empty values (so a blank field never clears an existing one).
+app.patch(
+  "/api/services/:id/build",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const { rootDirectory, buildCommand, startCommand, preDeployCommand, healthCheckPath } = req.body || {};
+    await coolify.patchApp(req.params.id, {
+      base_directory: rootDirectory,
+      build_command: buildCommand,
+      start_command: startCommand,
+      pre_deployment_command: preDeployCommand,
+      health_check_path: healthCheckPath,
+    });
+    record(req, "app.build", { resourceType: "application", resourceUuid: req.params.id });
+    return { ok: true };
+  })
+);
+
 // --- server usage (admin only) ---
 app.get(
   "/api/servers/:id/usage",
