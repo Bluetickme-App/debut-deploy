@@ -105,6 +105,10 @@ export async function dockerPg({ vars = {}, script }) {
   const net = process.env.PG_MIGRATE_DOCKER_NETWORK || "coolify";
   const flags = Object.keys(vars).map((k) => `-e B64_${k}=${Buffer.from(String(vars[k])).toString("base64")}`).join(" ");
   const decode = Object.keys(vars).map((k) => `${k}=$(echo "$B64_${k}" | base64 -d)`).join("; ");
-  await runOnHost(`docker run --rm --network ${net} ${flags} ${PG_IMAGE} sh -c '${decode}; ${script}'`);
+  // bash + pipefail so a failure in ANY stage of a pipe propagates. Without it,
+  // `pg_dump | psql` hides a pg_dump abort (e.g. "server version mismatch" when the
+  // source is newer than PG_IMAGE): psql gets empty input, exits 0, and the migration
+  // reports success having copied ZERO rows. The PG_IMAGE (Debian postgres) has bash.
+  await runOnHost(`docker run --rm --network ${net} ${flags} ${PG_IMAGE} bash -c 'set -o pipefail; ${decode}; ${script}'`);
   return { ok: true };
 }
