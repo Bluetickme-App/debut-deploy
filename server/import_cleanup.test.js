@@ -45,6 +45,40 @@ test("shared import: full success leaves the app in place", async () => {
   assert.deepEqual(deleted, [], "successful import must not delete the app");
 });
 
+test("grouped dedicated: reuses an existing box, provisions nothing", async () => {
+  const deleted = [];
+  let provisionCalls = 0, appArgs = null;
+  const r = await importFromRender({
+    renderServiceId: "srv1", userId: 1, apiKey: "k",
+    target: { mode: "dedicated", serverUuid: "box-1", dbTarget: { mode: "none" } },
+    deps: {
+      ...baseDeps(deleted),
+      provisionServer: async () => { provisionCalls++; return { serverUuid: "NEW", hetznerId: "h" }; },
+      getDefaultDestination: async () => "dest-1",
+      createDeployKeyApp: async (a) => { appArgs = a; return { uuid: "app-x" }; },
+      deployService: async () => ({ ok: true }),
+    },
+  });
+  assert.equal(r.ok, true);
+  assert.equal(provisionCalls, 0, "must not provision — reuse the existing box");
+  assert.equal(appArgs.serverUuid, "box-1", "deployed onto the existing box");
+});
+
+test("grouped dedicated: a failed sibling is cleaned up but the shared box is left", async () => {
+  const deleted = [];
+  const r = await importFromRender({
+    renderServiceId: "srv1", userId: 1, apiKey: "k",
+    target: { mode: "dedicated", serverUuid: "box-1", dbTarget: { mode: "none" } },
+    deps: {
+      ...baseDeps(deleted),
+      getDefaultDestination: async () => "dest-1",
+      deployService: async () => { throw new Error("boom"); },
+    },
+  });
+  assert.equal(r.ok, false);
+  assert.deepEqual(deleted, ["app-x"], "failed app cleaned up; box shared by the group untouched");
+});
+
 test("dedicated import: failure does NOT delete the app (would strand the paid server)", async () => {
   const deleted = [];
   const r = await importFromRender({

@@ -103,6 +103,8 @@ export const api = {
   renderDatabases: (creds) => req("/import/render/databases", { method: "POST", body: creds }),
   importRender:   (body) => req("/import/render", { method: "POST", body }),
   importRenderProject: (body) => req("/import/render/project", { method: "POST", body }),
+  // Provision one dedicated box + import a group of services onto it (admin).
+  importRenderGroup: (body) => req("/import/render/dedicated-group", { method: "POST", body }),
   // Activity & notifications
   events:           (limit) => req(`/events${limit ? `?limit=${limit}` : ""}`),
   serviceEvents:    (id) => req(`/services/${id}/events`),

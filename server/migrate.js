@@ -114,7 +114,9 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   // ponytail: a shared logical DB created before a migrate-db failure may linger —
   // it's uniquely named + empty, so low-harm; full DB teardown is a follow-up.
   let createdAppUuid = null;
-  const canCleanupApp = target.mode === "shared";
+  // Safe to delete the app on failure when we did NOT provision a box exclusively for
+  // it: shared host, or an existing dedicated box shared by a group (siblings keep it).
+  const canCleanupApp = target.mode === "shared" || !!target.serverUuid;
   async function cleanupApp() {
     if (!createdAppUuid || !canCleanupApp) return;
     const u = createdAppUuid;
@@ -146,6 +148,11 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   try {
     if (target.mode === "shared") {
       serverUuid = process.env.COOLIFY_SERVER_UUID || "demo-server-uuid";
+    } else if (target.serverUuid) {
+      // Grouped dedicated import: deploy onto an already-provisioned box. Don't
+      // provision a new one and don't mark it `provisioned` (siblings share it, so
+      // a failure here must never tear it down).
+      serverUuid = target.serverUuid;
     } else {
       const result = await d.provisionServer({ name: service.name, serverType: target.serverType, location: target.location });
       serverUuid = result.serverUuid;

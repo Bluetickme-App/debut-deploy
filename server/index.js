@@ -64,6 +64,7 @@ import {
   stripeMode, setStripeMode, stripeWebhookSecret,
 } from "./billing.js";
 import * as stripeadmin from "./stripeadmin.js";
+import { ensureCatalog } from "./stripecatalog.js";
 import { planPriceUsd } from "./plans.js";
 import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -986,6 +987,13 @@ app.put("/api/admin/stripe/mode", requireAuth, requireAdmin, mutateGuard, h((req
   recordSystem("stripe.mode_switch", { metadata: { mode, by: req.user.email } });
   return { mode };
 }));
+// Sync the plan catalog (Products + GBP/USD Prices) into the active Stripe mode. No
+// charges — creates the price objects subscriptions will use. Run in Test mode first.
+app.post("/api/admin/stripe/catalog", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const r = await ensureCatalog();
+  recordSystem("stripe.catalog_sync", { metadata: { mode: r.mode, count: r.count, by: req.user.email } });
+  return r;
+}));
 
 // --- Deploy-key service creation (deploy ANY repo without the GitHub App) ---
 // Step 1: generate a keypair, register the private half in Coolify, return the
@@ -1731,6 +1739,45 @@ app.post(
     }
     record(req, "import.render.project", { metadata: { count: services.length, target } });
     return { results };
+  })
+);
+
+// Provision ONE dedicated box, then import a GROUP of Render services onto it —
+// the "isolate a heavy fleet on its own instance" flow (e.g. a browser/ML tier).
+// Admin-only: provisioning is real, billed Hetzner infra.
+app.post(
+  "/api/import/render/dedicated-group",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
+  h(async (req) => {
+    const { services, provision, dbTarget } = req.body || {};
+    const apiKey = resolveRenderKey(req);
+    if (!Array.isArray(services) || services.length === 0) {
+      throw Object.assign(new Error("services (array of Render service ids) is required"), { status: 400 });
+    }
+    if (!provision?.serverType) {
+      throw Object.assign(new Error("provision.serverType is required (e.g. cx43)"), { status: 400 });
+    }
+    // 1) Provision the single shared box for the whole group.
+    const { serverUuid, hetznerId } = await provisionServer({
+      name: provision.name || "render-group",
+      serverType: provision.serverType,
+      location: provision.location,
+    });
+    // 2) Import each service onto it — dedicated mode + existing serverUuid means no
+    // per-service box is provisioned. A failed service cleans up its own app (the box
+    // is shared, so it's left for the siblings).
+    const target = { mode: "dedicated", serverUuid, dbTarget: dbTarget || { mode: "none" } };
+    const results = [];
+    for (const renderServiceId of services) {
+      const r = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
+      results.push({ renderServiceId, ok: r.ok, appUuid: r.appUuid, steps: r.steps });
+    }
+    record(req, "import.render.group", { metadata: { count: services.length, serverType: provision.serverType, serverUuid } });
+    return { serverUuid, hetznerId, results };
   })
 );
 
