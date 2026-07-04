@@ -323,6 +323,23 @@ export async function provisionDatabase({ name, superUser = "dd_super", image = 
   return { uuid: r.uuid, url: r.internal_db_url || `postgresql://${superUser}:${password}@${r.uuid}:5432/postgres` };
 }
 
+// Provision a fresh Redis (Coolify's create-redis endpoint mirrors create-postgres).
+// Render's "Key Value" is Redis-compatible, so redis:7-alpine is a drop-in target.
+// Like provisionDatabase, WE set the password → the returned URL is credential-complete
+// (unlike an existing DB, whose password Coolify won't hand back).
+export async function provisionRedis({ name, image = process.env.REDIS_TARGET_IMAGE || "redis:7-alpine" }) {
+  if (isDemo()) return { uuid: `demo-redis-${name}`, url: `redis://default:demo@demo-redis-${name}:6379` };
+  const password = randomBytes(18).toString("base64url");
+  const r = await cf(`/databases/redis`, {
+    method: "POST",
+    body: {
+      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: DB_SERVER, image,
+      redis_password: password, instant_deploy: true,
+    },
+  });
+  return { uuid: r.uuid, url: r.internal_db_url || `redis://default:${password}@${r.uuid}:6379` };
+}
+
 // Rename (Render-style editable Name). Coolify PATCH accepts { name } — verified live.
 export async function renameService(uuid, name) {
   if (isDemo()) return { ok: true, uuid, name };

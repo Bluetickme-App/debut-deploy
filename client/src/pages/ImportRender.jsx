@@ -76,6 +76,7 @@ export default function ImportRender() {
   const [renderDbs, setRenderDbs] = useState([]); // Render Postgres (source)
   const [migrateDb, setMigrateDb] = useState(false);
   const [srcDbId, setSrcDbId] = useState(""); // Render Postgres id
+  const [provisionRedis, setProvisionRedis] = useState(false); // stand up our own Redis + swap REDIS_URL
 
   // Active credential: saved key selected → { savedKeyId }, else pasted → { apiKey }.
   const creds = selectedKeyId ? { savedKeyId: selectedKeyId } : { apiKey };
@@ -168,7 +169,9 @@ export default function ImportRender() {
       const dbTarget = migrateDb && srcDbId
         ? { mode, source: srcDbId } // follow deployment target: dedicated → dedicated instance, shared → shared cluster
         : { mode: "none" };
-      const target = { mode, dbTarget };
+      // Redis is a cache/bus — no data cutover. Just stand up our own and swap REDIS_URL.
+      const redisTarget = provisionRedis ? { mode } : { mode: "none" };
+      const target = { mode, dbTarget, redisTarget };
       if (mode === "dedicated") {
         if (serverType.trim()) target.serverType = serverType.trim();
         if (location.trim()) target.location = location.trim();
@@ -405,6 +408,21 @@ export default function ImportRender() {
                   {mode === "dedicated"
                     ? "A fresh dedicated Postgres is provisioned and your data is restored into it via pg_dump — your existing databases are never touched."
                     : "A fresh, isolated Postgres is created on the shared cluster and your data is restored into it via pg_dump — your existing databases are never touched."}
+                </p>
+              </Field>
+
+              <Field label="Provision Redis?">
+                <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: "var(--text)" }}>
+                  <input
+                    type="checkbox"
+                    checked={provisionRedis}
+                    onChange={(e) => setProvisionRedis(e.target.checked)}
+                  />
+                  Stand up our own Redis and point REDIS_URL at it
+                </label>
+                <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                  A fresh Redis is provisioned and <code>REDIS_URL</code> is rewritten to it (Render's stale value is dropped).
+                  Redis is a cache/bus, so there's no data to migrate. Leave off to keep whatever <code>REDIS_URL</code> your service already uses.
                 </p>
               </Field>
 

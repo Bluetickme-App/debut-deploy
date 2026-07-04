@@ -1808,6 +1808,10 @@ app.post(
     if (target?.dbTarget?.mode === "existing") {
       assertOwns(req.user, "database", target.dbTarget.uuid);
     }
+    // Same gate for reusing an existing Redis: resolving its URL exposes its creds.
+    if (target?.redisTarget?.mode === "existing") {
+      assertOwns(req.user, "database", target.redisTarget.uuid);
+    }
     const result = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
     // audit without the apiKey
     record(req, "import.render", { metadata: { renderServiceId, target } });
@@ -1837,6 +1841,10 @@ app.post(
     if (target?.dbTarget?.mode === "existing") {
       assertOwns(req.user, "database", target.dbTarget.uuid);
     }
+    // Same gate for reusing an existing Redis: resolving its URL exposes its creds.
+    if (target?.redisTarget?.mode === "existing") {
+      assertOwns(req.user, "database", target.redisTarget.uuid);
+    }
     const results = [];
     for (const renderServiceId of services) {
       const r = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
@@ -1858,7 +1866,7 @@ app.post(
   attachOrgContext,
   requireCapability("manage"),
   h(async (req) => {
-    const { services, provision, dbTarget } = req.body || {};
+    const { services, provision, dbTarget, redisTarget } = req.body || {};
     const apiKey = resolveRenderKey(req);
     if (!Array.isArray(services) || services.length === 0) {
       throw Object.assign(new Error("services (array of Render service ids) is required"), { status: 400 });
@@ -1875,7 +1883,7 @@ app.post(
     // 2) Import each service onto it — dedicated mode + existing serverUuid means no
     // per-service box is provisioned. A failed service cleans up its own app (the box
     // is shared, so it's left for the siblings).
-    const target = { mode: "dedicated", serverUuid, dbTarget: dbTarget || { mode: "none" } };
+    const target = { mode: "dedicated", serverUuid, dbTarget: dbTarget || { mode: "none" }, redisTarget: redisTarget || { mode: "none" } };
     const results = [];
     for (const renderServiceId of services) {
       const r = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });

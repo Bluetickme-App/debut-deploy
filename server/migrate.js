@@ -9,6 +9,7 @@ import { createDeployKeyApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import {
   getDefaultDestination,
   resolveDbUrl,
+  provisionRedis,
   upsertEnv,
   deployService,
   patchApp,
@@ -116,6 +117,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     resolveDbUrl,
     createProjectDatabase,
     provisionDedicatedDatabase,
+    provisionRedis,
     upsertEnv,
     deployService,
     assign,
@@ -300,6 +302,33 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     steps.push({ step: "migrate-db", status: "skipped", detail: null });
   }
 
+  // Step 5b — provision Redis (optional). Unlike Postgres there's NO data cutover:
+  // Render's Key Value is a cache/bus, so we stand up our own Redis and point
+  // REDIS_URL at it. "existing" reuses a Coolify Redis the caller already owns.
+  const redisTarget = target.redisTarget || { mode: "none" };
+  let redisSwapped = false; // gates push-env: keep our REDIS_URL, not Render's stale one
+  if (["dedicated", "shared", "existing"].includes(redisTarget.mode)) {
+    try {
+      // shared/dedicated both stand up an own Redis container (Redis has no shared-
+      // logical-DB primitive worth the credential juggling); existing resolves a URL.
+      const redisUrl = redisTarget.mode === "existing"
+        ? await d.resolveDbUrl(redisTarget.uuid)
+        : (await d.provisionRedis({ name: service.name + "-redis" })).url;
+      if (!redisUrl) throw Object.assign(new Error("Could not resolve the target Redis connection URL"), { status: 404 });
+      // ponytail: swaps the canonical REDIS_URL (Render's Key Value convention). A
+      // custom key still gets flagged by the env scanner for a manual swap.
+      await d.upsertEnv(appUuid, { key: "REDIS_URL", value: redisUrl, is_secret: true });
+      redisSwapped = true;
+      steps.push({ step: "provision-redis", status: "ok", detail: null });
+    } catch (err) {
+      steps.push(errStep("provision-redis", err, { type: "application", id: appUuid }));
+      await cleanupApp();
+      return { ok: false, appUuid: null, steps };
+    }
+  } else {
+    steps.push({ step: "provision-redis", status: "skipped", detail: null });
+  }
+
   // Step 6 — push env vars
   try {
     // Carry the listen port so the app binds where Traefik routes (avoids 502).
@@ -311,14 +340,18 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       // The migrated DATABASE_URL (set at migrate-db) is authoritative — never let
       // Render's stale value clobber it here. If no migration ran, keep Render's.
       if (dbMigrated && (key || "").toUpperCase() === "DATABASE_URL") continue;
+      // Same for REDIS_URL: our provisioned Redis is authoritative — don't let
+      // Render's stale value clobber it. If no Redis provisioned, keep Render's.
+      if (redisSwapped && (key || "").toUpperCase() === "REDIS_URL") continue;
       // Default-secret: Render's API doesn't reliably flag secrets, and its env
       // vars routinely hold API keys / DATABASE_URL / tokens. Safe default.
       await d.upsertEnv(appUuid, { key, value, is_secret: true });
     }
     // Flag env values that won't work on the new host (leftover *.onrender.com URLs,
-    // provider-internal DB/Redis hosts, RENDER_* vars). DATABASE_URL is excluded when
-    // we already swapped it to the migrated target above.
-    warnings = scanEnv(envVars.filter((e) => !(dbMigrated && (e.key || "").toUpperCase() === "DATABASE_URL")));
+    // provider-internal DB/Redis hosts, RENDER_* vars). Vars we already swapped to a
+    // migrated target (DATABASE_URL / REDIS_URL) are excluded — they're correct now.
+    const swapped = new Set([dbMigrated && "DATABASE_URL", redisSwapped && "REDIS_URL"].filter(Boolean));
+    warnings = scanEnv(envVars.filter((e) => !swapped.has((e.key || "").toUpperCase())));
     steps.push({ step: "push-env", status: "ok", detail: { count: envVars.length, warnings } });
   } catch (err) {
     steps.push(errStep("push-env", err, { type: "application", id: appUuid }));
