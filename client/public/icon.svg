@@ -1,11 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="40" ry="40" fill="#2563eb"/>
-  <text
-    x="96" y="138"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="120"
-    font-weight="700"
-    fill="#ffffff"
-    text-anchor="middle"
-  >D</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <style>
+    @media (prefers-reduced-motion: no-preference) {
+      @keyframes ddlp { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.055); } }
+      #dd { transform-origin: 50% 50%; animation: ddlp 2.6s ease-in-out infinite; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="ddg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6274f5"/>
+      <stop offset="1" stop-color="#4460ee"/>
+    </linearGradient>
+  </defs>
+  <g id="dd">
+    <polygon points="256,20 460,138 460,374 256,492 52,374 52,138" fill="url(#ddg)"/>
+    <path fill="#fff" fill-rule="evenodd" d="M180 150 H288 C356 150 402 196 402 256 C402 316 356 362 288 362 H180 Z M238 202 H286 C320 202 344 223 344 256 C344 289 320 310 286 310 H238 Z"/>
+    <g stroke="#fff" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M180 196 H132 V160"/>
+      <path d="M180 256 H108"/>
+      <path d="M180 316 H132 V352"/>
+      <path d="M300 150 V100 H340"/>
+      <path d="M402 220 H436 V185"/>
+      <path d="M402 292 H424"/>
+      <path d="M250 362 V420 H206"/>
+    </g>
+    <g fill="#fff">
+      <circle cx="132" cy="148" r="13"/>
+      <circle cx="96" cy="256" r="13"/>
+      <circle cx="132" cy="364" r="13"/>
+      <circle cx="352" cy="100" r="13"/>
+      <circle cx="436" cy="173" r="13"/>
+      <circle cx="437" cy="292" r="13"/>
+      <circle cx="194" cy="420" r="13"/>
+    </g>
+  </g>
 </svg>

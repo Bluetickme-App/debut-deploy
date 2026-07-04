@@ -188,13 +188,7 @@ function Sidebar({ drawerOpen, onClose }) {
     >
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 18px 14px" }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: 6,
-          background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 1px 2px rgba(0,0,0,.18)",
-        }}>
-          <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--accent-contrast)", lineHeight: 1 }}>D</span>
-        </div>
+        <img src="/icon.svg" alt="" width={30} height={30} style={{ display: "block" }} />
         <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--text)" }}>
           Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
         </span>

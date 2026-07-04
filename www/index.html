@@ -30,7 +30,8 @@
   .btn-ghost{border:1px solid var(--line-2);background:var(--card);color:var(--ink)}
   .btn-ghost:hover{border-color:var(--ink);background:var(--ink);color:#fff}
   .chip{display:inline-block;font-family:'Geist Mono',monospace;font-size:11.5px;font-weight:500;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:3px 9px;border-radius:6px}
-  @keyframes dd-pulse{0%{transform:scale(.6);opacity:.6}70%,100%{transform:scale(1.5);opacity:0}}
+  @keyframes dd-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  @media (prefers-reduced-motion:reduce){svg[aria-hidden]{animation:none!important}}
   @keyframes dd-spin{to{transform:rotate(360deg)}}
   @keyframes dd-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .plan-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
@@ -51,10 +52,13 @@
 <header style="position:sticky;top:0;z-index:50;background:rgba(247,248,250,.82);backdrop-filter:saturate(150%) blur(10px);-webkit-backdrop-filter:saturate(150%) blur(10px);border-bottom:1px solid var(--line)">
   <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;height:64px">
     <div style="display:flex;align-items:center;gap:11px;font-weight:700;font-size:19px;letter-spacing:-.02em">
-      <span style="position:relative;width:27px;height:27px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 7px -1px rgba(37,99,235,.5)">
-        <span style="color:#fff;font-weight:700;font-size:16px;line-height:1">D</span>
-        <span style="position:absolute;inset:-5px;border-radius:9px;border:1.5px solid var(--accent);opacity:.5;animation:dd-pulse 2.6s ease-out infinite"></span>
-      </span>
+      <svg viewBox="0 0 512 512" width="29" height="29" style="display:block;animation:dd-pulse 2.6s ease-in-out infinite;filter:drop-shadow(0 2px 7px rgba(68,96,238,.5))" aria-hidden="true">
+        <defs><linearGradient id="ddg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6274f5"/><stop offset="1" stop-color="#4460ee"/></linearGradient></defs>
+        <polygon points="256,20 460,138 460,374 256,492 52,374 52,138" fill="url(#ddg)"/>
+        <path fill="#fff" fill-rule="evenodd" d="M180 150 H288 C356 150 402 196 402 256 C402 316 356 362 288 362 H180 Z M238 202 H286 C320 202 344 223 344 256 C344 289 320 310 286 310 H238 Z"/>
+        <g stroke="#fff" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M180 196 H132 V160"/><path d="M180 256 H108"/><path d="M180 316 H132 V352"/><path d="M300 150 V100 H340"/><path d="M402 220 H436 V185"/><path d="M402 292 H424"/><path d="M250 362 V420 H206"/></g>
+        <g fill="#fff"><circle cx="132" cy="148" r="13"/><circle cx="96" cy="256" r="13"/><circle cx="132" cy="364" r="13"/><circle cx="352" cy="100" r="13"/><circle cx="436" cy="173" r="13"/><circle cx="437" cy="292" r="13"/><circle cx="194" cy="420" r="13"/></g>
+      </svg>
       DebutDeploy<span class="mono" style="font-weight:400;font-size:11px;color:var(--ink-3);margin-left:1px">/ pricing</span>
     </div>
     <div style="display:flex;background:var(--track);border-radius:999px;padding:3px;border:1px solid var(--line)">

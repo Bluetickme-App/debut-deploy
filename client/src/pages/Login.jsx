@@ -240,20 +240,13 @@ export default function Login() {
 
             {/* D mark + wordmark */}
             <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 26 }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 6,
-                  background: "var(--accent)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 4px 12px -2px rgba(37,99,235,.45)",
-                }}
-              >
-                <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 23, color: "#fff", lineHeight: 1 }}>D</span>
-              </div>
+              <img
+                src="/icon.svg"
+                alt=""
+                width={38}
+                height={38}
+                style={{ display: "block", filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
+              />
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "-0.01em", color: "var(--text)" }}>
                 Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
               </span>

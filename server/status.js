@@ -57,11 +57,9 @@ export function renderStatusHtml(d) {
   }
   .wrap { max-width: 720px; margin: 0 auto; }
   .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
-  .logo {
-    width: 30px; height: 30px; border-radius: 6px; background: #2563eb;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 18px; color: #fff;
-  }
+  .logo { display: block; animation: dd-pulse 2.6s ease-in-out infinite; }
+  @keyframes dd-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  @media (prefers-reduced-motion: reduce) { .logo { animation: none; } }
   .brand b { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
   .brand b span { color: #6ea8ff; }
   .banner {
@@ -86,7 +84,13 @@ export function renderStatusHtml(d) {
 </style></head>
 <body><div class="wrap">
   <div class="brand">
-    <span class="logo">D</span>
+    <svg class="logo" viewBox="0 0 512 512" width="30" height="30" aria-hidden="true">
+      <defs><linearGradient id="ddg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6274f5"/><stop offset="1" stop-color="#4460ee"/></linearGradient></defs>
+      <polygon points="256,20 460,138 460,374 256,492 52,374 52,138" fill="url(#ddg)"/>
+      <path fill="#fff" fill-rule="evenodd" d="M180 150 H288 C356 150 402 196 402 256 C402 316 356 362 288 362 H180 Z M238 202 H286 C320 202 344 223 344 256 C344 289 320 310 286 310 H238 Z"/>
+      <g stroke="#fff" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M180 196 H132 V160"/><path d="M180 256 H108"/><path d="M180 316 H132 V352"/><path d="M300 150 V100 H340"/><path d="M402 220 H436 V185"/><path d="M402 292 H424"/><path d="M250 362 V420 H206"/></g>
+      <g fill="#fff"><circle cx="132" cy="148" r="13"/><circle cx="96" cy="256" r="13"/><circle cx="132" cy="364" r="13"/><circle cx="352" cy="100" r="13"/><circle cx="436" cy="173" r="13"/><circle cx="437" cy="292" r="13"/><circle cx="194" cy="420" r="13"/></g>
+    </svg>
     <b>Debut<span>Deploy</span></b>
   </div>
   <div class="banner"><span class="bd"></span><h1>${esc(OVERALL[d.overall] || OVERALL.unknown)}</h1></div>
