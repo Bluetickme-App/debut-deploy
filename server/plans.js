@@ -35,3 +35,15 @@ export function planPriceUsd(planId) {
   const p = [...COMPUTE_PLANS, ...DB_PLANS].find((x) => x.id === planId);
   return p ? p.priceMo : 0;
 }
+
+// Docker memory string for a plan's RAM — mirrors the client (ServiceDetail): <1G → "512M".
+const ramToDocker = (gb) => (gb < 1 ? `${Math.round(gb * 1024)}M` : `${gb}G`);
+
+// Detect the compute plan a service is on from its live Docker limits (cpus like "1"/"0.5",
+// memory like "2G"/"512M"). Returns a plan id, or null when limits are unset/unlimited ("0")
+// or don't match a tier — callers must NOT guess a plan for an unlimited service.
+export function detectComputePlan(cpus, memory) {
+  if (cpus == null || memory == null || String(cpus) === "0" || String(memory) === "0") return null;
+  const p = COMPUTE_PLANS.find((x) => String(x.vcpuCount) === String(cpus) && ramToDocker(x.ramGb) === String(memory));
+  return p ? p.id : null;
+}

@@ -58,6 +58,7 @@ export const api = {
   // Returns the array of {time, level, message} lines; falls back if the shape is older (raw array/string).
   logs: (id) => req(`/services/${id}/logs`).then((d) => (Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : [])),
   metrics: (id) => req(`/services/${id}/metrics`),
+  metricsHistory: (id, window = "1h") => req(`/services/${id}/metrics/history?window=${window}`), // { window, series:{cpu,mem,net}, stats }
   buildLogs: (id) => req(`/services/${id}/build-logs`), // { lines: [{time,type,message}], error? }
   envs: (id) => req(`/services/${id}/envs`),
   envScan: (id) => req(`/services/${id}/env-scan`), // { warnings: [...], scannable }
@@ -159,6 +160,7 @@ export const api = {
   adminSaveBillingInfo: (id, body) => req(`/admin/orgs/${id}/billing-info`, { method: "PATCH", body }),
   adminAdjustCredit: (id, body) => req(`/admin/orgs/${id}/credit`, { method: "POST", body }),
   orgBilling: (id) => req(`/admin/orgs/${id}/billing`),
+  orgServicePlans: (id) => req(`/admin/orgs/${id}/service-plans`),
   setOrgCurrency: (id, currency) => req(`/admin/orgs/${id}/currency`, { method: "PUT", body: { currency } }),
   subscribeOrg: (id) => req(`/admin/orgs/${id}/subscribe`, { method: "POST" }),
   setOrgComp: (id, body) => req(`/admin/orgs/${id}/comp`, { method: "PATCH", body }),

@@ -62,6 +62,8 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
   const [compBusy, setCompBusy] = useState(false);
   const [discInput, setDiscInput] = useState("0");
   const [billingErr, setBillingErr] = useState(null);
+  const [svcPlans, setSvcPlans] = useState(null); // { services:[{uuid,name,cpus,memory,plan_id,detected_plan_id}], plans:[] }
+  const [svcBusy, setSvcBusy] = useState(null);   // uuid being assigned
 
   useEffect(() => { api.adminOrgUsage(org.id).then((u) => setSpend(u.totalPence)).catch(() => setSpend(0)); }, [org.id]);
   useEffect(() => {
@@ -71,6 +73,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
     api.adminOrgResources(org.id).then(setResources).catch(() => setResources({ monthly_total_pence: 0 }));
     api.adminOrgBillingInfo(org.id).then(setInfo).catch(() => setInfo({}));
     api.orgBilling(org.id).then(setBilling).catch(setBillingErr);
+    api.orgServicePlans(org.id).then(setSvcPlans).catch(() => setSvcPlans(null));
   }, [expanded]); // eslint-disable-line
   useEffect(() => { if (billing?.comp) setDiscInput(String(billing.comp.discountPct ?? 0)); }, [billing]);
 
@@ -92,6 +95,15 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
   const setCur = async (c) => { if (billing?.currency === c) return; setCurBusy(true); try { await api.setOrgCurrency(org.id, c); setBilling(await api.orgBilling(org.id)); } finally { setCurBusy(false); } };
   const subscribe = async () => { setSubBusy(true); try { const r = await api.subscribeOrg(org.id); setSubUrl(r.url); window.open(r.url, "_blank", "noopener"); } catch (e) { alert(e.message); } finally { setSubBusy(false); } };
   const saveComp = async (patch) => { setCompBusy(true); try { setBilling({ ...billing, comp: await api.setOrgComp(org.id, patch) }); } catch (e) { alert(e.message); } finally { setCompBusy(false); } };
+  const planName = (id) => svcPlans?.plans.find((p) => p.id === id)?.name || id;
+  const assignPlan = async (uuid, planId) => {
+    setSvcBusy(uuid);
+    try {
+      await api.setServicePlan(uuid, planId);
+      const [sp, res] = await Promise.all([api.orgServicePlans(org.id), api.adminOrgResources(org.id)]);
+      setSvcPlans(sp); setResources(res); onChange?.();
+    } catch (e) { alert(e.message); } finally { setSvcBusy(null); }
+  };
   const subTotal = (billing?.lines || []).reduce((sum, l) => sum + l.unitAmountMinor * l.quantity, 0);
 
   // Accrued + projection
@@ -154,6 +166,38 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>{accrued > 0 ? "Compute, bandwidth & storage." : "No metered usage yet."}</p>
             </div>
           </div>
+
+          {/* Services & plans — detect the tier from live limits, assign with one click */}
+          {svcPlans?.services?.length > 0 && (
+            <div style={{ ...s.card, marginBottom: 14 }}>
+              <div style={{ ...s.blockTitle, marginBottom: 12 }}>Services &amp; plans</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                {svcPlans.services.map((sv) => {
+                  const hasLimits = sv.cpus && String(sv.cpus) !== "0";
+                  const specs = hasLimits ? `${sv.cpus} vCPU · ${sv.memory}` : "limits unset";
+                  return (
+                    <div key={sv.uuid} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ minWidth: 0, flex: "1 1 170px" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sv.name}</div>
+                        <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                          {specs}{!sv.plan_id && sv.detected_plan_id && <span style={{ color: "var(--accent-text)" }}> · detected {planName(sv.detected_plan_id)}</span>}
+                        </div>
+                      </div>
+                      <select value={sv.plan_id || ""} disabled={svcBusy === sv.uuid} onChange={(e) => assignPlan(sv.uuid, e.target.value || null)} style={{ ...s.input, width: 168 }}>
+                        <option value="">{sv.detected_plan_id ? `Detected: ${planName(sv.detected_plan_id)}` : "Choose a plan…"}</option>
+                        {svcPlans.plans.map((p) => <option key={p.id} value={p.id}>{p.name} — ${p.priceMo}/mo</option>)}
+                      </select>
+                      {!sv.plan_id && sv.detected_plan_id && (
+                        <button style={s.btnGhostSm} disabled={svcBusy === sv.uuid} onClick={() => assignPlan(sv.uuid, sv.detected_plan_id)}>
+                          {svcBusy === sv.uuid ? "…" : `Assign ${planName(sv.detected_plan_id)}`}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Subscription & currency */}
           <div style={{ ...s.card, marginBottom: 14 }}>

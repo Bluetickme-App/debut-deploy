@@ -68,7 +68,7 @@ import { ensureCatalog } from "./stripecatalog.js";
 import * as subscriptions from "./subscriptions.js";
 import { getComp, setComp } from "./comp.js";
 import { getAutoRecharge, setAutoRecharge, maybeAutoRecharge } from "./autorecharge.js";
-import { planPriceUsd } from "./plans.js";
+import { planPriceUsd, detectComputePlan } from "./plans.js";
 import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
 import { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } from "./notifications.js";
@@ -985,6 +985,28 @@ app.get("/api/admin/orgs/:id/resources", requireAuth, requireAdmin, h((req) => {
   }));
   const monthlyTotalPence = rows.reduce((s, r) => s + r.monthly_pence, 0);
   return { resources: rows, monthly_total_pence: monthlyTotalPence };
+}));
+
+// Per-service plan view for the billing panel: each owned app with its LIVE Docker limits and
+// the plan we detect from them (null when unset/unlimited → the operator picks). Detection is a
+// suggestion; nothing is written until the admin assigns via PATCH /api/services/:id/plan.
+app.get("/api/admin/orgs/:id/service-plans", requireAuth, requireAdmin, h(async (req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const apps = listOrgResources(orgId).filter((r) => r.type === "application");
+  const services = await Promise.all(apps.map(async (r) => {
+    let cpus = null, memory = null, name = r.coolify_uuid;
+    try {
+      const s = await coolify.getService(r.coolify_uuid); // detail carries real limits_cpus/memory
+      if (s) { cpus = s.resources?.cpus ?? null; memory = s.resources?.memory ?? null; name = s.name || name; }
+    } catch { /* live fetch failed — still list it for manual assignment */ }
+    return {
+      uuid: r.coolify_uuid, name, cpus, memory,
+      plan_id: r.plan_id || null,
+      detected_plan_id: r.plan_id ? null : detectComputePlan(cpus, memory),
+    };
+  }));
+  return { services, plans: computePlans().map((p) => ({ id: p.id, name: p.name, priceMo: p.priceMo, vcpu: p.vcpu, ram: p.ram })) };
 }));
 
 // Master-Admin: read/update a client's billing information (email/company/VAT for statements).
