@@ -81,6 +81,7 @@ import * as backups from "./backups.js";
 import * as hetzner from "./hetzner.js";
 import { provisionServer } from "./provision.js";
 import { importFromRender, migratePostgres } from "./migrate.js";
+import { scanEnv } from "./envscan.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import { computePlans, dbPlans } from "./plans.js";
@@ -619,6 +620,21 @@ app.get(
     assertOwns(req.user, "application", req.params.id);
     const value = envstore.revealEnv(req.params.id, String(req.query.key || ""));
     return { revealable: value != null, value: value ?? null };
+  })
+);
+
+// Migration check: scan the stored env for values that break off the old PaaS
+// (leftover *.onrender.com URLs, provider-internal DB/Redis hosts, RENDER_* vars).
+// Reads the envstore mirror (only panel/migration-set keys have plaintext), so it
+// works on already-migrated services without unmasking anything to Coolify.
+app.get(
+  "/api/services/:id/env-scan",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const stored = envstore.storedEnvs(req.params.id); // Map<key,{value,is_secret}>
+    const envs = [...stored].map(([key, v]) => ({ key, value: v.value }));
+    return { warnings: scanEnv(envs), scannable: envs.length };
   })
 );
 
@@ -1824,7 +1840,7 @@ app.post(
     const results = [];
     for (const renderServiceId of services) {
       const r = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
-      results.push({ renderServiceId, ok: r.ok, appUuid: r.appUuid, steps: r.steps });
+      results.push({ renderServiceId, ok: r.ok, appUuid: r.appUuid, steps: r.steps, warnings: r.warnings });
     }
     record(req, "import.render.project", { metadata: { count: services.length, target } });
     return { results };
@@ -1863,7 +1879,7 @@ app.post(
     const results = [];
     for (const renderServiceId of services) {
       const r = await importFromRender({ renderServiceId, target, userId: req.user.id, apiKey });
-      results.push({ renderServiceId, ok: r.ok, appUuid: r.appUuid, steps: r.steps });
+      results.push({ renderServiceId, ok: r.ok, appUuid: r.appUuid, steps: r.steps, warnings: r.warnings });
     }
     record(req, "import.render.group", { metadata: { count: services.length, serverType: provision.serverType, serverUuid } });
     return { serverUuid, hetznerId, results };

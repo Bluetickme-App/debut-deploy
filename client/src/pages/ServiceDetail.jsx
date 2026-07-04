@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
   Trash2, Check, X, Eye, EyeOff, Copy, Lock, Plus, RefreshCw,
-  ChevronDown, KeyRound, FileText, Database, HardDrive,
+  ChevronDown, KeyRound, FileText, Database, HardDrive, AlertTriangle,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../auth.jsx";
@@ -630,6 +630,47 @@ function parseEnvText(text) {
     .filter((r) => r.key);
 }
 
+// Migration check — flags env values that break after moving off a PaaS: leftover
+// *.onrender.com URLs, provider-internal DB/Redis hosts, and RENDER_*-style vars.
+// Silent when the env is clean, so it costs nothing on native services.
+const SEV = {
+  high:   { bg: "#fef2f2", border: "#fecaca", text: "#b91c1c", label: "Fix" },
+  medium: { bg: "#fffbeb", border: "#fde68a", text: "#b45309", label: "Update" },
+  low:    { bg: "var(--surface)", border: "var(--border)", text: "var(--text-muted)", label: "Review" },
+};
+function MigrationCheck({ serviceId }) {
+  const [warnings, setWarnings] = useState(null);
+  useEffect(() => {
+    let off = false;
+    api.envScan(serviceId).then((d) => { if (!off) setWarnings(d?.warnings || []); }).catch(() => { if (!off) setWarnings([]); });
+    return () => { off = true; };
+  }, [serviceId]);
+  if (!warnings || warnings.length === 0) return null;
+  return (
+    <div className="mb-3.5 rounded-lg border p-4" style={{ background: "#fffbeb", borderColor: "#fde68a" }}>
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold" style={{ color: "#92400e" }}>
+        <AlertTriangle size={15} /> Migration check — {warnings.length} value{warnings.length > 1 ? "s" : ""} need attention
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {warnings.map((w) => {
+          const s = SEV[w.severity] || SEV.low;
+          return (
+            <div key={w.key} className="flex items-start gap-2 rounded-md border px-3 py-2 text-[13px]"
+                 style={{ background: s.bg, borderColor: s.border }}>
+              <span className="mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                    style={{ background: s.text, color: "#fff" }}>{s.label}</span>
+              <div style={{ minWidth: 0 }}>
+                <span className="mono font-semibold">{w.key}</span>
+                <span className="ml-2" style={{ color: "var(--text-muted)" }}>{w.message}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function EnvironmentTab({ serviceId, onDeploy }) {
   const [envs, setEnvs] = useState(null);
   const [baseline, setBaseline] = useState({});   // uuid → serialized "key\0value" at last load/save
@@ -894,6 +935,8 @@ function EnvironmentTab({ serviceId, onDeploy }) {
           </div>
         </div>
       )}
+
+      <MigrationCheck serviceId={serviceId} />
 
       {/* env table */}
       <div

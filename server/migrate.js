@@ -17,6 +17,7 @@ import { fetchBlueprint, applyBlueprint, ownerRepo } from "./renderyaml.js";
 import { createProjectDatabase, provisionDedicatedDatabase } from "./sharedcluster.js";
 import { deleteApp } from "./lifecycle.js";
 import { friendlyError } from "./friendlyError.js";
+import { scanEnv } from "./envscan.js";
 import { assign } from "./ownership.js";
 
 // Reject anything that isn't a postgres:// URL before it reaches a spawn argv,
@@ -150,6 +151,7 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
   // ponytail: a shared logical DB created before a migrate-db failure may linger —
   // it's uniquely named + empty, so low-harm; full DB teardown is a follow-up.
   let createdAppUuid = null;
+  let warnings = []; // env values that need attention post-migration (scanEnv output)
   // Safe to delete the app on failure when we did NOT provision a box exclusively for
   // it: shared host, or an existing dedicated box shared by a group (siblings keep it).
   const canCleanupApp = target.mode === "shared" || !!target.serverUuid;
@@ -313,7 +315,11 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
       // vars routinely hold API keys / DATABASE_URL / tokens. Safe default.
       await d.upsertEnv(appUuid, { key, value, is_secret: true });
     }
-    steps.push({ step: "push-env", status: "ok", detail: { count: envVars.length } });
+    // Flag env values that won't work on the new host (leftover *.onrender.com URLs,
+    // provider-internal DB/Redis hosts, RENDER_* vars). DATABASE_URL is excluded when
+    // we already swapped it to the migrated target above.
+    warnings = scanEnv(envVars.filter((e) => !(dbMigrated && (e.key || "").toUpperCase() === "DATABASE_URL")));
+    steps.push({ step: "push-env", status: "ok", detail: { count: envVars.length, warnings } });
   } catch (err) {
     steps.push(errStep("push-env", err, { type: "application", id: appUuid }));
     await cleanupApp();
@@ -341,5 +347,5 @@ export async function importFromRender({ renderServiceId, target, userId, apiKey
     return { ok: false, appUuid, steps };
   }
 
-  return { ok: true, appUuid, url: "https://" + service.name + ".demo", steps };
+  return { ok: true, appUuid, url: "https://" + service.name + ".demo", steps, warnings };
 }

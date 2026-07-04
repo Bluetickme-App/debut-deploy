@@ -58,6 +58,7 @@ export const api = {
   metrics: (id) => req(`/services/${id}/metrics`),
   buildLogs: (id) => req(`/services/${id}/build-logs`), // { lines: [{time,type,message}], error? }
   envs: (id) => req(`/services/${id}/envs`),
+  envScan: (id) => req(`/services/${id}/env-scan`), // { warnings: [...], scannable }
   revealEnv: (id, key) => req(`/services/${id}/envs/reveal?key=${encodeURIComponent(key)}`),
   saveEnv: (id, body) => req(`/services/${id}/envs`, { method: "POST", body }),
   deleteEnv: (id, envId) => req(`/services/${id}/envs/${envId}`, { method: "DELETE" }),
