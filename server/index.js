@@ -1146,8 +1146,8 @@ app.get(
   h(async () => {
     const pub = (p) => ({
       id: p.id, name: p.name, priceMo: p.priceMo, vcpu: p.vcpu, vcpuCount: p.vcpuCount,
-      ram: p.ram, ramGb: p.ramGb, disk: p.disk, shared: p.shared, popular: !!p.popular,
-      note: p.note, renderMo: p.renderMo,
+      ram: p.ram, ramGb: p.ramGb, disk: p.disk, storage: p.storage, shared: p.shared,
+      popular: !!p.popular, note: p.note, renderMo: p.renderMo,
     });
     return { compute: computePlans().map(pub), db: dbPlans().map(pub) };
   })

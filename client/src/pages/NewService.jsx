@@ -4,6 +4,7 @@ import { Plus, Trash2, GitBranch, Github, ChevronDown, ChevronUp, X } from "luci
 import { api } from "../lib/api.js";
 import { Field, Input, Select, Button, Card, PageHeader, Spinner, Mono } from "../components/ui.jsx";
 import ServerPicker from "../components/ServerPicker.jsx";
+import PlanPicker from "../components/PlanPicker.jsx";
 
 const BUILD_PACKS = [
   { value: "nixpacks", label: "Auto-detect (Nixpacks)" },
@@ -70,6 +71,7 @@ export default function NewService() {
   const [error, setError] = useState(null);
   const [servers, setServers] = useState([]);   // admin-only; [] for customers → no picker
   const [serverUuid, setServerUuid] = useState(""); // "" = default shared host
+  const [planId, setPlanId] = useState("");     // "" = free tier
 
   useEffect(() => {
     api.getRepos().then((r) => {
@@ -146,6 +148,7 @@ export default function NewService() {
       if (buildCommand.trim()) body.buildCommand = buildCommand.trim();
       if (startCommand.trim()) body.startCommand = startCommand.trim();
       if (serverUuid) body.serverUuid = serverUuid;
+      if (planId) body.plan_id = planId;
 
       const { uuid } = await api.createApp(body);
       navigate(uuid ? `/services/${uuid}` : "/");
@@ -266,6 +269,8 @@ export default function NewService() {
               Start and build commands are optional — Nixpacks auto-detects them from your project.
             </p>
           </Field>
+
+          <PlanPicker kind="compute" value={planId} onChange={setPlanId} />
 
           <ServerPicker servers={servers} value={serverUuid} onChange={setServerUuid} />
 

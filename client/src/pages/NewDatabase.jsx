@@ -5,6 +5,7 @@ import {
   Button, Card, Field, Input, PageHeader, Select, Spinner,
 } from "../components/ui.jsx";
 import ServerPicker from "../components/ServerPicker.jsx";
+import PlanPicker from "../components/PlanPicker.jsx";
 import { api } from "../lib/api.js";
 
 const PG_VERSIONS = ["", "17", "16", "15", "14", "13"]; // "" = Coolify default (latest)
@@ -28,6 +29,7 @@ export default function NewDatabase() {
   const [regions, setRegions]   = useState([]);
   const [servers, setServers]   = useState([]);
   const [serverUuid, setServerUuid] = useState("");
+  const [planId, setPlanId]     = useState("");
   const [submitting, setSub]  = useState(false);
   const [error, setError]     = useState(null);
 
@@ -46,7 +48,7 @@ export default function NewDatabase() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, name: name.trim(), projectUuid: projectUuid || undefined, version: version || undefined, serverUuid: serverUuid || undefined }),
+        body: JSON.stringify({ type, name: name.trim(), projectUuid: projectUuid || undefined, version: version || undefined, serverUuid: serverUuid || undefined, plan_id: planId || undefined }),
       });
       if (!res.ok) {
         const { error: msg } = await res.json().catch(() => ({}));
@@ -106,6 +108,8 @@ export default function NewDatabase() {
               </Select>
               <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>Databases run on the shared host; services in the same region share a private network.</p>
             </Field>
+
+            <PlanPicker kind="db" value={planId} onChange={setPlanId} />
 
             <ServerPicker servers={servers} value={serverUuid} onChange={setServerUuid} />
 
