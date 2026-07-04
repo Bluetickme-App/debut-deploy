@@ -83,6 +83,26 @@ function mask(val) {
 }
 
 // ── create card ───────────────────────────────────────────────────────────────
+// Parse a pasted .env blob into {key,value,secret} rows. Skips blanks + # comments,
+// splits on the first "=", strips surrounding quotes, and guesses secret from the
+// key name (KEY/TOKEN/SECRET/PASSWORD/DSN/PRIVATE) so pasted creds default hidden.
+function parseDotEnv(text) {
+  const SECRETY = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|DSN|PRIVATE|CREDENTIAL)/i;
+  const out = [];
+  for (let line of String(text).split(/\r?\n/)) {
+    line = line.trim();
+    if (!line || line.startsWith("#")) continue;
+    line = line.replace(/^export\s+/, "");
+    const eq = line.indexOf("=");
+    if (eq < 1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim().replace(/^(['"])(.*)\1$/, "$2");
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue; // not a valid env key
+    out.push({ key, value, secret: SECRETY.test(key) });
+  }
+  return out;
+}
+
 function CreateCard({ onCancel, onCreate }) {
   const [name, setName]   = useState("");
   const [scope, setScope] = useState(SCOPES[0]);
@@ -90,6 +110,8 @@ function CreateCard({ onCancel, onCreate }) {
     { key: "", value: "", secret: false },
     { key: "", value: "", secret: false },
   ]);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
 
   function setRow(i, patch) {
     setRows(r => r.map((row, idx) => idx === i ? { ...row, ...patch } : row));
@@ -97,6 +119,20 @@ function CreateCard({ onCancel, onCreate }) {
 
   function addRow() {
     setRows(r => [...r, { key: "", value: "", secret: false }]);
+  }
+
+  // Merge parsed .env into the rows: drop the empty placeholder rows, then append
+  // (dedup by key — a pasted key overwrites an existing same-named row).
+  function importEnv() {
+    const parsed = parseDotEnv(pasteText);
+    if (!parsed.length) return;
+    setRows(prev => {
+      const byKey = new Map(prev.filter(r => r.key.trim()).map(r => [r.key, r]));
+      for (const p of parsed) byKey.set(p.key, p);
+      return [...byKey.values()];
+    });
+    setPasteText("");
+    setPasteOpen(false);
   }
 
   function submit() {
@@ -185,19 +221,52 @@ function CreateCard({ onCancel, onCreate }) {
         ))}
       </div>
 
+      {pasteOpen && (
+        <div style={{ marginBottom: 12 }}>
+          <label className="label">Paste .env</label>
+          <textarea
+            className="input mono"
+            style={{ width: "100%", minHeight: 96, resize: "vertical" }}
+            placeholder={"KEY=value\nAPI_TOKEN=abc123\n# comments and blank lines are ignored"}
+            value={pasteText}
+            onChange={e => setPasteText(e.target.value)}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            <button className="btn btn-ghost" onClick={() => { setPasteOpen(false); setPasteText(""); }}>Cancel</button>
+            <button className="btn btn-secondary" onClick={importEnv} disabled={!pasteText.trim()}>
+              Import {parseDotEnv(pasteText).length || ""} variable{parseDotEnv(pasteText).length === 1 ? "" : "s"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button
-          onClick={addRow}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "6px 10px", borderRadius: 6,
-            border: "1px dashed var(--border-strong)",
-            background: "transparent", color: "var(--text-muted)",
-            fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-          }}
-        >
-          <Plus size={13} /> Add variable
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={addRow}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "6px 10px", borderRadius: 6,
+              border: "1px dashed var(--border-strong)",
+              background: "transparent", color: "var(--text-muted)",
+              fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            <Plus size={13} /> Add variable
+          </button>
+          <button
+            onClick={() => setPasteOpen(o => !o)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "6px 10px", borderRadius: 6,
+              border: "1px dashed var(--border-strong)",
+              background: "transparent", color: "var(--text-muted)",
+              fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            <Braces size={13} /> Import .env
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
           <button className="btn btn-primary" onClick={submit}>Create group</button>

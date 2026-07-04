@@ -1667,26 +1667,56 @@ const MEM_OPTS = [
 const fmtCpu = (v) => (v === "0" || v == null ? "Shared" : `${v} vCPU`);
 const fmtMem = (v) => (v === "0" || v == null ? "No limit" : String(v).replace(/M$/, " MB").replace(/G$/, " GB"));
 
+// plan.ramGb → a Docker limits_memory string ("512M" / "1G"); and a match test so
+// we can preselect the plan whose derived limits equal the service's current ones.
+const ramToDocker = (gb) => (gb < 1 ? `${Math.round(gb * 1024)}M` : `${gb}G`);
+const planMatches = (p, cpus, memory) => String(p.vcpuCount) === String(cpus) && ramToDocker(p.ramGb) === String(memory);
+
 function InstanceType({ serviceId, resources }) {
   const cur = { cpus: String(resources?.cpus ?? "0"), memory: String(resources?.memory ?? "0") };
-  const [cpus, setCpus] = useState(cur.cpus);
+  const [plans, setPlans] = useState(null);   // null=loading; [] on failure
+  const [sel, setSel] = useState("custom");   // plan id | "custom"
+  const [cpus, setCpus] = useState(cur.cpus); // custom-mode raw limits
   const [memory, setMemory] = useState(cur.memory);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
-  const dirty = cpus !== cur.cpus || memory !== cur.memory;
-  // Keep the live value visible even if it isn't one of the presets.
+
+  useEffect(() => {
+    let off = false;
+    api.plans().then((d) => {
+      if (off) return;
+      const compute = d?.compute || [];
+      setPlans(compute);
+      const match = compute.find((p) => planMatches(p, cur.cpus, cur.memory));
+      setSel(match ? match.id : "custom"); // preselect the plan matching live limits
+    }).catch(() => { if (!off) { setPlans([]); setSel("custom"); } });
+    return () => { off = true; };
+  }, [serviceId]);
+
+  const plan = (plans || []).find((p) => p.id === sel) || null;
+  // Effective limits come from the chosen plan, else the raw custom dropdowns.
+  const effCpus = plan ? String(plan.vcpuCount) : cpus;
+  const effMem = plan ? ramToDocker(plan.ramGb) : memory;
+  const dirty = effCpus !== cur.cpus || effMem !== cur.memory;
   const cpuOpts = CPU_OPTS.some((o) => o.v === cpus) ? CPU_OPTS : [{ v: cpus, label: fmtCpu(cpus) }, ...CPU_OPTS];
   const memOpts = MEM_OPTS.some((o) => o.v === memory) ? MEM_OPTS : [{ v: memory, label: fmtMem(memory) }, ...MEM_OPTS];
 
   async function save() {
     setBusy(true); setMsg(null);
     try {
-      await api.updateResources(serviceId, { cpus, memory });
-      cur.cpus = cpus; cur.memory = memory; // reflect saved baseline so the row un-dirties
+      await api.updateResources(serviceId, { cpus: effCpus, memory: effMem });
+      // A plan choice also sets the billing plan; keep it best-effort so a billing
+      // hiccup never blocks the resource change.
+      if (plan) { try { await api.setServicePlan(serviceId, plan.id); } catch { /* best-effort */ } }
+      cur.cpus = effCpus; cur.memory = effMem;
       setMsg({ ok: true, text: "Saved — redeploy to apply the new limits." });
     } catch (e) {
       setMsg({ ok: false, text: e.message || "Update failed" });
     } finally { setBusy(false); }
+  }
+
+  if (plans == null) {
+    return <div className="rounded-md border px-3.5 py-3 text-[13px]" style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading plans…</div>;
   }
 
   return (
@@ -1694,22 +1724,44 @@ function InstanceType({ serviceId, resources }) {
       style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)", letterSpacing: ".04em" }}>CPU</span>
-          <select className="input" value={cpus} onChange={(e) => setCpus(e.target.value)} style={{ minWidth: 160 }}>
-            {cpuOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+          <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)", letterSpacing: ".04em" }}>Plan</span>
+          <select className="input" value={sel} onChange={(e) => setSel(e.target.value)} style={{ minWidth: 240 }}>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} — ${p.priceMo}/mo · {p.vcpu} · {p.ram}</option>
+            ))}
+            <option value="custom">Custom / Shared (no limit)</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)", letterSpacing: ".04em" }}>Memory</span>
-          <select className="input" value={memory} onChange={(e) => setMemory(e.target.value)} style={{ minWidth: 160 }}>
-            {memOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
-          </select>
-        </label>
+        {sel === "custom" && (
+          <>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)", letterSpacing: ".04em" }}>CPU</span>
+              <select className="input" value={cpus} onChange={(e) => setCpus(e.target.value)} style={{ minWidth: 150 }}>
+                {cpuOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold uppercase" style={{ color: "var(--text-muted)", letterSpacing: ".04em" }}>Memory</span>
+              <select className="input" value={memory} onChange={(e) => setMemory(e.target.value)} style={{ minWidth: 150 }}>
+                {memOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+              </select>
+            </label>
+          </>
+        )}
         <Button variant="secondary" onClick={save} disabled={!dirty || busy}>{busy ? "Saving…" : "Save"}</Button>
       </div>
-      <p className="text-[11.5px]" style={{ color: msg ? (msg.ok ? "var(--ok-text)" : "var(--err-text)") : "var(--text-muted)" }}>
-        {msg ? msg.text : `Current: ${fmtCpu(cur.cpus)} · ${fmtMem(cur.memory)}. "0"/no-limit means it shares the host freely.`}
-      </p>
+      {/* Price populates the moment a plan is chosen (Render-style). */}
+      {plan ? (
+        <p className="text-[12.5px]" style={{ color: "var(--text)" }}>
+          <span className="font-bold">${plan.priceMo}/mo</span>
+          <span style={{ color: "var(--text-muted)" }}> · {plan.vcpu} · {plan.ram} · {plan.disk}
+            {plan.renderMo ? ` — ${Math.round((1 - plan.priceMo / plan.renderMo) * 100)}% under Render ($${plan.renderMo})` : ""}
+          </span>
+        </p>
+      ) : (
+        <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>Custom limits — no billed plan. "0"/no-limit shares the host freely.</p>
+      )}
+      {msg && <p className="text-[11.5px]" style={{ color: msg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{msg.text}</p>}
     </div>
   );
 }

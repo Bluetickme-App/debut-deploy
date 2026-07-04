@@ -96,6 +96,7 @@ export const api = {
   // Customers + billing (admin)
   customers: () => req("/customers"),
   billing: () => req("/billing"),
+  plans: () => req("/plans"), // customer-facing priced presets { compute:[], db:[] }
   // Deploy-key service creation (admin)
   prepareDeployKey: () => req("/git/prepare-key", { method: "POST" }),
   createGitService: (body) => req("/git/create-service", { method: "POST", body }),

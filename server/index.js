@@ -1068,6 +1068,22 @@ app.get(
   }))
 );
 
+// Customer-facing plan catalog: priced presets for the instance-type picker and
+// the new-service form. Strips cost/margin (those are admin-only in /api/billing)
+// — customers see price + specs only.
+app.get(
+  "/api/plans",
+  requireAuth,
+  h(async () => {
+    const pub = (p) => ({
+      id: p.id, name: p.name, priceMo: p.priceMo, vcpu: p.vcpu, vcpuCount: p.vcpuCount,
+      ram: p.ram, ramGb: p.ramGb, disk: p.disk, shared: p.shared, popular: !!p.popular,
+      note: p.note, renderMo: p.renderMo,
+    });
+    return { compute: computePlans().map(pub), db: dbPlans().map(pub) };
+  })
+);
+
 // --- Stripe admin dashboard (operator only) ---------------------------------
 // See Stripe data (balance, payments, customers, payouts) and flip test<->live at
 // runtime — no Stripe login, no server restart. Keys stay in env; only the active
