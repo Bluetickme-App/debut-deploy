@@ -779,6 +779,31 @@ app.post(
   })
 );
 
+// List bound domains with live Verified + Certificate status (Render-style manager).
+app.get(
+  "/api/services/:id/domains",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return lifecycle.listDomains(req.params.id);
+  })
+);
+
+// Remove a custom domain (apex + www) from the service.
+app.delete(
+  "/api/services/:id/domains",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const result = await lifecycle.removeDomain(req.params.id, req.body?.fqdn);
+    record(req, "app.domain.remove", { resourceType: "application", resourceUuid: req.params.id, metadata: { fqdn: req.body?.fqdn } });
+    return result;
+  })
+);
+
 app.get(
   "/api/servers",
   requireAuth,

@@ -45,6 +45,10 @@ export const api = {
   placeResource:   (type, id, environmentId) => req(`/resources/${type}/${id}/placement`, { method: "PATCH", body: { environmentId } }),
   transferProject: (id, email) => req(`/admin/projects/${id}/transfer`, { method: "POST", body: { email } }), // master-admin only
   updateResources: (id, body) => req(`/services/${id}/resources`, { method: "PATCH", body }), // { cpus?, memory? }
+  // custom domains (Render-style manager)
+  listDomains:  (id) => req(`/services/${id}/domains`),
+  addDomain:    (id, fqdn) => req(`/services/${id}/domain`, { method: "POST", body: { fqdn } }),
+  removeDomain: (id, fqdn) => req(`/services/${id}/domains`, { method: "DELETE", body: { fqdn } }),
   deploy: (id, opts) => req(`/services/${id}/deploy`, { method: "POST", body: opts }), // opts?: { clearCache: true }
   rollback: (id, commit) => req(`/services/${id}/rollback`, { method: "POST", body: { commit } }),
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),

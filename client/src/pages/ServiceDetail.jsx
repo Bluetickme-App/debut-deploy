@@ -1115,6 +1115,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
 
   // custom domain (Render-style wizard modal)
   const [domainModal, setDomainModal] = useState(false);
+  const [domainsRefresh, setDomainsRefresh] = useState(0);
   const [subdomainOn, setSubdomainOn] = useState(true);
 
   // health check (wired to /build alongside commands; falls through if unsupported)
@@ -1307,9 +1308,10 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
 
         {/* 4 · Custom Domains */}
         <SettingsSection id="domains" title="Custom Domains">
-          <SettingsRow label="Add custom domain" desc="Point your own domain, verify DNS, then TLS is issued.">
-            <div>
-              <Button variant="primary" onClick={() => setDomainModal(true)}>Add Custom Domain</Button>
+          <SettingsRow label="Custom domains" desc="Domains pointed at this service, with live DNS + certificate status.">
+            <div className="flex flex-col gap-3">
+              <DomainsList serviceId={serviceId} refreshKey={domainsRefresh} />
+              <div><Button variant="primary" onClick={() => setDomainModal(true)}><Plus className="h-3.5 w-3.5" /> Add Custom Domain</Button></div>
             </div>
           </SettingsRow>
           {domainModal && (
@@ -1318,6 +1320,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
               subdomain={subdomain}
               platformIp={platformIp}
               onClose={() => setDomainModal(false)}
+              onBound={() => setDomainsRefresh((n) => n + 1)}
             />
           )}
           <SettingsRow label="DebutDeploy subdomain" desc="A free subdomain always reachable for this service.">
@@ -1549,6 +1552,57 @@ function DiskSection({ serviceId }) {
         </div>
       </SettingsRow>
     </SettingsSection>
+  );
+}
+
+// ── Custom domains manager (Render-style: list + Verified/Certificate status) ──
+
+function DomainBadge({ ok, okLabel, pendingLabel }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+      style={{ background: ok ? "var(--ok-soft)" : "var(--surface-2)", color: ok ? "var(--ok-text)" : "var(--text-muted)" }}>
+      {ok ? <Check className="h-3 w-3" /> : <RefreshCw className="h-3 w-3" />}{ok ? okLabel : pendingLabel}
+    </span>
+  );
+}
+
+function DomainsList({ serviceId, refreshKey }) {
+  const [domains, setDomains] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const load = () => api.listDomains(serviceId).then((d) => setDomains(Array.isArray(d) ? d : [])).catch(() => setDomains([]));
+  useEffect(() => { setDomains(null); load(); }, [serviceId, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function remove(host) {
+    if (!window.confirm(`Remove ${host} from this service? (both apex and www)`)) return;
+    setBusy(host);
+    try { await api.removeDomain(serviceId, host); await load(); }
+    catch (e) { alert(e.message || "Remove failed"); }
+    finally { setBusy(null); }
+  }
+
+  if (domains === null) return <div className="flex items-center gap-2 text-[13px]" style={{ color: "var(--text-muted)" }}><Spinner /> Loading domains…</div>;
+  if (!domains.length) return <div className="text-[13px]" style={{ color: "var(--text-muted)" }}>No custom domains yet — add one below.</div>;
+  return (
+    <div className="rounded-md border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+      {domains.map((d, i) => (
+        <div key={d.host} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5"
+          style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
+          <a href={`https://${d.host}`} target="_blank" rel="noreferrer" className="mono inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: "var(--accent-text)" }}>
+            {d.host}{d.free && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>free</span>}<ExternalLink className="h-3 w-3" />
+          </a>
+          <div className="flex items-center gap-2">
+            <DomainBadge ok={d.verified} okLabel="Verified" pendingLabel="DNS pending" />
+            <DomainBadge ok={d.certIssued} okLabel="Certificate" pendingLabel="Cert pending" />
+            <button onClick={() => remove(d.host)} disabled={busy === d.host} title="Remove domain"
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--err)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}>
+              {busy === d.host ? <Spinner /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

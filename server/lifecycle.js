@@ -94,6 +94,40 @@ export async function verifyDomain(uuid, fqdn) {
   return { host, serverIp, resolvedIps, pointsAt };
 }
 
+// List bound domains (all except the auto sslip.io URL) with live Verified (DNS points
+// at this service's server) + Certificate (HTTPS reachable) status — Render-style. The
+// server IP is read straight out of the sslip.io domain ({uuid}.<IP>.sslip.io).
+export async function listDomains(uuid) {
+  if (isDemo()) return [];
+  const app = await cf(`/applications/${uuid}`).catch(() => null);
+  const all = (app?.fqdn || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const sslip = all.find((d) => /\.sslip\.io/i.test(d));
+  const serverIp = sslip ? (sslip.match(/(\d+\.\d+\.\d+\.\d+)\.sslip\.io/)?.[1] || null) : null;
+  const custom = all.filter((d) => !/\.sslip\.io/i.test(d));
+  return Promise.all(custom.map(async (url) => {
+    const host = url.replace(/^https?:\/\//, "").split("/")[0];
+    let resolvedIps = [], verified = false, certIssued = false;
+    try { resolvedIps = await dns.resolve4(host); verified = resolvedIps.length > 0 && (!serverIp || resolvedIps.includes(serverIp)); } catch { /* NXDOMAIN/timeout */ }
+    try { const r = await fetch(`https://${host}/`, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(6000) }); certIssued = r.status < 500; } catch { certIssued = false; }
+    return { url, host, verified, certIssued, free: /\.debutdepoly\.com$/i.test(host), resolvedIps, serverIp };
+  }));
+}
+
+// Remove a domain (both apex + www variants) from the service, then redeploy so Traefik
+// drops its routers. Never touches the sslip.io auto-URL.
+export async function removeDomain(uuid, fqdn) {
+  if (!fqdn || typeof fqdn !== "string" || !fqdn.trim()) {
+    throw Object.assign(new Error("fqdn is required"), { status: 400 });
+  }
+  if (isDemo()) return { ok: true };
+  const drop = new Set(domainVariants(fqdn));
+  const app = await cf(`/applications/${uuid}`).catch(() => null);
+  const kept = (app?.fqdn || "").split(",").map((s) => s.trim()).filter(Boolean).filter((d) => !drop.has(d));
+  await cf(`/applications/${uuid}`, { method: "PATCH", body: { domains: kept.join(",") } });
+  await cf(`/deploy?uuid=${encodeURIComponent(uuid)}`, { method: "POST" });
+  return { ok: true, domains: kept };
+}
+
 // self-check: `node server/lifecycle.js`
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const eq = (a, b, m) => {
