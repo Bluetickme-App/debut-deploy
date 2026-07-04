@@ -197,6 +197,14 @@ export default function ServiceDetail() {
       {tab === "Environment" && <EnvironmentTab serviceId={id} onDeploy={() => action("deploy")} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
       {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} onRename={(name) => setSvc((s) => ({ ...s, name }))} />}
+
+      {gate && (
+        <BillingGateModal
+          gate={gate}
+          onClose={() => setGate(null)}
+          onGoToSettings={() => setTab("Settings")}
+        />
+      )}
     </div>
   );
 }
@@ -537,79 +545,153 @@ function LogsTab({ serviceId, name }) {
   );
 }
 
-// ── Metrics tab (live, point-in-time CPU + memory) ──────────────────────────────
+// ── Metrics tab (Render-style time-series graphs: CPU / Memory / Network) ─────────
 
-// Strip "%"/whitespace → number, NaN → 0, clamp 0–100.
-function pct(str) {
-  const n = parseFloat(String(str ?? "").replace("%", "").trim());
-  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+const RANGES = ["1h", "6h", "24h"];
+
+// Humanise a byte count → "67.4 MB". null → "—".
+function fmtBytes(n) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  let x = Math.abs(n), i = 0;
+  while (x >= 1024 && i < u.length - 1) { x /= 1024; i += 1; }
+  return `${x.toFixed(x < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
 }
 
-function Bar({ value, color }) {
+// Hand-rolled SVG area+line sparkline. No charting dep. Scales to its own max
+// (10% headroom); stroke stays crisp via non-scaling-stroke under the stretched
+// viewBox. A dashed peak gridline marks the window high. Empty → nothing.
+function MetricChart({ values, color, peak }) {
+  const W = 600, H = 140;
+  if (!values || values.length === 0) return <div style={{ height: H / 2 }} />;
+  const vs = values.length === 1 ? [values[0], values[0]] : values;
+  const max = Math.max(peak ?? 0, ...vs, 1e-9) * 1.1 || 1;
+  const x = (i) => (i / (vs.length - 1)) * W;
+  const y = (v) => H - (v / max) * H;
+  const line = vs.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  const area = `${line} L ${W} ${H} L 0 ${H} Z`;
+  const gid = `grad-${color.replace(/[^a-z]/gi, "")}`;
   return (
-    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
-      <div className="h-full rounded-full transition-all" style={{ width: `${value}%`, background: color }} />
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      {[0.25, 0.5, 0.75].map((g) => (
+        <line key={g} x1="0" x2={W} y1={H * g} y2={H * g} stroke="var(--border)" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.5" />
+      ))}
+      {peak != null && peak > 0 && (
+        <line x1="0" x2={W} y1={y(peak)} y2={y(peak)} stroke={color} strokeWidth="1" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" opacity="0.55" />
+      )}
+      <path d={area} fill={`url(#${gid})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth="1.75" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChartCard({ label, big, sub, values, color, peak }) {
+  return (
+    <div className="rounded-lg border px-[18px] pt-4 pb-2" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}>
+      <div className="flex items-baseline justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</div>
+        {sub && <div className="mono text-[11.5px]" style={{ color: "var(--text-muted)" }}>{sub}</div>}
+      </div>
+      <div className="mt-1 text-[26px] font-semibold" style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{big}</div>
+      <div className="mt-2.5"><MetricChart values={values} color={color} peak={peak} /></div>
     </div>
   );
 }
 
-function MetricCard({ label, big, sub, value, color }) {
+function RangeToggle({ value, onChange }) {
   return (
-    <div className="rounded-lg border px-[18px] py-4" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}>
-      <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</div>
-      <div className="mt-1.5 text-[26px] font-semibold" style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{big}</div>
-      {sub && <div className="mt-0.5 mono text-[12px]" style={{ color: "var(--text-muted)" }}>{sub}</div>}
-      <Bar value={value} color={color} />
+    <div className="inline-flex overflow-hidden rounded-md border" style={{ borderColor: "var(--border)" }}>
+      {RANGES.map((r) => (
+        <button
+          key={r}
+          onClick={() => onChange(r)}
+          className="px-2.5 py-1 text-[12px] font-semibold"
+          style={{
+            background: value === r ? "var(--accent)" : "var(--surface)",
+            color: value === r ? "#fff" : "var(--text-muted)",
+          }}
+        >
+          {r}
+        </button>
+      ))}
     </div>
   );
 }
 
 function MetricsTab({ serviceId }) {
-  const [data, setData] = useState(null);   // null = loading; else { containers, error? }
+  const [window, setWindow] = useState("1h");
+  const [data, setData] = useState(null);   // null = loading; else { series, stats } | { error }
 
   useEffect(() => {
     let cancelled = false;
+    setData(null);
     const load = () =>
-      api.metrics(serviceId)
-        .then((d) => { if (!cancelled) setData(d || { containers: [] }); })
-        .catch((e) => { if (!cancelled) setData({ containers: [], error: e.message }); });
+      api.metricsHistory(serviceId, window)
+        .then((d) => { if (!cancelled) setData(d || { stats: null }); })
+        .catch((e) => { if (!cancelled) setData({ error: e.message, stats: null }); });
     load();
-    const t = setInterval(load, 5000);
+    const t = setInterval(load, 15000); // graph refreshes as new samples land
     return () => { cancelled = true; clearInterval(t); };
-  }, [serviceId]);
+  }, [serviceId, window]);
 
-  if (!data) return (
-    <div className="text-sm" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading metrics…</div>
-  );
-
-  const containers = data.containers || [];
-  const unavailable = data.error || containers.length === 0;
+  const s = data?.stats;
+  const series = data?.series || { cpu: [], mem: [], net: [] };
 
   return (
     <div>
       <div className="mb-3.5 flex items-center justify-between">
-        <h4 className="text-[13.5px] font-semibold" style={{ color: "var(--text)" }}>Application Metrics</h4>
-        <span className="inline-flex items-center gap-[7px] text-[11.5px] font-semibold" style={{ color: "var(--ok-text)" }}>
-          <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--ok)", animation: "dd-pulse 1.4s infinite" }} />
-          Live
-        </span>
+        <div className="flex items-center gap-3">
+          <h4 className="text-[13.5px] font-semibold" style={{ color: "var(--text)" }}>Application Metrics</h4>
+          <span className="inline-flex items-center gap-[7px] text-[11.5px] font-semibold" style={{ color: "var(--ok-text)" }}>
+            <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--ok)", animation: "dd-pulse 1.4s infinite" }} />
+            Live
+          </span>
+        </div>
+        <RangeToggle value={window} onChange={setWindow} />
       </div>
 
-      {unavailable ? (
+      {!data ? (
+        <div className="text-sm" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading metrics…</div>
+      ) : data.error ? (
         <div className="rounded-lg border px-4 py-10 text-center text-[13px]" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text-muted)", boxShadow: "var(--shadow)" }}>
-          Live metrics unavailable — the service isn't running or the metrics host isn't configured yet.
+          Metrics unavailable — {data.error}
+        </div>
+      ) : !s ? (
+        <div className="rounded-lg border px-4 py-10 text-center text-[13px]" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text-muted)", boxShadow: "var(--shadow)" }}>
+          Accumulating metrics… graphs fill in as samples are collected (about a minute after the service starts running).
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {containers.map((c, i) => (
-            <div key={c.name || i}>
-              <div className="mb-2 mono text-[12px]" style={{ color: "var(--text-muted)" }}>{c.name || "container"}</div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <MetricCard label="CPU" big={c.cpu ?? "—"} value={pct(c.cpu)} color="var(--accent)" />
-                <MetricCard label="Memory" big={c.memPerc ?? "—"} sub={c.mem} value={pct(c.memPerc)} color="var(--ok)" />
-              </div>
-            </div>
-          ))}
+          <ChartCard
+            label="CPU"
+            big={`${s.cpu.current}%`}
+            sub={`peak ${s.cpu.peak}% · avg ${s.cpu.avg}%`}
+            values={series.cpu.map((p) => p.v)}
+            peak={s.cpu.peak}
+            color="var(--accent)"
+          />
+          <ChartCard
+            label="Memory"
+            big={`${s.mem.current}%`}
+            sub={`${fmtBytes(s.mem.bytes)} · peak ${s.mem.peak}% · avg ${s.mem.avg}%`}
+            values={series.mem.map((p) => p.v)}
+            peak={s.mem.peak}
+            color="var(--ok)"
+          />
+          <ChartCard
+            label="Network I/O (cumulative)"
+            big={fmtBytes(s.net.current)}
+            sub={`peak ${fmtBytes(s.net.peak)}`}
+            values={series.net.map((p) => p.v)}
+            peak={s.net.peak}
+            color="#8b5cf6"
+          />
         </div>
       )}
     </div>
@@ -1488,14 +1570,6 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           kind="service"
           onConfirm={deleteSvc}
           onCancel={() => setConfirmDel(false)}
-        />
-      )}
-
-      {gate && (
-        <BillingGateModal
-          gate={gate}
-          onClose={() => setGate(null)}
-          onGoToSettings={() => setTab("Settings")}
         />
       )}
 

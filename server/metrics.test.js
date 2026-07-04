@@ -1,0 +1,77 @@
+// Run: DATABASE_FILE=:memory: node --test server/metrics.test.js
+// Covers the pure parsing/bucketing helpers plus insert → windowed history →
+// retention against an in-memory DB.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+process.env.DATABASE_FILE = ":memory:"; // must be set before db.js opens the singleton
+const M = await import("./metrics.js");
+
+test("parseBytes: binary vs SI units", () => {
+  assert.equal(M.parseBytes("512B"), 512);
+  assert.equal(M.parseBytes("1.2kB"), 1200);          // SI
+  assert.equal(M.parseBytes("3.4MB"), 3_400_000);      // SI
+  assert.equal(M.parseBytes("1KiB"), 1024);            // binary
+  assert.equal(M.parseBytes("67.38MiB"), Math.round(67.38 * 1024 ** 2));
+  assert.equal(M.parseBytes("7.57GiB"), Math.round(7.57 * 1024 ** 3));
+  assert.equal(M.parseBytes("garbage"), null);
+});
+
+test("parseStatsLine: full line and malformed drop", () => {
+  const s = M.parseStatsLine("app-uuid123-x|0.87%|67.38MiB / 7.57GiB|4.20%|1.2kB / 3.4MB");
+  assert.equal(s.name, "app-uuid123-x");
+  assert.equal(s.cpu_pct, 0.87);
+  assert.equal(s.mem_pct, 4.2);
+  assert.equal(s.mem_bytes, Math.round(67.38 * 1024 ** 2));
+  assert.equal(s.net_rx_bytes, 1200);
+  assert.equal(s.net_tx_bytes, 3_400_000);
+  assert.equal(M.parseStatsLine("only|two"), null);          // too few fields
+  assert.equal(M.parseStatsLine("|x|y|z"), null);            // no name / bad cpu
+});
+
+test("mapNamesToUuids: substring match, unowned dropped", () => {
+  const rows = [
+    { name: "svc-aaa111-web-1", cpu_pct: 1, mem_bytes: 0, mem_pct: 0, net_rx_bytes: null, net_tx_bytes: null },
+    { name: "unowned-zzz-1", cpu_pct: 1, mem_bytes: 0, mem_pct: 0, net_rx_bytes: null, net_tx_bytes: null },
+  ];
+  const out = M.mapNamesToUuids(rows, ["aaa111", "bbb222"]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].coolify_uuid, "aaa111");
+});
+
+test("windowCfg: known windows and default", () => {
+  assert.deepEqual(M.windowCfg("6h"), { sec: 21600, bucket: 180 });
+  assert.deepEqual(M.windowCfg("bogus"), M.windowCfg("1h")); // unknown → 1h
+});
+
+test("metricsHistory: empty → stats null", () => {
+  const h = M.metricsHistory("nope", "1h");
+  assert.equal(h.stats, null);
+  assert.deepEqual(h.series, { cpu: [], mem: [], net: [] });
+});
+
+test("metricsHistory: buckets, peak, current, net cumulative, retention", () => {
+  const now = Date.parse("2026-07-04T12:00:00.000Z");
+  const mk = (cpu, rx) => [{ coolify_uuid: "svc1", cpu_pct: cpu, mem_bytes: 1000, mem_pct: 40, net_rx_bytes: rx, net_tx_bytes: 50 }];
+  M.insertMetricsSamples(mk(30, 100), new Date(now - 240_000).toISOString());
+  M.insertMetricsSamples(mk(20, 200), new Date(now - 120_000).toISOString());
+  M.insertMetricsSamples(mk(5, 300), new Date(now).toISOString());
+
+  const h = M.metricsHistory("svc1", "1h", now + 1000);
+  assert.equal(h.series.cpu.length, 3);       // three distinct 60s buckets
+  assert.equal(h.stats.cpu.peak, 30);         // MAX over window
+  assert.equal(h.stats.cpu.current, 5);       // latest sample
+  assert.equal(h.stats.net.current, 350);     // 300 rx + 50 tx, cumulative
+  assert.equal(h.stats.net.peak, 350);
+
+  const deleted = M.sweepMetrics(new Date(now - 180_000).toISOString());
+  assert.equal(deleted, 1);                    // only the oldest (t-240s) row
+  assert.equal(M.metricsHistory("svc1", "1h", now + 1000).stats.cpu.peak, 20);
+});
+
+test("demoHistory: shaped like real payload", () => {
+  const h = M.demoHistory("6h");
+  assert.ok(h.series.cpu.length > 1);
+  assert.ok(h.stats.cpu.peak >= h.stats.cpu.avg);
+  assert.equal(typeof h.stats.net.current, "number");
+});
