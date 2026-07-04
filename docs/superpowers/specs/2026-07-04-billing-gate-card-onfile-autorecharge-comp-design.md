@@ -1,7 +1,7 @@
 # Billing gate + card-on-file + auto-recharge + comp override
 
 **Date:** 2026-07-04
-**Status:** approved (design) — pending implementation plan
+**Status:** implemented 2026-07-04 (Part 1 `0639393`, Part 2 `feat(billing): Part 2`, Part 3 `feat(billing): Part 3`) — all three parts on `main`, 59/59 server tests, client build green
 **Depends on:** the existing billing spine (`billing.js`, `subscriptions.js`, `stripecatalog.js`,
 `metering.js`, Stripe Checkout subscription + wallet top-up, dunning + suspension sweep).
 
