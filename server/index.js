@@ -80,7 +80,7 @@ import * as sharedvars from "./sharedvars.js";
 import * as backups from "./backups.js";
 import * as hetzner from "./hetzner.js";
 import { provisionServer } from "./provision.js";
-import { importFromRender } from "./migrate.js";
+import { importFromRender, migratePostgres } from "./migrate.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import { computePlans, dbPlans } from "./plans.js";
@@ -1651,6 +1651,22 @@ app.post(
     const { name, serverType, location, image } = req.body || {};
     const result = await provisionServer({ name, serverType, location, ...(image ? { image } : {}) });
     record(req, "server.provision", { metadata: { name, serverType, location, image } });
+    return result;
+  })
+);
+
+// Admin: copy one Postgres into another (pg_dump | psql on the host, version-aware).
+// URLs are validated as postgres:// by migratePostgres and passed via ENV, never argv.
+app.post(
+  "/api/admin/migrate-db",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const { source, target } = req.body || {};
+    if (!source || !target) throw Object.assign(new Error("source and target are required"), { status: 400 });
+    const result = await migratePostgres({ source, target });
+    record(req, "db.migrate", { metadata: { ok: result?.ok, srcMajor: result?.srcMajor, tgtMajor: result?.tgtMajor } });
     return result;
   })
 );
