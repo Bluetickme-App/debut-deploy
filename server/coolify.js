@@ -168,7 +168,7 @@ export async function controlService(uuid, action) {
 export async function listDeployments(uuid) {
   if (isDemo()) return fx.getDeployments(uuid);
   const all = await cf(`/deployments`);
-  return (Array.isArray(all) ? all : [])
+  const mapped = (Array.isArray(all) ? all : [])
     // Coolify's deployment.application_id is a NUMERIC id, not the uuid; the
     // app uuid appears inside deployment_url (…/application/<uuid>/deployment/…)
     .filter(
@@ -181,12 +181,18 @@ export async function listDeployments(uuid) {
       uuid: d.deployment_uuid || d.id,
       status: d.status,
       commit: d.commit?.slice?.(0, 7) || "",
-      message: d.commit_message || "",
+      message: (d.commit_message || "").split("\n")[0].trim(), // first line only (Render-style)
       branch: d.git_branch || "main",
       startedAt: d.created_at,
       durationSec: null,
       trigger: d.is_webhook ? "git push" : "manual",
     }));
+  // Manual/API redeploys don't carry a commit_message; borrow it from a git-push
+  // deploy of the SAME commit so the list isn't a wall of blank rows.
+  const msgByCommit = {};
+  for (const d of mapped) if (d.commit && d.message) msgByCommit[d.commit] = d.message;
+  for (const d of mapped) if (d.commit && !d.message) d.message = msgByCommit[d.commit] || "";
+  return mapped;
 }
 
 export async function getLogLines(uuid) {

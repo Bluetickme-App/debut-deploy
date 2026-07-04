@@ -275,7 +275,7 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
     </div>
   );
 
-  const isOk = (d) => /success|running|healthy|live/i.test(d.status || "");
+  const isOk = (d) => /success|finished|running|healthy|live/i.test(d.status || "");
   const isFail = (d) => /fail|error/i.test(d.status || "");
   let liveSeen = false;
 
