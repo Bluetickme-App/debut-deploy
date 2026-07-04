@@ -87,7 +87,7 @@ import { computePlans, dbPlans } from "./plans.js";
 import { repoKey, verifyWebhookSig } from "./webhook.js";
 import { createRenderCredential, listRenderCredentials, getRenderCredential, deleteRenderCredential } from "./db.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
-import { getContainerStats, runOnHost } from "./hostexec.js";
+import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
@@ -1652,21 +1652,6 @@ app.post(
     const result = await provisionServer({ name, serverType, location, ...(image ? { image } : {}) });
     record(req, "server.provision", { metadata: { name, serverType, location, image } });
     return result;
-  })
-);
-
-// TEMP DEBUG (admin-only) — run a command on the Coolify host via the panel's existing
-// SSH creds, to diagnose the dedicated-server validation failure. REMOVE after debugging.
-app.post(
-  "/api/admin/host-exec",
-  requireAuth,
-  requireAdmin,
-  mutateGuard,
-  h(async (req) => {
-    const cmd = String(req.body?.cmd || "");
-    if (!cmd) throw Object.assign(new Error("cmd is required"), { status: 400 });
-    const out = await runOnHost(cmd).catch((e) => `ERROR: ${e.message}`);
-    return { out: String(out) };
   })
 );
 

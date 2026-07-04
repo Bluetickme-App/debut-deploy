@@ -78,9 +78,15 @@ export async function removeCoolifyServer(uuid) {
 // check, the upgrade path noted in the header.
 const inFlight = new Set();
 
-// Pre-install Docker at first boot so the box is Coolify-usable even when Coolify's
-// own Docker install doesn't complete (observed: reachable=true, usable=false).
+// Install Coolify's server prerequisites at first boot. ROOT CAUSE of usable=false:
+// Coolify's ValidateServer requires `jq` (+ curl) on the target and fails in 2s if
+// missing ("Prerequisites (jq) are not installed") — before it ever installs Docker.
+// Fresh Ubuntu images lack jq, so install it (and Docker) here so validation passes.
 const DOCKER_CLOUD_INIT = `#cloud-config
+package_update: true
+packages:
+  - jq
+  - curl
 runcmd:
   - [ sh, -c, "curl -fsSL https://get.docker.com -o /tmp/gd.sh && sh /tmp/gd.sh" ]
   - [ systemctl, enable, --now, docker ]
