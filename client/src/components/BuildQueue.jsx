@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Hammer, Clock, ChevronRight } from "lucide-react";
+import { Hammer, Clock, ChevronRight, X } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Spinner, timeAgo } from "./ui.jsx";
 
@@ -9,28 +9,37 @@ import { Spinner, timeAgo } from "./ui.jsx";
 // renders nothing when the queue is empty — zero footprint at rest).
 //
 // The point it makes visible: Coolify deploys one-at-a-time PER APP, so several
-// triggers on the same app stack up as "queued" behind an "in_progress" one.
+// triggers on the same app stack up as "queued" behind an "in_progress" one — and
+// a wedged build blocks the whole app's line until it's cancelled.
 export default function BuildQueue() {
   const [rows, setRows] = useState(null); // null = first load
+  const [cancelling, setCancelling] = useState({}); // deploymentUuid -> true
 
   useEffect(() => {
     let off = false;
     let timer;
     async function tick() {
-      try {
-        const d = await api.activeDeployments();
-        if (off) return;
-        const list = Array.isArray(d) ? d : [];
-        setRows(list);
-        // Poll fast while active, slow (still catches new triggers) when idle.
-        timer = setTimeout(tick, list.length ? 4000 : 15000);
-      } catch {
-        if (!off) timer = setTimeout(tick, 15000);
-      }
+      const d = await api.activeDeployments().catch(() => null);
+      if (off) return;
+      const list = Array.isArray(d) ? d : [];
+      setRows(list);
+      // Poll fast while active, slow (still catches new triggers) when idle.
+      timer = setTimeout(tick, list.length ? 4000 : 15000);
     }
     tick();
     return () => { off = true; clearTimeout(timer); };
   }, []);
+
+  async function cancel(r) {
+    if (!r.deploymentUuid) return;
+    setCancelling((c) => ({ ...c, [r.deploymentUuid]: true }));
+    try { await api.cancelDeployment(r.deploymentUuid); } catch { /* already finished — reconcile below */ }
+    // Optimistically drop the row, then refetch to reflect Coolify's real state.
+    setRows((prev) => (prev || []).filter((x) => x.deploymentUuid !== r.deploymentUuid));
+    const d = await api.activeDeployments().catch(() => null);
+    if (Array.isArray(d)) setRows(d);
+    setCancelling((c) => { const n = { ...c }; delete n[r.deploymentUuid]; return n; });
+  }
 
   if (!rows || rows.length === 0) return null; // silent unless something's building
 
@@ -57,7 +66,13 @@ export default function BuildQueue() {
             {server}
           </div>
           {list.map((r) => (
-            <QueueRow key={r.id} r={r} position={r.status === "queued" ? list.filter((x) => x.status === "queued" && x.id <= r.id).length : 0} />
+            <QueueRow
+              key={r.id}
+              r={r}
+              position={r.status === "queued" ? list.filter((x) => x.status === "queued" && x.id <= r.id).length : 0}
+              onCancel={cancel}
+              cancelling={!!cancelling[r.deploymentUuid]}
+            />
           ))}
         </div>
       ))}
@@ -65,10 +80,10 @@ export default function BuildQueue() {
   );
 }
 
-function QueueRow({ r, position }) {
+function QueueRow({ r, position, onCancel, cancelling }) {
   const building = r.status === "in_progress";
   const body = (
-    <div className="flex items-center gap-3 px-4 py-2 text-[13px]" style={{ borderTop: "1px solid var(--border)" }}>
+    <div className="flex items-center gap-3 py-2 pl-4 text-[13px]">
       <StatusChip building={building} />
       <span className="font-medium" style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {r.app}
@@ -85,9 +100,22 @@ function QueueRow({ r, position }) {
       {r.uuid && <ChevronRight size={14} style={{ color: "var(--text-muted)" }} />}
     </div>
   );
-  return r.uuid
-    ? <Link to={`/services/${r.uuid}`} style={{ display: "block", color: "inherit", textDecoration: "none" }}>{body}</Link>
-    : body;
+  return (
+    <div className="flex items-center" style={{ borderTop: "1px solid var(--border)" }}>
+      {r.uuid
+        ? <Link to={`/services/${r.uuid}`} className="min-w-0 flex-1" style={{ color: "inherit", textDecoration: "none" }}>{body}</Link>
+        : <div className="min-w-0 flex-1">{body}</div>}
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel(r); }}
+        disabled={cancelling || !r.deploymentUuid}
+        title="Cancel build"
+        className="mr-3 flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] font-medium"
+        style={{ border: "1px solid var(--border)", background: "transparent", color: "var(--err-text, #b91c1c)", cursor: "pointer" }}
+      >
+        {cancelling ? <Spinner /> : <X size={12} />} Cancel
+      </button>
+    </div>
+  );
 }
 
 function StatusChip({ building }) {

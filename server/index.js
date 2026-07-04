@@ -534,6 +534,25 @@ app.get(
   })
 );
 
+// Cancel a running/queued build. Ownership resolved from the deployment's app
+// (looked up server-side — never trust a client-supplied id); admins bypass in
+// assertOwns. Coolify returns 500 "cannot be cancelled" if it already finished —
+// surface that as a soft 409 rather than a hard error.
+app.post(
+  "/api/deployments/:uuid/cancel",
+  requireAuth,
+  mutateGuard,
+  h(async (req) => {
+    const active = await coolify.listActiveDeployments();
+    const dep = active.find((d) => d.deploymentUuid === req.params.uuid);
+    if (!dep) throw Object.assign(new Error("Deployment not found or already finished"), { status: 404 });
+    assertOwns(req.user, "application", dep.uuid);
+    await coolify.cancelDeployment(req.params.uuid);
+    record(req, "deploy.cancel", { resourceType: "application", resourceUuid: dep.uuid });
+    return { ok: true };
+  })
+);
+
 app.get(
   "/api/services/:id/deployments",
   requireAuth,

@@ -348,6 +348,7 @@ export async function listActiveDeployments() {
   const all = await cf(`/deployments`);
   return (Array.isArray(all) ? all : []).map((d) => ({
     id: d.id,
+    deploymentUuid: d.deployment_uuid,     // for cancel (POST /deployments/:uuid/cancel)
     // app uuid lives inside deployment_url (…/application/<uuid>/deployment/…); the
     // application_id field is a numeric id, useless for linking to the service page.
     uuid: (d.deployment_url || "").match(/application\/([^/]+)\/deployment/)?.[1] || null,
@@ -361,6 +362,23 @@ export async function listActiveDeployments() {
     message: (d.commit_message || "").split("\n")[0].trim(),
     startedAt: d.created_at,
   }));
+}
+
+// Cancel a running/queued deployment. Coolify 4.1.2 exposes this (undocumented in
+// the REST list but live): POST /deployments/:uuid/cancel → 200; a 500 with
+// "cannot be cancelled" means it already finished/cancelled (treat as done).
+export async function cancelDeployment(deploymentUuid) {
+  if (isDemo()) return { ok: true };
+  try {
+    await cf(`/deployments/${encodeURIComponent(deploymentUuid)}/cancel`, { method: "POST" });
+  } catch (e) {
+    // Coolify 4.1.2 quirks, both meaning "build is no longer running" → success:
+    //  • in_progress build throws "Undefined variable $application" but STILL cancels
+    //  • already-finished build throws "cannot be cancelled"
+    const msg = String(e?.detail || e?.message || "");
+    if (!/cannot be cancelled|Undefined variable \$application/i.test(msg)) throw e;
+  }
+  return { ok: true };
 }
 
 // Rename (Render-style editable Name). Coolify PATCH accepts { name } — verified live.

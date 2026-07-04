@@ -55,6 +55,7 @@ export const api = {
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),
   activeDeployments: () => req(`/deployments/active`), // fleet build queue (active + queued)
+  cancelDeployment: (uuid) => req(`/deployments/${uuid}/cancel`, { method: "POST" }),
   // Returns the array of {time, level, message} lines; falls back if the shape is older (raw array/string).
   logs: (id) => req(`/services/${id}/logs`).then((d) => (Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : [])),
   metrics: (id) => req(`/services/${id}/metrics`),
