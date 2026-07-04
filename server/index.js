@@ -1665,7 +1665,13 @@ app.post(
   h(async (req) => {
     const { source, target } = req.body || {};
     if (!source || !target) throw Object.assign(new Error("source and target are required"), { status: 400 });
-    const result = await migratePostgres({ source, target });
+    let result;
+    try {
+      result = await migratePostgres({ source, target });
+    } catch (e) {
+      // Surface the real cause (masked by the generic 500 handler) — no URLs in it.
+      return { ok: false, error: e.message, detail: e.detail ? String(e.detail).slice(0, 800) : null };
+    }
     record(req, "db.migrate", { metadata: { ok: result?.ok, srcMajor: result?.srcMajor, tgtMajor: result?.tgtMajor } });
     return result;
   })
