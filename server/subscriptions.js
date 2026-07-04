@@ -91,6 +91,22 @@ export function subscriptionShouldSuspend(failedAtMs, nowMs) {
   return failedAtMs != null && nowMs > graceDeadlineMs(failedAtMs);
 }
 
+// Pure deploy-gate decision for one application. Evaluates the SPECIFIC app's plan + the org's
+// subscription — not just "does the org own priced resources" — so a plan-less app can't deploy
+// for free (there is no £0 tier; the only free case is comp). Returns { allow } or
+// { allow:false, status:402, code }. `code`: account_suspended | plan_required | billing_setup_required.
+export function deployGateDecision({ comp, subStatus, failedAt = null, planId, nowMs }) {
+  if (comp) return { allow: true };
+  if (subStatus === "suspended") return { allow: false, status: 402, code: "account_suspended" };
+  if (subStatus === "past_due" && subscriptionShouldSuspend(failedAt, nowMs)) {
+    return { allow: false, status: 402, code: "account_suspended" };
+  }
+  if (!planId) return { allow: false, status: 402, code: "plan_required" };
+  const live = subStatus === "active" || subStatus === "trialing" || subStatus === "past_due";
+  if (!live) return { allow: false, status: 402, code: "billing_setup_required" };
+  return { allow: true };
+}
+
 // --- Stage 3: subscription lifecycle (state in app_settings, Stripe checkout, ----
 // webhooks, suspension sweep). Per-org billing state is a JSON blob in app_settings
 // so this needs no schema migration:

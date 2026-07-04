@@ -2201,11 +2201,27 @@ app.post("/api/billing/portal", requireAuth, mutateGuard, attachOrgContext, requ
   })
 );
 
+// Customer self-serve: start your OWN org's Server+DB subscription (card + subscription in one
+// Stripe Checkout). Owner-only — this is the onboarding step the deploy gate directs a blocked
+// client to. Needs a priced service assigned first (startSubscriptionCheckout throws otherwise),
+// which the gate enforces via the plan_required → billing_setup_required ordering.
+app.post("/api/billing/subscribe", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h(async (req) => {
+    record(req, "billing.subscribe_initiated", { metadata: { org_id: req.org.id, self: true } });
+    return subscriptions.startSubscriptionCheckout(req.org.id, {
+      successUrl: `${clientOrigin}/services?subscribe=success`,
+      cancelUrl: `${clientOrigin}/services?subscribe=cancel`,
+    });
+  })
+);
+
 // Plan assignment — manage-gated. Sets resource_ownership.plan_id (drives monthly charge).
 function setResourcePlan(req, type) {
   const uuid = req.params.id;
   assertOwns(req.user, type, uuid); // org-scoped 404 on cross-org
-  const planId = req.body?.plan_id === null ? null : String(req.body?.plan_id || "");
+  // Accept either key: the client sends camelCase `planId`, older callers snake_case `plan_id`.
+  const raw = req.body?.plan_id !== undefined ? req.body.plan_id : req.body?.planId;
+  const planId = raw === null ? null : String(raw || "");
   if (planId && planPriceUsd(planId) === 0) {
     throw Object.assign(new Error("Unknown plan_id"), { status: 400 });
   }

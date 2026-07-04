@@ -13,6 +13,7 @@ import { SettingsSection, SettingsRow, AnchorNav } from "../components/SettingsS
 import ConfirmDelete from "../components/ConfirmDelete.jsx";
 import MoveToProject from "../components/MoveToProject.jsx";
 import AddDomainModal from "../components/AddDomainModal.jsx";
+import BillingGateModal from "../components/BillingGateModal.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
 
@@ -28,6 +29,7 @@ export default function ServiceDetail() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const [gate, setGate] = useState(null); // { code, message } when a deploy is billing-blocked (402)
 
   useEffect(() => { api.me().then(setUser).catch(() => {}); }, []);
 
@@ -52,6 +54,10 @@ export default function ServiceDetail() {
       else if (kind === "deploy-commit") await api.rollback(id, arg); // deploy a specific commit
       else await api.control(id, kind);
       api.deployments(id).then(setDeploys);
+    } catch (e) {
+      // Deploy blocked by the billing gate → open onboarding; other errors surface inline.
+      if (e.status === 402 && e.code) setGate({ code: e.code, message: e.message });
+      else alert(e.message);
     } finally { setBusy(false); }
   }
 
@@ -1482,6 +1488,14 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           kind="service"
           onConfirm={deleteSvc}
           onCancel={() => setConfirmDel(false)}
+        />
+      )}
+
+      {gate && (
+        <BillingGateModal
+          gate={gate}
+          onClose={() => setGate(null)}
+          onGoToSettings={() => setTab("Settings")}
         />
       )}
 

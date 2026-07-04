@@ -12,6 +12,7 @@ async function req(path, opts = {}) {
     const err = new Error(e.error || `Request failed: ${res.status}`);
     err.status = res.status;
     err.detail = e.detail;
+    err.code = e.code; // machine-readable server code (e.g. billing_setup_required)
     throw err;
   }
   return res.json();
@@ -137,6 +138,7 @@ export const api = {
   wallet: () => req("/billing/wallet"),
   topup: (amount_pence) => req("/billing/topup", { method: "POST", body: { amount_pence } }),
   billingPortal: () => req("/billing/portal", { method: "POST" }),
+  startMySubscription: () => req("/billing/subscribe", { method: "POST" }),
   setServicePlan: (id, planId) => req(`/services/${id}/plan`, { method: "PATCH", body: { planId } }),
   setDatabasePlan: (id, planId) => req(`/databases/${id}/plan`, { method: "PATCH", body: { planId } }),
   // Client self-service billing (org owner)
