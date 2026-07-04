@@ -61,6 +61,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
   const [subUrl, setSubUrl] = useState(null);
   const [compBusy, setCompBusy] = useState(false);
   const [discInput, setDiscInput] = useState("0");
+  const [billingErr, setBillingErr] = useState(null);
 
   useEffect(() => { api.adminOrgUsage(org.id).then((u) => setSpend(u.totalPence)).catch(() => setSpend(0)); }, [org.id]);
   useEffect(() => {
@@ -69,7 +70,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
     api.adminOrgPayments(org.id).then(setPayments).catch(() => setPayments({ payments: [], configured: false }));
     api.adminOrgResources(org.id).then(setResources).catch(() => setResources({ monthly_total_pence: 0 }));
     api.adminOrgBillingInfo(org.id).then(setInfo).catch(() => setInfo({}));
-    api.orgBilling(org.id).then(setBilling).catch(() => setBilling(null));
+    api.orgBilling(org.id).then(setBilling).catch(setBillingErr);
   }, [expanded]); // eslint-disable-line
   useEffect(() => { if (billing?.comp) setDiscInput(String(billing.comp.discountPct ?? 0)); }, [billing]);
 
@@ -170,7 +171,9 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
                 })}
               </div>
             </div>
-            {!billing ? <Spinner /> : (
+            {billingErr ? (
+              <p style={{ fontSize: 12.5, color: "var(--err-text)" }}>Couldn't load billing details: {billingErr.message}</p>
+            ) : !billing ? <Spinner /> : (
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 14 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}><span style={s.statLabel}>Subscription</span><span style={s.statVal}>{SUB_LABEL[billing.subscription?.status] || "None"}</span></div>

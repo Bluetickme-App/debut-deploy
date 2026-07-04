@@ -336,6 +336,30 @@ const MIGRATIONS = [
   (d) => {
     d.exec("UPDATE resource_ownership SET kind = 'postgres' WHERE type = 'database' AND kind NOT IN ('postgres','key_value')");
   },
+  // -> user_version 21: time-series metrics samples (CPU/mem/net) for graphs.
+  // Sampled every 60s by the health tick; swept to 24h retention. No UNIQUE — the
+  // tick's reentrancy guard is the dedupe, mirroring usage_events.
+  (d) => {
+    d.exec(`
+      CREATE TABLE metrics_samples (
+        coolify_uuid TEXT NOT NULL,
+        sampled_at   TEXT NOT NULL,      -- ISO 8601, same clock as usage_events
+        cpu_pct      REAL NOT NULL,      -- 0–100 (× nCPU; docker convention)
+        mem_bytes    INTEGER NOT NULL,   -- used bytes
+        mem_pct      REAL NOT NULL,      -- 0–100
+        net_rx_bytes INTEGER,            -- cumulative from docker stats NetIO (nullable)
+        net_tx_bytes INTEGER
+      );
+      CREATE INDEX idx_metrics_uuid_ts ON metrics_samples(coolify_uuid, sampled_at);
+    `);
+  },
+  // -> user_version 22: org billing country. orgCurrency() already reads this column to pick
+  // GBP (UK) vs USD, but it was never migrated in — so every read threw "no such column" and
+  // 500'd the admin billing view (stuck spinner) + startSubscriptionCheckout. Nullable;
+  // NULL keeps the default-GBP behaviour.
+  (d) => {
+    d.exec(`ALTER TABLE organizations ADD COLUMN billing_country TEXT;`);
+  },
 ];
 
 function resolveDbFile() {
