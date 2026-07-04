@@ -7,6 +7,7 @@ import { api } from "../lib/api.js";
 import {
   PageHeader, Button, StatusPill, Spinner, timeAgo,
 } from "../components/ui.jsx";
+import BuildQueue from "../components/BuildQueue.jsx";
 
 // Runtime dot colors per design spec
 const RT_COLOR = {
@@ -360,6 +361,9 @@ export default function Dashboard() {
           </Link>
         }
       />
+
+      {/* ── Live build queue (Render-style; silent when nothing's deploying) ── */}
+      <BuildQueue />
 
       {/* ── Toolbar ── */}
       <div style={{

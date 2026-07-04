@@ -340,6 +340,29 @@ export async function provisionRedis({ name, image = process.env.REDIS_TARGET_IM
   return { uuid: r.uuid, url: r.internal_db_url || `redis://default:${password}@${r.uuid}:6379` };
 }
 
+// Fleet-wide build queue: every deployment Coolify currently considers active
+// (in_progress + queued) across ALL apps. Feeds the Render-style "Build Queue"
+// panel so a pile-up (several deploys stacked on one app) is visible at a glance.
+export async function listActiveDeployments() {
+  if (isDemo()) return fx.getActiveDeployments ? fx.getActiveDeployments() : [];
+  const all = await cf(`/deployments`);
+  return (Array.isArray(all) ? all : []).map((d) => ({
+    id: d.id,
+    // app uuid lives inside deployment_url (…/application/<uuid>/deployment/…); the
+    // application_id field is a numeric id, useless for linking to the service page.
+    uuid: (d.deployment_url || "").match(/application\/([^/]+)\/deployment/)?.[1] || null,
+    app: d.application_name || "(unknown)",
+    status: d.status,                       // "in_progress" | "queued"
+    server: d.server_name || "",
+    force: !!d.force_rebuild,               // clear-cache rebuild
+    rollback: !!d.rollback,
+    trigger: d.is_webhook ? "git push" : "manual",
+    commit: (d.commit || "").slice(0, 7),
+    message: (d.commit_message || "").split("\n")[0].trim(),
+    startedAt: d.created_at,
+  }));
+}
+
 // Rename (Render-style editable Name). Coolify PATCH accepts { name } — verified live.
 export async function renameService(uuid, name) {
   if (isDemo()) return { ok: true, uuid, name };

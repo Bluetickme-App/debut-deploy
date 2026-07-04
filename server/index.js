@@ -484,6 +484,17 @@ app.patch(
 );
 
 // --- deployments & logs ---
+// Fleet build queue: active (in_progress + queued) deploys across all apps, for
+// the Render-style Build Queue panel. Non-admins see only their org's apps.
+app.get(
+  "/api/deployments/active",
+  requireAuth,
+  h(async (req) => {
+    const active = await coolify.listActiveDeployments();
+    return filterByOwnership(active, req.user, "application");
+  })
+);
+
 app.get(
   "/api/services/:id/deployments",
   requireAuth,
