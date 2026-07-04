@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { db, getSetting, setSetting } from "./db.js";
 import { planPriceUsd } from "./plans.js";
 import { recordSystem } from "./audit.js";
+import { compFactor } from "./comp.js";
 
 const DEFAULT_USD_GBP_RATE = 0.79; // ponytail: flat rate; swap in FX feed if drift becomes material
 
@@ -65,7 +66,8 @@ export const currentPeriod = (d = new Date()) =>
 export function computeMonthlyCharge(orgId) {
   const rows = db.prepare("SELECT plan_id FROM resource_ownership WHERE org_id = ?").all(orgId);
   const usd = rows.reduce((sum, r) => sum + planPriceUsd(r.plan_id), 0);
-  return usdToPence(usd);
+  // Apply the org's comp/discount before the single USD→pence round (comp → factor 0 → £0).
+  return usdToPence(usd * compFactor(orgId));
 }
 
 // Idempotent per (org, period). Debits the wallet (prepaid-only — NEVER calls Stripe).

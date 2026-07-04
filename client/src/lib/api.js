@@ -157,6 +157,7 @@ export const api = {
   orgBilling: (id) => req(`/admin/orgs/${id}/billing`),
   setOrgCurrency: (id, currency) => req(`/admin/orgs/${id}/currency`, { method: "PUT", body: { currency } }),
   subscribeOrg: (id) => req(`/admin/orgs/${id}/subscribe`, { method: "POST" }),
+  setOrgComp: (id, body) => req(`/admin/orgs/${id}/comp`, { method: "PATCH", body }),
   // Stripe admin dashboard (operator) — see data + flip test/live without a Stripe login
   stripeConfig: () => req("/admin/stripe/config"),
   stripeOverview: () => req("/admin/stripe/overview"),

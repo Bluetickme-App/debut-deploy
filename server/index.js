@@ -66,6 +66,7 @@ import {
 import * as stripeadmin from "./stripeadmin.js";
 import { ensureCatalog } from "./stripecatalog.js";
 import * as subscriptions from "./subscriptions.js";
+import { getComp, setComp } from "./comp.js";
 import { planPriceUsd } from "./plans.js";
 import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -1044,6 +1045,7 @@ app.get("/api/admin/orgs/:id/billing", requireAuth, requireAdmin, h((req) => {
     min_topup_pence: subscriptions.minTopUpMinor(lastMonthPence),
     balance_pence: walletBalance(orgId),
     lines: subscriptions.subscriptionLinesFor(orgId),
+    comp: getComp(orgId), // { comp, discountPct } — drives the admin override controls
   };
 }));
 
@@ -1054,6 +1056,21 @@ app.put("/api/admin/orgs/:id/currency", requireAuth, requireAdmin, mutateGuard, 
   const currency = subscriptions.setOrgCurrency(orgId, req.body?.currency);
   record(req, "billing.currency_set", { metadata: { org_id: orgId, currency } });
   return { currency };
+}));
+
+// Operator override: mark an org comp (100% free — skips the deploy gate + zeroes charges) or
+// set a 0–99% discount. Reconciles any LIVE Stripe subscription so billing matches the UI.
+// Audited because it moves revenue directly.
+app.patch("/api/admin/orgs/:id/comp", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const next = setComp(orgId, { comp: req.body?.comp, discountPct: req.body?.discountPct });
+  await subscriptions.syncSubscriptionDiscount(orgId).catch((e) => {
+    // Advisory: state is saved even if the Stripe reconcile fails — surfaced, never silent.
+    recordSystem("billing.comp_sync_failed", { metadata: { org_id: orgId, error: e.message } });
+  });
+  record(req, "billing.comp_changed", { metadata: { org_id: orgId, ...next } });
+  return next;
 }));
 
 // Billing: live infrastructure cost (Hetzner) + the customer pricing plans + margin.

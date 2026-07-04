@@ -59,6 +59,8 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
   const [curBusy, setCurBusy] = useState(false);
   const [subBusy, setSubBusy] = useState(false);
   const [subUrl, setSubUrl] = useState(null);
+  const [compBusy, setCompBusy] = useState(false);
+  const [discInput, setDiscInput] = useState("0");
 
   useEffect(() => { api.adminOrgUsage(org.id).then((u) => setSpend(u.totalPence)).catch(() => setSpend(0)); }, [org.id]);
   useEffect(() => {
@@ -69,6 +71,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
     api.adminOrgBillingInfo(org.id).then(setInfo).catch(() => setInfo({}));
     api.orgBilling(org.id).then(setBilling).catch(() => setBilling(null));
   }, [expanded]); // eslint-disable-line
+  useEffect(() => { if (billing?.comp) setDiscInput(String(billing.comp.discountPct ?? 0)); }, [billing]);
 
   const pastDue = org.billing_status === "arrears" || org.balance_pence < 0;
   const balancePos = (org.balance_pence || 0) > 0;
@@ -87,6 +90,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
   const saveInfo = async () => { setSavingInfo(true); try { setInfo(await api.adminSaveBillingInfo(org.id, info)); } finally { setSavingInfo(false); } };
   const setCur = async (c) => { if (billing?.currency === c) return; setCurBusy(true); try { await api.setOrgCurrency(org.id, c); setBilling(await api.orgBilling(org.id)); } finally { setCurBusy(false); } };
   const subscribe = async () => { setSubBusy(true); try { const r = await api.subscribeOrg(org.id); setSubUrl(r.url); window.open(r.url, "_blank", "noopener"); } catch (e) { alert(e.message); } finally { setSubBusy(false); } };
+  const saveComp = async (patch) => { setCompBusy(true); try { setBilling({ ...billing, comp: await api.setOrgComp(org.id, patch) }); } catch (e) { alert(e.message); } finally { setCompBusy(false); } };
   const subTotal = (billing?.lines || []).reduce((sum, l) => sum + l.unitAmountMinor * l.quantity, 0);
 
   // Accrued + projection
@@ -179,6 +183,22 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
                   </button>
                   {subUrl && <a style={s.btnGhostSm} href={subUrl} target="_blank" rel="noreferrer">Open checkout ↗</a>}
                   <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{billing.lines?.length ? "Charges the client's card upfront — send them the link." : "No priced services to subscribe."}</span>
+                </div>
+                {/* Operator override: comp (100% free, skips the deploy gate) or a 0–99% discount. */}
+                <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap", marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                  <span style={s.statLabel}>Override</span>
+                  <button disabled={compBusy} onClick={() => saveComp({ comp: !billing.comp?.comp })}
+                    style={{ fontSize: 12, fontWeight: 600, padding: "5px 13px", borderRadius: 999, border: "1px solid var(--border)", cursor: compBusy ? "default" : "pointer", background: billing.comp?.comp ? "var(--text)" : "transparent", color: billing.comp?.comp ? "var(--surface)" : "var(--text-muted)", fontFamily: "inherit" }}>
+                    {billing.comp?.comp ? "Comp — free ✓" : "Comp (free)"}
+                  </button>
+                  {!billing.comp?.comp && (
+                    <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input type="number" min="0" max="99" value={discInput} disabled={compBusy}
+                        onChange={(e) => setDiscInput(e.target.value)} style={{ ...s.input, width: 64 }} />
+                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>% off</span>
+                      <button style={s.btnGhostSm} disabled={compBusy} onClick={() => saveComp({ discountPct: Number(discInput) })}>Apply</button>
+                    </span>
+                  )}
                 </div>
               </>
             )}

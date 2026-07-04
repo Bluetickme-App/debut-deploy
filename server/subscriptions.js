@@ -15,6 +15,7 @@ import { db, getSetting, setSetting } from "./db.js";
 import { planPriceUsd } from "./plans.js";
 import { usdGbpRate, stripeClient, stripeMode, getOrCreateStripeCustomer, walletBalance } from "./billing.js";
 import { priceIdFor } from "./stripecatalog.js";
+import { getComp } from "./comp.js";
 
 export const BASE_MIN_TOPUP_MINOR = 2500;       // £25 / $25 (minor units)
 export const OVERDRAFT_ALLOWANCE_MINOR = 1000;  // wallet may reach -£10 / -$10 before suspend
@@ -122,16 +123,49 @@ export async function startSubscriptionCheckout(orgId, { successUrl, cancelUrl }
     return { price, quantity: l.quantity };
   });
   const customer = await getOrCreateStripeCustomer(orgId);
+  const { discountPct } = getComp(orgId);
+  const discounts = discountPct > 0 ? [{ coupon: await couponFor(stripe, discountPct) }] : undefined;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer,
     line_items,
+    discounts, // Stripe applies the percent-off coupon to the recurring invoice; comp orgs never get here
     metadata: { org_id: String(orgId), kind: "service_subscription" },
     subscription_data: { metadata: { org_id: String(orgId) } },
     success_url: successUrl,
     cancel_url: cancelUrl,
   });
   return { url: session.url };
+}
+
+// A `percent_off … forever` coupon per discount level, looked-up-or-created (idempotent id).
+// The only new Stripe object the discount feature introduces.
+async function couponFor(stripe, pct) {
+  const id = `dd-off-${pct}`;
+  try { await stripe.coupons.retrieve(id); }
+  catch { await stripe.coupons.create({ id, percent_off: pct, duration: "forever" }); }
+  return id;
+}
+
+// Reconcile a LIVE Stripe subscription to the org's current comp/discount, so the admin UI can
+// never say one thing while Stripe bills another. No live subscription → no-op (the coupon is
+// applied at the next startSubscriptionCheckout instead). Called from the admin comp route.
+export async function syncSubscriptionDiscount(orgId) {
+  const stripe = stripeClient();
+  if (!stripe) return { synced: false, reason: "stripe_unconfigured" };
+  const { subscriptionId } = getSubState(orgId);
+  if (!subscriptionId) return { synced: false, reason: "no_subscription" };
+  const { comp, discountPct } = getComp(orgId);
+  if (comp) {
+    await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+    return { synced: true, action: "cancel_at_period_end" };
+  }
+  if (discountPct > 0) {
+    await stripe.subscriptions.update(subscriptionId, { discounts: [{ coupon: await couponFor(stripe, discountPct) }] });
+    return { synced: true, action: "discount", discountPct };
+  }
+  await stripe.subscriptions.update(subscriptionId, { discounts: [] });
+  return { synced: true, action: "no_discount" };
 }
 
 // Resolve org id from an invoice: subscription metadata first, then the customer.
