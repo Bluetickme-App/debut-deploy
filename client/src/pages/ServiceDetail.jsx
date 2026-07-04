@@ -1212,8 +1212,11 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
   }
 
   // Live wildcard is *.debutdepoly.com → the Coolify host (e.g. claude-trader.debutdepoly.com).
-  // Host names are case-insensitive but lowercase matches the deployed convention.
-  const subdomain = `${svc.name.toLowerCase()}.debutdepoly.com`;
+  // Slugify the name (spaces/symbols → hyphens) exactly like the server's app-create path
+  // (index.js) — a service named "Main Web Server" must become main-web-server, never a
+  // domain with spaces.
+  const nameSlug = svc.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "app";
+  const subdomain = `${nameSlug}.debutdepoly.com`;
 
   return (
     <div className="flex gap-8">
