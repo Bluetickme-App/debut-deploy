@@ -414,6 +414,14 @@ export async function renameDatabase(uuid, name) {
   return { ok: true, uuid, name };
 }
 
+// Apply a Docker memory limit to a database container (scale up/down). Coolify's
+// DB PATCH accepts limits_memory ("512M"|"1G"|"0"=unlimited); applied on restart.
+export async function updateDatabaseResources(uuid, { memory }) {
+  if (isDemo()) return { ok: true, memory };
+  if (memory !== undefined) await cf(`/databases/${uuid}`, { method: "PATCH", body: { limits_memory: String(memory) } });
+  return { ok: true, memory };
+}
+
 export async function listServers() {
   if (isDemo()) return fx.servers;
   const servers = await cf("/servers");

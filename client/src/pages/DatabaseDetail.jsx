@@ -26,6 +26,64 @@ function limitOrDefault(v, suffix = "") {
   return `${v}${suffix}`;
 }
 
+// Plan's RAM string ("256 MB" / "4 GB") → Docker limits_memory ("256M" / "4G").
+const dbRamToDocker = (ram) => String(ram || "").replace(/\s*MB/i, "M").replace(/\s*GB/i, "G").replace(/\s+/g, "");
+
+// Scale a database up/down: pick a DB plan → price shows live → Save sets the
+// billing plan AND applies the tier's memory limit to the container.
+function DbPlanScale({ dbUuid, currentPlanId, onSaved }) {
+  const [plans, setPlans] = useState(null);
+  const [sel, setSel] = useState(currentPlanId || "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    let off = false;
+    api.plans().then((d) => { if (!off) setPlans(d?.db || []); }).catch(() => { if (!off) setPlans([]); });
+    return () => { off = true; };
+  }, []);
+
+  if (plans == null) return <div className="text-[13px]" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading plans…</div>;
+  const plan = plans.find((p) => p.id === sel) || null;
+  const dirty = (sel || "") !== (currentPlanId || "");
+
+  async function save() {
+    setBusy(true); setMsg(null);
+    try {
+      await api.setDatabasePlan(dbUuid, sel || null);
+      // Apply the tier's memory limit too (best-effort — billing succeeds regardless).
+      if (plan) { try { await api.updateDatabaseResources(dbUuid, { memory: dbRamToDocker(plan.ram) }); } catch { /* limit optional */ } }
+      setMsg({ ok: true, text: "Saved — memory limit applies on next restart." });
+      onSaved?.(sel || null);
+    } catch (e) {
+      setMsg({ ok: false, text: e.message || "Update failed" });
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <select className="input" value={sel} onChange={(e) => setSel(e.target.value)} style={{ minWidth: 260 }}>
+          <option value="">Free tier (shared, no plan)</option>
+          {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — ${p.priceMo}/mo · {p.ram} RAM · {p.storage}</option>)}
+        </select>
+        <Button variant="secondary" onClick={save} disabled={!dirty || busy}>{busy ? "Saving…" : "Save"}</Button>
+      </div>
+      {plan ? (
+        <p className="text-[12.5px]" style={{ color: "var(--text)" }}>
+          <span className="font-bold">${plan.priceMo}/mo</span>
+          <span style={{ color: "var(--text-muted)" }}> · {plan.ram} RAM · {plan.storage} storage
+            {plan.renderMo ? ` — ${Math.round((1 - plan.priceMo / plan.renderMo) * 100)}% under Render` : ""}
+          </span>
+        </p>
+      ) : (
+        <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>Free tier — shares the host, no monthly charge.</p>
+      )}
+      {msg && <p className="text-[12.5px]" style={{ color: msg.ok ? "var(--ok-text)" : "var(--err-text)" }}>{msg.text}</p>}
+    </div>
+  );
+}
+
 export default function DatabaseDetail() {
   const { uuid } = useParams();
   const navigate = useNavigate();
@@ -152,6 +210,17 @@ export default function DatabaseDetail() {
           </SettingsRow>
           <SettingsRow label="CPU shares" desc="Relative CPU weighting. Blank uses the default.">
             <ReadOnly value={limitOrDefault(db.limits?.cpuShares)} />
+          </SettingsRow>
+        </SettingsSection>
+
+        {/* Plan & scaling */}
+        <SettingsSection id="plan" title="Plan & scaling">
+          <SettingsRow label="Plan" desc="Scale this database up or down. Price updates live; the memory limit applies on the next restart.">
+            <DbPlanScale
+              dbUuid={db.uuid}
+              currentPlanId={db.plan_id}
+              onSaved={(pid) => setDb((d) => ({ ...d, plan_id: pid }))}
+            />
           </SettingsRow>
         </SettingsSection>
 

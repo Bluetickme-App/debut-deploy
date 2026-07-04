@@ -145,6 +145,7 @@ export const api = {
   setAutoRecharge: (body) => req("/billing/autorecharge", { method: "PATCH", body }),
   setServicePlan: (id, planId) => req(`/services/${id}/plan`, { method: "PATCH", body: { planId } }),
   setDatabasePlan: (id, planId) => req(`/databases/${id}/plan`, { method: "PATCH", body: { planId } }),
+  updateDatabaseResources: (id, body) => req(`/databases/${id}/resources`, { method: "PATCH", body }), // { memory }
   // Client self-service billing (org owner)
   orgBillingInfo: () => req("/org/billing-info"),
   saveOrgBillingInfo: (body) => req("/org/billing-info", { method: "PATCH", body }),

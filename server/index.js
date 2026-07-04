@@ -753,7 +753,10 @@ app.get(
   requireAuth,
   h(async (req) => {
     assertOwns(req.user, "database", req.params.uuid);
-    return coolify.getDatabase(req.params.uuid);
+    const d = await coolify.getDatabase(req.params.uuid);
+    // Merge the billing plan so the detail page can show price + preselect the tier.
+    const own = db.prepare("SELECT plan_id FROM resource_ownership WHERE type='database' AND coolify_uuid = ?").get(req.params.uuid);
+    return { ...d, plan_id: own?.plan_id || null };
   })
 );
 
@@ -2318,6 +2321,16 @@ app.patch("/api/services/:id/plan", requireAuth, mutateGuard, attachOrgContext, 
 
 app.patch("/api/databases/:id/plan", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h((req) => setResourcePlan(req, "database")));
+
+// Scale a database's container memory limit (paired with the plan change so the
+// tier actually resizes RAM, not just billing). Applied on next restart.
+app.patch("/api/databases/:id/resources", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    await coolify.updateDatabaseResources(req.params.id, { memory: req.body?.memory });
+    record(req, "database.resources", { resourceType: "database", resourceUuid: req.params.id, metadata: { memory: req.body?.memory } });
+    return { ok: true };
+  }));
 
 // Master-Admin external-cron entry point for the monthly charge. Idempotent per (org, period).
 app.post("/api/admin/billing/run-monthly", requireAuth, requireAdmin, h(async () => {
