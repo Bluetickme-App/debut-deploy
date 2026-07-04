@@ -5,7 +5,33 @@ import { api } from "../lib/api.js";
 import {
   Button, Card, EmptyState, Field, Input, Mono, PageHeader, Select, Spinner, StatusPill,
 } from "../components/ui.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { useAuth } from "../auth.jsx";
+
+// Human-readable cron for the common backup patterns; falls back to the raw
+// expression for anything unusual. Coolify runs cron in UTC.
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function cronToText(expr) {
+  if (!expr || !expr.trim()) return "No schedule";
+  const p = expr.trim().split(/\s+/);
+  if (p.length !== 5) return expr;
+  const [min, hour, dom, mon, dow] = p;
+  const two = (n) => String(n).padStart(2, "0");
+  const num = (s) => /^\d+$/.test(s);
+  if (num(min) && hour === "*" && dom === "*" && mon === "*" && dow === "*") return `Hourly at :${two(min)}`;
+  if (num(min) && num(hour)) {
+    const at = `${two(hour)}:${two(min)}`;
+    if (dom === "*" && mon === "*" && dow === "*") return `Daily at ${at} UTC`;
+    if (dom === "*" && mon === "*" && num(dow)) return `Weekly on ${DAYS[Number(dow) % 7]} at ${at} UTC`;
+    if (num(dom) && mon === "*" && dow === "*") return `Monthly on day ${dom} at ${at} UTC`;
+  }
+  return expr;
+}
+const CRON_PRESETS = [
+  { label: "Daily", cron: "0 2 * * *" },
+  { label: "Weekly", cron: "0 2 * * 0" },
+  { label: "Monthly", cron: "0 2 1 * *" },
+];
 
 const DB_LABEL = {
   postgresql: "PostgreSQL",
@@ -36,6 +62,7 @@ export default function Databases() {
   const [dbs, setDbs]       = useState(null);
   const [servers, setServers] = useState(null);
   const [busy, setBusy]     = useState({});
+  const [confirm, setConfirm] = useState(null); // { uuid, action, name } for Stop/Delete guard
   const { user }            = useAuth();
 
   useEffect(() => {
@@ -47,9 +74,15 @@ export default function Databases() {
     }
   }, [user]);
 
-  async function handleAction(uuid, action) {
-    if (action === "delete" && !window.confirm("Delete this database? This cannot be undone.")) return;
+  // Start is safe → run immediately; Stop/Delete are disruptive → open a guard.
+  function requestAction(d, action) {
+    if (action === "start") return doAction(d.uuid, "start");
+    setConfirm({ uuid: d.uuid, action, name: d.name });
+  }
+
+  async function doAction(uuid, action) {
     setBusy(b => ({ ...b, [uuid]: action }));
+    setConfirm(null);
     try {
       const res = await dbAction(uuid, action);
       if (!res.ok) { alert(`Failed to ${action} database (${res.status})`); return; }
@@ -191,7 +224,7 @@ export default function Databases() {
                     <>
                       {d.status === "stopped" ? (
                         <button
-                          onClick={() => handleAction(d.uuid, "start")}
+                          onClick={() => requestAction(d, "start")}
                           title="Start"
                           className="btn btn-ghost p-1.5"
                           style={{ color: "var(--ok)" }}
@@ -200,7 +233,7 @@ export default function Databases() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleAction(d.uuid, "stop")}
+                          onClick={() => requestAction(d, "stop")}
                           title="Stop"
                           className="btn btn-ghost p-1.5"
                           style={{ color: "var(--warn)" }}
@@ -209,7 +242,7 @@ export default function Databases() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleAction(d.uuid, "delete")}
+                        onClick={() => requestAction(d, "delete")}
                         title="Delete"
                         className="btn btn-ghost p-1.5"
                         style={{ color: "var(--err)" }}
@@ -242,6 +275,19 @@ export default function Databases() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.action === "delete" ? `Delete “${confirm.name}”?` : `Stop “${confirm?.name}”?`}
+        message={confirm?.action === "delete"
+          ? "This permanently removes the database and all its data. This cannot be undone."
+          : "Connected services will lose access until you start it again."}
+        confirmLabel={confirm?.action === "delete" ? "Delete" : "Stop"}
+        danger
+        busy={!!(confirm && busy[confirm.uuid])}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => doAction(confirm.uuid, confirm.action)}
+      />
     </div>
   );
 }
@@ -254,6 +300,7 @@ function BackupsPanel({ dbUuid }) {
   const [saving, setSaving]     = useState(false);
   const [running, setRunning]   = useState(false);
   const [msg, setMsg]           = useState(null);
+  const [confirmSave, setConfirmSave] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -262,9 +309,8 @@ function BackupsPanel({ dbUuid }) {
       .catch(() => setConfig({}));
   }, [open, dbUuid]);
 
-  async function save(e) {
-    e.preventDefault();
-    setSaving(true); setMsg(null);
+  async function doSave() {
+    setSaving(true); setMsg(null); setConfirmSave(false);
     try {
       await api.setBackupSchedule(dbUuid, { frequency });
       setMsg({ ok: true, text: "Schedule saved." });
@@ -305,28 +351,70 @@ function BackupsPanel({ dbUuid }) {
               <Spinner /> Loading…
             </div>
           ) : (
-            <form onSubmit={save} className="flex items-end gap-2 flex-wrap">
-              <div className="flex-1 min-w-48">
-                <Field label="Cron schedule">
-                  <Input
-                    className="mono text-xs"
-                    value={frequency}
-                    onChange={e => setFreq(e.target.value)}
-                    placeholder="0 2 * * *"
-                  />
-                </Field>
+            <div className="space-y-2.5">
+              {/* Preset pills — one-click common schedules */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {CRON_PRESETS.map(p => {
+                  const active = frequency.trim() === p.cron;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setFreq(p.cron)}
+                      className="rounded-full px-2.5 py-1 text-xs font-medium"
+                      style={{
+                        border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                        background: active ? "var(--accent-soft)" : "transparent",
+                        color: active ? "var(--accent-text)" : "var(--text-muted)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
               </div>
-              <Button type="submit" variant="default" disabled={saving || !frequency.trim()}>
-                {saving ? <Spinner /> : null} Save schedule
-              </Button>
-              <Button type="button" variant="default" onClick={runNow} disabled={running}>
-                {running ? <Spinner /> : <Play className="h-3.5 w-3.5" />} Back up now
-              </Button>
-            </form>
+
+              <div className="flex items-end gap-2 flex-wrap">
+                <div className="flex-1 min-w-48">
+                  <Field label="Cron schedule">
+                    <Input
+                      className="mono text-xs"
+                      value={frequency}
+                      onChange={e => setFreq(e.target.value)}
+                      placeholder="0 2 * * *"
+                    />
+                  </Field>
+                </div>
+                <Button type="button" variant="default" onClick={() => setConfirmSave(true)} disabled={saving || !frequency.trim()}>
+                  {saving ? <Spinner /> : null} Save schedule
+                </Button>
+                <Button type="button" variant="default" onClick={runNow} disabled={running}>
+                  {running ? <Spinner /> : <Play className="h-3.5 w-3.5" />} Back up now
+                </Button>
+              </div>
+
+              {/* Live plain-English description of the current cron */}
+              <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                <Archive className="h-3.5 w-3.5" />
+                Runs <span style={{ color: "var(--text)", fontWeight: 500 }}>{cronToText(frequency).toLowerCase()}</span>
+                <span style={{ opacity: 0.7 }}>· backups kept per your retention policy</span>
+              </p>
+            </div>
           )}
           {msg && (
             <p className="text-xs" style={{ color: msg.ok ? "var(--ok)" : "var(--err)" }}>{msg.text}</p>
           )}
+
+          <ConfirmDialog
+            open={confirmSave}
+            title="Save backup schedule?"
+            message={`Automated backups will run ${cronToText(frequency).toLowerCase()}.`}
+            confirmLabel="Save schedule"
+            busy={saving}
+            onCancel={() => setConfirmSave(false)}
+            onConfirm={doSave}
+          />
         </div>
       )}
     </div>
