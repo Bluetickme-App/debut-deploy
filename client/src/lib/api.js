@@ -139,6 +139,8 @@ export const api = {
   topup: (amount_pence) => req("/billing/topup", { method: "POST", body: { amount_pence } }),
   billingPortal: () => req("/billing/portal", { method: "POST" }),
   startMySubscription: () => req("/billing/subscribe", { method: "POST" }),
+  autoRecharge: () => req("/billing/autorecharge"),
+  setAutoRecharge: (body) => req("/billing/autorecharge", { method: "PATCH", body }),
   setServicePlan: (id, planId) => req(`/services/${id}/plan`, { method: "PATCH", body: { planId } }),
   setDatabasePlan: (id, planId) => req(`/databases/${id}/plan`, { method: "PATCH", body: { planId } }),
   // Client self-service billing (org owner)

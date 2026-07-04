@@ -14,11 +14,20 @@ export default function Wallet() {
   const [error, setError] = useState(null);
   const [amount, setAmount] = useState(2500); // pence
   const [busy, setBusy] = useState(false);
+  const [ar, setAr] = useState(null); // auto-recharge settings { enabled, thresholdPence, amountPence, consecutiveFails }
+  const [arBusy, setArBusy] = useState(false);
 
   const load = () => api.wallet().then(setData).catch(setError);
   // Wrap in a block so the effect returns undefined — passing `load` directly made
   // the effect's "cleanup" its returned Promise, which React calls on unmount → crash.
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.autoRecharge().then(setAr).catch(() => setAr(null)); }, []);
+
+  const saveAr = async () => {
+    setArBusy(true);
+    try { setAr(await api.setAutoRecharge({ enabled: ar.enabled, thresholdPence: ar.thresholdPence, amountPence: ar.amountPence })); }
+    catch (e) { setError(e); }
+    finally { setArBusy(false); }
+  };
 
   const topup = async (pence) => {
     setBusy(true);
@@ -71,6 +80,34 @@ export default function Wallet() {
           </div>
         )}
       </Card>
+
+      {isOwner && ar && (
+        <Card className="mb-6">
+          <div className="flex items-center gap-2 mb-3" style={{ color: "var(--text-muted)" }}>
+            <CreditCard size={16} /><span className="text-sm">Auto-recharge</span>
+          </div>
+          <label className="flex items-center gap-2 text-sm mb-3" style={{ color: "var(--text)" }}>
+            <input type="checkbox" checked={!!ar.enabled} onChange={(e) => setAr({ ...ar, enabled: e.target.checked })} />
+            Automatically top up my wallet when it runs low
+          </label>
+          <div className="flex flex-wrap items-end gap-4" style={{ opacity: ar.enabled ? 1 : 0.5 }}>
+            <label className="text-xs" style={{ color: "var(--text-muted)" }}>
+              <div className="mb-1">When balance falls below (£)</div>
+              <input className="input" type="number" min="0" step="1" style={{ width: 110 }} disabled={!ar.enabled}
+                value={ar.thresholdPence / 100} onChange={(e) => setAr({ ...ar, thresholdPence: Math.round(Number(e.target.value) * 100) })} />
+            </label>
+            <label className="text-xs" style={{ color: "var(--text-muted)" }}>
+              <div className="mb-1">Top up by (£)</div>
+              <input className="input" type="number" min="1" step="1" style={{ width: 110 }} disabled={!ar.enabled}
+                value={ar.amountPence / 100} onChange={(e) => setAr({ ...ar, amountPence: Math.round(Number(e.target.value) * 100) })} />
+            </label>
+            <button className="btn btn-primary" disabled={arBusy || (ar.enabled && ar.amountPence < 100)} onClick={saveAr}>Save</button>
+          </div>
+          <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>
+            Charges the card saved when you started your subscription. {ar.consecutiveFails > 0 && `Last ${ar.consecutiveFails} attempt(s) failed.`}
+          </p>
+        </Card>
+      )}
 
       <Card className="!p-0 overflow-hidden">
         <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>

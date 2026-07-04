@@ -206,6 +206,18 @@ export async function createTopupSession({ orgId, amountPence, successUrl, cance
 // the wallet; the UNIQUE(stripe_session_id) guard makes a replay a silent no-op.
 // ponytail: GBP cards are synchronous, so no async_payment_succeeded handling until BACS.
 export function handleWebhookEvent(event) {
+  // Off-session auto-recharge lands as a PaymentIntent (never a Checkout session), so credit it
+  // here as a crash-safe backstop. Idempotent on the PI id — a no-op if the sync credit already ran.
+  if (event.type === "payment_intent.succeeded") {
+    const pi = event.data.object;
+    if (pi?.metadata?.type !== "wallet_autorecharge") return { credited: false };
+    const orgId = Number(pi.metadata.org_id);
+    const amountPence = pi.amount_received ?? pi.amount;
+    if (!orgId || !Number.isInteger(amountPence) || amountPence <= 0) return { credited: false };
+    const { inserted } = creditWallet({ orgId, amountPence, type: "topup", stripePaymentIntentId: pi.id, notes: "Auto top-up" });
+    if (inserted) recordSystem("billing.autorecharge_credited", { metadata: { org_id: orgId, amount_pence: amountPence, pi: pi.id } });
+    return { credited: inserted };
+  }
   if (event.type !== "checkout.session.completed") return { credited: false };
   const s = event.data.object;
   if (s.mode !== "payment" || s.payment_status !== "paid") return { credited: false };

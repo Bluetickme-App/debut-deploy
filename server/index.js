@@ -67,6 +67,7 @@ import * as stripeadmin from "./stripeadmin.js";
 import { ensureCatalog } from "./stripecatalog.js";
 import * as subscriptions from "./subscriptions.js";
 import { getComp, setComp } from "./comp.js";
+import { getAutoRecharge, setAutoRecharge, maybeAutoRecharge } from "./autorecharge.js";
 import { planPriceUsd } from "./plans.js";
 import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
@@ -2190,6 +2191,20 @@ app.post("/api/billing/topup", requireAuth, mutateGuard, attachOrgContext, requi
   })
 );
 
+// Auto-recharge settings for the client's own wallet. Read at 'read'; edit at 'owner' (it moves
+// money). Returns a client-safe view (no internal lock/token).
+app.get("/api/billing/autorecharge", requireAuth, attachOrgContext, requireCapability("read"),
+  h((req) => {
+    const c = getAutoRecharge(req.org.id);
+    return { enabled: c.enabled, thresholdPence: c.thresholdPence, amountPence: c.amountPence, consecutiveFails: c.consecutiveFails };
+  }));
+app.patch("/api/billing/autorecharge", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h((req) => {
+    const c = setAutoRecharge(req.org.id, req.body || {});
+    record(req, "billing.autorecharge_set", { metadata: { org_id: req.org.id, enabled: c.enabled, threshold_pence: c.thresholdPence, amount_pence: c.amountPence } });
+    return { enabled: c.enabled, thresholdPence: c.thresholdPence, amountPence: c.amountPence, consecutiveFails: c.consecutiveFails };
+  }));
+
 app.post("/api/billing/portal", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
   h(async (req) => {
     const stripe = stripeClient();
@@ -2334,11 +2349,14 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
 // next runs (any later tick in the same month still charges once). Reliable upgrade path:
 // the admin POST /api/admin/billing/run-monthly hit by an external cron (Hetzner/GitHub Actions).
 if (!demoMode && process.env.NODE_ENV !== "test") {
-  const runMonthly = () => {
+  const runMonthly = async () => {
     const period = currentPeriod();
     for (const o of db.prepare("SELECT id FROM organizations").all()) {
-      try { chargeMonthlyHardware(o.id, period); }
-      catch (err) { console.error("monthly charge:", o.id, err.message); }
+      // chargeMonthlyHardware is idempotent per (org, period), so the hourly tick doubles as an
+      // hourly "top up if the wallet dipped below threshold" check — no separate timer needed.
+      // ponytail: the future usage-drawdown seam should also call maybeAutoRecharge after debiting.
+      try { chargeMonthlyHardware(o.id, period); await maybeAutoRecharge(o.id); }
+      catch (err) { console.error("monthly charge / auto-recharge:", o.id, err.message); }
     }
   };
   const billingTimer = setInterval(runMonthly, 60 * 60_000); // hourly; guard makes it idempotent
