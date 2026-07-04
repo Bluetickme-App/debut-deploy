@@ -190,7 +190,7 @@ export default function ImportRender() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
+    <div className="page">
       <PageHeader
         title="Import from Render"
         subtitle="Migrate a Render service to Coolify on Hetzner."

@@ -213,6 +213,29 @@ function requireCapability(level) {
   };
 }
 
+// Gate a DEPLOY on the target app's billing state. Resolves the app's OWNING org + plan from
+// resource_ownership — independent of who clicks — so an unpaid app can't deploy even via an
+// admin; the operator's own project is freed with comp, not an admin bypass. Emits a 402 with a
+// machine-readable `code` the client maps to onboarding (see the error responder).
+const GATE_MESSAGES = {
+  account_suspended: "Account suspended for non-payment — settle the balance to deploy.",
+  plan_required: "Assign a plan to this service before you can deploy it.",
+  billing_setup_required: "Add a card and start your subscription before deploying.",
+};
+function requireBillingActive(req, res, next) {
+  const row = db.prepare(
+    "SELECT org_id, plan_id FROM resource_ownership WHERE type='application' AND coolify_uuid = ?"
+  ).get(req.params.id);
+  if (!row) return next(); // unowned/unclaimed resource — no org billing to enforce
+  const { comp } = getComp(row.org_id);
+  const st = subscriptions.getSubState(row.org_id);
+  const d = subscriptions.deployGateDecision({
+    comp, subStatus: st.status, failedAt: st.failedAt, planId: row.plan_id, nowMs: Date.now(),
+  });
+  if (d.allow) return next();
+  return next(Object.assign(new Error(GATE_MESSAGES[d.code] || "Billing setup required"), { status: d.status, code: d.code }));
+}
+
 function ownedList(user, type) {
   return user?.role === "admin" ? null : new Set(ownedUuids(user.id, type));
 }
@@ -409,6 +432,7 @@ app.post(
   mutateGuard,
   attachOrgContext,
   requireCapability("deploy"),
+  requireBillingActive,
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
     const force = req.body?.clearCache === true; // "Clear build cache & deploy"
@@ -836,7 +860,18 @@ app.get(
   "/api/servers",
   requireAuth,
   requireAdmin,
-  h(() => coolify.listServers())
+  h(async () => {
+    const servers = await coolify.listServers();
+    // Coolify exposes no host specs; enrich with real Hetzner capacity by IP match
+    // (best-effort — non-Hetzner hosts like localhost simply keep null specs).
+    let hz = [];
+    try { hz = (await hetzner.listServersWithCost()).servers || []; } catch { /* optional */ }
+    const byIp = new Map(hz.map((s) => [s.ip, s]));
+    return servers.map((s) => {
+      const h = byIp.get(s.ip);
+      return h ? { ...s, cores: h.cores, memoryGb: h.memory, diskGb: h.disk ?? null, serverType: h.type, monthly: h.monthly } : s;
+    });
+  })
 );
 
 app.get(
@@ -2220,7 +2255,9 @@ app.use((err, _req, res, _next) => {
   // Coolify/Hetzner/Render response bodies — internal hosts, paths, other UUIDs).
   console.error(err.message, err.detail || "");
   const status = err.status || 500;
-  res.status(status).json({ error: status >= 500 ? "Internal error" : err.message });
+  const body = { error: status >= 500 ? "Internal error" : err.message };
+  if (err.code && status < 500) body.code = err.code; // machine-readable client codes (e.g. billing_setup_required)
+  res.status(status).json(body);
 });
 
 // --- health monitor: poll live services, audit + notify owners on transitions ---

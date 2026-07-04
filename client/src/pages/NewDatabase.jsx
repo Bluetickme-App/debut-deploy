@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Database } from "lucide-react";
 import {
-  Button, Field, Input, PageHeader, Select, Spinner,
+  Button, Card, Field, Input, PageHeader, Select, Spinner,
 } from "../components/ui.jsx";
 import { api } from "../lib/api.js";
 
@@ -58,76 +58,80 @@ export default function NewDatabase() {
   const selected = DB_TYPES.find(t => t.value === type);
 
   return (
-    <div className="mx-auto max-w-lg px-6 py-8">
+    <div className="page">
       <PageHeader
         title="New Database"
         subtitle="Provision a managed database on Coolify."
       />
 
-      <form onSubmit={onSubmit} className="mt-2 space-y-5">
-        <Field label="Database type">
-          <Select value={type} onChange={e => setType(e.target.value)}>
-            {DB_TYPES.map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </Select>
-          {selected?.desc && (
-            <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>{selected.desc}</p>
-          )}
-        </Field>
+      <Card>
+        <form onSubmit={onSubmit} className="space-y-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Database type">
+              <Select value={type} onChange={e => setType(e.target.value)}>
+                {DB_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </Select>
+              {selected?.desc && (
+                <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>{selected.desc}</p>
+              )}
+            </Field>
 
-        <Field label="Database name">
-          <Input
-            required
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="my-db"
-          />
-        </Field>
+            <Field label="Database name">
+              <Input
+                required
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="my-db"
+              />
+            </Field>
 
-        <Field label="Project (optional)">
-          <Select value={projectUuid} onChange={e => setProjectUuid(e.target.value)}>
-            <option value="">No project (ungrouped)</option>
-            {projects.map(p => <option key={p.uuid} value={p.uuid}>{p.name}</option>)}
-          </Select>
-          <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>Add this database to a project.</p>
-        </Field>
+            <Field label="Project (optional)">
+              <Select value={projectUuid} onChange={e => setProjectUuid(e.target.value)}>
+                <option value="">No project (ungrouped)</option>
+                {projects.map(p => <option key={p.uuid} value={p.uuid}>{p.name}</option>)}
+              </Select>
+              <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>Add this database to a project.</p>
+            </Field>
 
-        <Field label="Region">
-          <Select value={region} onChange={e => setRegion(e.target.value)}>
-            {regions.length === 0 && <option value="">Falkenstein (EU Central)</option>}
-            {regions.map(r => <option key={r.name} value={r.name}>{r.city || r.name}{r.country ? ` (${r.country})` : ""}</option>)}
-          </Select>
-          <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>Databases run on the shared host; services in the same region share a private network.</p>
-        </Field>
+            <Field label="Region">
+              <Select value={region} onChange={e => setRegion(e.target.value)}>
+                {regions.length === 0 && <option value="">Falkenstein (EU Central)</option>}
+                {regions.map(r => <option key={r.name} value={r.name}>{r.city || r.name}{r.country ? ` (${r.country})` : ""}</option>)}
+              </Select>
+              <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>Databases run on the shared host; services in the same region share a private network.</p>
+            </Field>
 
-        {type === "postgresql" && (
-          <Field label="PostgreSQL version">
-            <Select value={version} onChange={e => setVersion(e.target.value)}>
-              {PG_VERSIONS.map(v => <option key={v || "default"} value={v}>{v ? `PostgreSQL ${v}` : "Latest (default)"}</option>)}
-            </Select>
-          </Field>
-        )}
-
-        {error && (
-          <div
-            className="rounded-lg px-4 py-3 text-sm"
-            style={{
-              background: "color-mix(in srgb, var(--err) 10%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--err) 25%, transparent)",
-              color: "var(--err)",
-            }}
-          >
-            {error}
+            {type === "postgresql" && (
+              <Field label="PostgreSQL version">
+                <Select value={version} onChange={e => setVersion(e.target.value)}>
+                  {PG_VERSIONS.map(v => <option key={v || "default"} value={v}>{v ? `PostgreSQL ${v}` : "Latest (default)"}</option>)}
+                </Select>
+              </Field>
+            )}
           </div>
-        )}
 
-        <Button type="submit" variant="primary" disabled={!name.trim() || submitting}>
-          {submitting
-            ? <><Spinner /> Creating…</>
-            : <><Database className="h-4 w-4" /> Create database</>}
-        </Button>
-      </form>
+          {error && (
+            <div
+              className="rounded-lg px-4 py-3 text-sm"
+              style={{
+                background: "color-mix(in srgb, var(--err) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--err) 25%, transparent)",
+                color: "var(--err)",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <Button type="submit" variant="primary" disabled={!name.trim() || submitting}>
+            {submitting
+              ? <><Spinner /> Creating…</>
+              : <><Database className="h-4 w-4" /> Create database</>}
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

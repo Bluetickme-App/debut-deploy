@@ -407,6 +407,9 @@ export async function listServers() {
     } catch {
       /* resources optional */
     }
+    // Coolify's REST has no live host CPU/RAM/disk %, but /resources lists what's
+    // DEPLOYED on the box — count it (real, useful) instead of faking a gauge.
+    const resourceCount = Array.isArray(res) ? res.length : null;
     mapped.push({
       uuid: s.uuid,
       name: s.name,
@@ -415,9 +418,9 @@ export async function listServers() {
       region: s.region || "",
       spec: "",
       reachable: s.is_reachable ?? true,
-      cpu: res?.cpu_usage_percent ?? null,
-      memory: res?.memory_usage_percent ?? null,
-      disk: res?.disk_usage_percent ?? null,
+      usable: s.is_usable ?? (s.is_reachable ?? true), // reachable AND validated (jq/docker ok)
+      isHost: !!s.is_coolify_host,
+      resourceCount,
     });
   }
   return mapped;

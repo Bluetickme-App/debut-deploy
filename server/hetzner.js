@@ -55,6 +55,7 @@ export async function listServersWithCost() {
     return {
       name: s.name, type: s.server_type?.name, location: loc, status: s.status,
       ip: s.public_net?.ipv4?.ip, cores: s.server_type?.cores, memory: s.server_type?.memory,
+      disk: s.server_type?.disk,
       hourly: Number(price?.price_hourly?.gross || 0),
       monthly: Number(price?.price_monthly?.gross || 0),
     };

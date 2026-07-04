@@ -191,7 +191,7 @@ export default function NewService() {
   const canSubmit = repo && branch && name.trim() && port && !submitting;
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
+    <div className="page">
       <PageHeader
         title="New Service"
         subtitle="Deploy a GitHub repository to Coolify on Hetzner."

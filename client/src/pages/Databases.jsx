@@ -87,25 +87,46 @@ export default function Databases() {
       {/* Server cards — admin only */}
       {user?.role === "admin" && servers.length > 0 && (
         <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {servers.map(s => (
-            <Card key={s.uuid}>
-              <div className="flex items-center gap-3">
-                <Server className="h-5 w-5 shrink-0" style={{ color: "var(--text-muted)" }} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate" style={{ color: "var(--text)" }}>{s.name}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    {[s.region, s.ip, s.spec].filter(Boolean).join(" · ")}
+          {servers.map(s => {
+            const status = !s.reachable ? "stopped" : s.usable ? "running" : "degraded";
+            return (
+              <Card key={s.uuid}>
+                <div className="flex items-center gap-3">
+                  <Server className="h-5 w-5 shrink-0" style={{ color: "var(--text-muted)" }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{s.name}</span>
+                      {s.isHost && <span className="pill pill-muted text-[10px] uppercase tracking-wider">host</span>}
+                      {s.serverType && <span className="pill pill-muted text-[10px] uppercase tracking-wider">{s.serverType}</span>}
+                    </div>
+                    <div className="mono text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
+                      {[s.ip, s.region].filter(Boolean).join(" · ") || "—"}
+                    </div>
                   </div>
+                  <StatusPill status={status} />
                 </div>
-                <StatusPill status={s.reachable ? "running" : "stopped"} />
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <Meter icon={Cpu}        label="CPU"  value={s.cpu}    />
-                <Meter icon={MemoryStick} label="RAM"  value={s.memory} />
-                <Meter icon={HardDrive}  label="Disk" value={s.disk}   />
-              </div>
-            </Card>
-          ))}
+
+                {/* Real hardware capacity (Hetzner). "—" when unknown (e.g. localhost). */}
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <Spec icon={Cpu}         label="CPU"  value={s.cores    != null ? `${s.cores} vCPU` : "—"} />
+                  <Spec icon={MemoryStick} label="RAM"  value={s.memoryGb != null ? `${s.memoryGb} GB` : "—"} />
+                  <Spec icon={HardDrive}   label="Disk" value={s.diskGb   != null ? `${s.diskGb} GB` : "—"} />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-2 border-t pt-2.5 text-xs" style={{ borderColor: "var(--border)" }}>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {s.resourceCount != null ? `${s.resourceCount} resource${s.resourceCount === 1 ? "" : "s"} deployed` : "—"}
+                    {s.monthly ? ` · €${s.monthly}/mo` : ""}
+                  </span>
+                  {!s.reachable ? (
+                    <span style={{ color: "var(--err-text)" }}>Unreachable — check or remove</span>
+                  ) : !s.usable ? (
+                    <span style={{ color: "var(--warn-text)" }}>Reachable, not validated (jq/docker)</span>
+                  ) : null}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -312,20 +333,15 @@ function BackupsPanel({ dbUuid }) {
   );
 }
 
-function Meter({ icon: Icon, label, value }) {
-  const v = value ?? 0;
-  const color = v > 85 ? "var(--err)" : v > 65 ? "var(--warn)" : "var(--ok)";
+// Coolify's REST exposes no live host CPU/RAM/disk %, so we show real capacity
+// (from Hetzner) as a labelled chip rather than a fake usage gauge.
+function Spec({ icon: Icon, label, value }) {
   return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-xs" style={{ color: "var(--text-muted)" }}>
-        <span className="inline-flex items-center gap-1">
-          <Icon className="h-3.5 w-3.5" /> {label}
-        </span>
-        <span style={{ color: "var(--text)" }}>{value != null ? `${v}%` : "—"}</span>
+    <div className="rounded-md border px-2.5 py-2" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
+      <div className="flex items-center gap-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+        <Icon className="h-3.5 w-3.5" /> {label}
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${v}%`, background: color }} />
-      </div>
+      <div className="mt-0.5 text-sm font-semibold" style={{ color: "var(--text)" }}>{value}</div>
     </div>
   );
 }

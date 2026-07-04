@@ -43,7 +43,7 @@ export default function NewServiceGit() {
   })();
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-11 pt-4 sm:px-7 sm:pt-6">
+    <div className="page">
       <PageHeader title="Deploy from Git URL" subtitle="Deploy any repository using a deploy key — no GitHub App needed." />
 
       {result ? (
