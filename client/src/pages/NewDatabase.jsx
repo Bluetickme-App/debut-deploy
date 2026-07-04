@@ -4,6 +4,7 @@ import { Database } from "lucide-react";
 import {
   Button, Card, Field, Input, PageHeader, Select, Spinner,
 } from "../components/ui.jsx";
+import ServerPicker from "../components/ServerPicker.jsx";
 import { api } from "../lib/api.js";
 
 const PG_VERSIONS = ["", "17", "16", "15", "14", "13"]; // "" = Coolify default (latest)
@@ -25,12 +26,15 @@ export default function NewDatabase() {
   const [region, setRegion]   = useState("");
   const [projects, setProjects] = useState([]);
   const [regions, setRegions]   = useState([]);
+  const [servers, setServers]   = useState([]);
+  const [serverUuid, setServerUuid] = useState("");
   const [submitting, setSub]  = useState(false);
   const [error, setError]     = useState(null);
 
   useEffect(() => {
     api.projects().then((p) => setProjects(Array.isArray(p) ? p : [])).catch(() => setProjects([]));
     api.hetznerLocations().then((l) => { const arr = Array.isArray(l) ? l : []; setRegions(arr); if (arr[0]) setRegion(arr[0].name); }).catch(() => setRegions([]));
+    api.servers().then((s) => setServers(Array.isArray(s) ? s : [])).catch(() => setServers([]));
   }, []);
 
   async function onSubmit(e) {
@@ -42,7 +46,7 @@ export default function NewDatabase() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, name: name.trim(), projectUuid: projectUuid || undefined, version: version || undefined }),
+        body: JSON.stringify({ type, name: name.trim(), projectUuid: projectUuid || undefined, version: version || undefined, serverUuid: serverUuid || undefined }),
       });
       if (!res.ok) {
         const { error: msg } = await res.json().catch(() => ({}));
@@ -102,6 +106,8 @@ export default function NewDatabase() {
               </Select>
               <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>Databases run on the shared host; services in the same region share a private network.</p>
             </Field>
+
+            <ServerPicker servers={servers} value={serverUuid} onChange={setServerUuid} />
 
             {type === "postgresql" && (
               <Field label="PostgreSQL version">

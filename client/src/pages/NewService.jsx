@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Plus, Trash2, GitBranch, Github, ChevronDown, ChevronUp, X } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Field, Input, Select, Button, Card, PageHeader, Spinner, Mono } from "../components/ui.jsx";
+import ServerPicker from "../components/ServerPicker.jsx";
 
 const BUILD_PACKS = [
   { value: "nixpacks", label: "Auto-detect (Nixpacks)" },
@@ -67,6 +68,8 @@ export default function NewService() {
   const [bulkEnv, setBulkEnv] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [servers, setServers] = useState([]);   // admin-only; [] for customers → no picker
+  const [serverUuid, setServerUuid] = useState(""); // "" = default shared host
 
   useEffect(() => {
     api.getRepos().then((r) => {
@@ -75,6 +78,8 @@ export default function NewService() {
     }).catch(() => setRepos([]));
 
     api.databases().then((d) => setDatabases(Array.isArray(d) ? d : d.data ?? [])).catch(() => {});
+    // Servers is admin-only (403 for customers) — tolerate failure → no picker shown.
+    api.servers().then((s) => setServers(Array.isArray(s) ? s : [])).catch(() => setServers([]));
   }, []);
 
   function onTypeChange(type) {
@@ -140,6 +145,7 @@ export default function NewService() {
       if (installCommand.trim()) body.installCommand = installCommand.trim();
       if (buildCommand.trim()) body.buildCommand = buildCommand.trim();
       if (startCommand.trim()) body.startCommand = startCommand.trim();
+      if (serverUuid) body.serverUuid = serverUuid;
 
       const { uuid } = await api.createApp(body);
       navigate(uuid ? `/services/${uuid}` : "/");
@@ -260,6 +266,8 @@ export default function NewService() {
               Start and build commands are optional — Nixpacks auto-detects them from your project.
             </p>
           </Field>
+
+          <ServerPicker servers={servers} value={serverUuid} onChange={setServerUuid} />
 
           {/* Advanced (collapsible) */}
           <div>

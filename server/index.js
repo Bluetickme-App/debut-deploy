@@ -92,6 +92,7 @@ import { createRenderCredential, listRenderCredentials, getRenderCredential, del
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
+import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory } from "./metrics.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
@@ -474,6 +475,18 @@ app.get(
   })
 );
 
+// Windowed metrics history for the graphs (1h/6h/24h). Owner-scoped; SQL-bucketed.
+// Demo mode synthesises a series (no sampler runs in demo).
+app.get(
+  "/api/services/:id/metrics/history",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const window = String(req.query.window || "1h");
+    return demoMode ? demoHistory(window) : metricsHistory(req.params.id, window);
+  })
+);
+
 // Rename a service (Render-style editable Name). Owner-scoped.
 app.patch(
   "/api/services/:id/rename",
@@ -749,11 +762,14 @@ app.post(
   requireCapability("manage"),
   h(async (req) => {
     const userId = req.user.id;
-    const { type, name, version } = req.body || {};
+    const { type, name, version, serverUuid } = req.body || {};
     if (!type || !name) throw Object.assign(new Error("type and name are required"), { status: 400 });
+    if (serverUuid && req.user.role !== "admin") {
+      throw Object.assign(new Error("Only admins can choose a target server"), { status: 403 });
+    }
     // projectUuid intentionally NOT accepted here — Coolify-side project is the server default;
     // customer grouping is panel-native via PATCH /api/resources/:type/:id/placement.
-    const { uuid } = await databases.createDatabase({ type, name, version });
+    const { uuid } = await databases.createDatabase({ type, name, version, serverUuid });
     assign(uuid, "database", userId);
     const planId = req.body?.plan_id ? String(req.body.plan_id) : null;
     if (planId && planPriceUsd(planId) > 0) {
@@ -1445,11 +1461,15 @@ app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, re
 
 app.post("/api/apps", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"), h(async (req, res) => {
   const userId = req.user.id;
-  const { repo, branch, name, port, envs, buildPack, installCommand, buildCommand, startCommand } = req.body || {};
+  const { repo, branch, name, port, envs, buildPack, installCommand, buildCommand, startCommand, serverUuid } = req.body || {};
 
   // 0. Validate input
   if (!repo || !branch || !name || port === undefined || port === null || port === "") {
     throw Object.assign(new Error("repo, branch, name, and port are required"), { status: 400 });
+  }
+  // Choosing a target server is admin-only (customers deploy to the default host).
+  if (serverUuid && req.user.role !== "admin") {
+    throw Object.assign(new Error("Only admins can choose a target server"), { status: 403 });
   }
 
   // 1. Scope to the caller's OWN installation: the repo (and branch) must be
@@ -1476,6 +1496,10 @@ app.post("/api/apps", requireAuth, mutateGuard, attachOrgContext, requireCapabil
   //    any repo on the operator's GitHub account — Coolify's GitHub-App-source
   //    API (createPrivateGithubApp) doesn't exist on this Coolify instance.
   const { uuid: keyUuid } = await ensureAccountKey();
+  // A chosen server needs its Docker destination resolved (Coolify requires both).
+  const placement = serverUuid
+    ? { serverUuid, destinationUuid: await coolify.getDefaultDestination(serverUuid) }
+    : {};
   const { uuid } = await createDeployKeyApp({
     keyUuid,
     repo: toSshUrl(repo),
@@ -1486,6 +1510,7 @@ app.post("/api/apps", requireAuth, mutateGuard, attachOrgContext, requireCapabil
     ...(installCommand ? { installCommand } : {}),
     ...(buildCommand ? { buildCommand } : {}),
     ...(startCommand ? { startCommand } : {}),
+    ...placement,
   });
 
   // 3. Assign ownership + audit (only after a successful create).
@@ -2334,6 +2359,15 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
       } catch (meterErr) {
         console.error("usage metering:", meterErr.message);
       }
+
+      // --- metrics history sampling (best-effort; must never crash the monitor) ---
+      // ponytail: one SSH `docker stats` over ALL containers per tick; a failed
+      // sample skips one minute, never throws (same stance as metering).
+      try {
+        await sampleAndStore(new Date().toISOString());
+      } catch (mErr) {
+        console.error("metrics sampling:", mErr.message);
+      }
     } catch (err) {
       console.error("health monitor:", err.message);
     } finally {
@@ -2372,6 +2406,9 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
         recordSystem(c.action === "suspended" ? "billing.suspended" : "billing.restored", { metadata: { org_id: c.orgId, reason: c.reason } });
       }
     } catch (err) { console.error("suspension sweep:", err.message); }
+    // Metrics retention: drop samples older than 24h (rides this 6h sweep, no new timer).
+    try { sweepMetrics(new Date(Date.now() - 24 * 60 * 60_000).toISOString()); }
+    catch (err) { console.error("metrics sweep:", err.message); }
   };
   const sweepTimer = setInterval(runSweep, 6 * 60 * 60_000);
   sweepTimer.unref?.();
