@@ -49,6 +49,11 @@ never gates; it raises warnings (e.g. a site live-using far above its plan).
   next box *before* fully wedged.
 - **Provision cooldown** (stabilization): no second provision within 10 min.
 - **Global autoscale on/off** kill switch.
+- `MIN_FREE_DISK_GB` (disk hard-gate floor, fast-follow — see below).
+- **Control-plane isolation:** the current shared box also runs Coolify + Postgres +
+  Traefik + the panel. It is role `shared_control` and treated as **bootstrap capacity
+  only** — once a second shared (workload-only) box exists, new workloads prefer the
+  workload boxes; the control-plane box is packed last, to shrink blast radius.
 - Scale-down (Phase 3b): 50% committed threshold, 10-min unneeded, 10-min delay-after-add.
 
 All in a `server_meta`/settings store, operator-editable.
@@ -127,11 +132,73 @@ free space that still fits → dense packing, fewer boxes.
 - Trying to auto-scale-down *without* relocation would evict live customer sites —
   explicitly unsafe, so it stays out until the primitive exists.
 
+## Consistency, idempotency & runtime enforcement (review-mandated, before 3a)
+
+These close the gap between "the reservation math is correct" and "the reservation is
+actually enforced under concurrency" — three angles on one risk.
+
+### Placement consistency (lock)
+
+A naive `pickBox` has a check-then-act race: two concurrent deploys both see the same
+free capacity and both place on the same box → overcommit despite the gate. Placement
+must be atomic:
+
+```text
+1. Resolve the incoming plan's reservation (MB).
+2. Acquire the placement lock (serialise all shared-pool placement).
+3. Recompute committed RAM for candidate boxes INSIDE the lock.
+4. pickBox (best-fit). No fit → create-or-reuse a provisioning job (below).
+5. Persist the chosen server UUID / destination as the deploy target.
+6. Release the lock. Only now may the deploy call Coolify.
+```
+
+Mechanism: the panel is **single-process** (one Node instance; SQLite has no Postgres-
+style advisory locks), so the lock is an **in-process async mutex** serialising the
+compute-and-commit step — cheap and sufficient. *(ponytail: in-process mutex now; a
+`placement_lock` DB row is the upgrade path IF the panel ever runs multiple instances.)*
+
+### Provisioning idempotency (job state machine)
+
+Scale-up must not double-provision on retries/timeouts/simultaneous unschedulable events
+(orphaned or duplicate Hetzner boxes = real money). Provisioning is job-based:
+
+```text
+requested → provisioning → coolify_registered → destination_ready → active
+requested → provisioning_failed
+```
+
+`server_provision_jobs`: `id, idempotency_key, status, instance_type, hetzner_server_id,
+coolify_server_uuid, destination_uuid, error, retry_count, created_at, updated_at`.
+Concurrent unschedulable deploys **reuse an in-flight job** (keyed by idempotency_key)
+rather than creating a second box; the cooldown is enforced against the last job's time.
+
+### Reservation → runtime limit (the enforcement that makes the gate real)
+
+The committed-RAM gate stops *placement* overcommit, but a container with no memory
+**limit** can still exceed its reservation and OOM the host — so the reservation must
+become a real cgroup limit:
+
+- Every planned resource maps its plan memory to a **Coolify container memory limit**,
+  applied via `updateResources` (PATCH `/services/:id/resources` `{ memory }`) on deploy.
+- Plan changes update the limit; a resource whose limit fails to apply is **blocked/
+  marked unsafe**, not deployed.
+- Existing resources without a limit are back-filled to their plan (or the conservative
+  default) on next deploy.
+
+### Capacity failure policy (fail closed)
+
+If committed RAM can't be computed for a box (e.g. Coolify resource fetch fails), it is
+`capacity_unknown` → **excluded from placement** + operator alert. If all shared boxes
+are full or unknown → **block** the deploy; never guess, never provision past
+`MAX_SHARED_BOXES`.
+
 ## Data & model
 
-- **`server_meta`** table: `server_uuid, role ('shared'|'dedicated'), client_org_id
-  (dedicated only), instance_type, ram_mb, headroom_mb, created_at`. Everything else is
-  live from Coolify + the existing DB.
+- **`server_meta`** table: `server_uuid, role ('shared'|'shared_control'|'dedicated'),
+  client_org_id (dedicated only), instance_type, ram_mb, headroom_mb, created_at`.
+  `shared_control` = the Coolify-host box (bootstrap capacity, packed last). Everything
+  else is live from Coolify + the existing DB.
+- **`server_provision_jobs`** table — the scale-up idempotency state machine (see above).
 - **`server_capacity_samples`** table (or reuse a generic samples table): `server_uuid,
   sampled_at, ram_used_bytes, ram_total_bytes, cpu_pct, disk_used_bytes, disk_total_bytes`.
   Swept to 24 h on the existing sweep.
@@ -158,12 +225,21 @@ free space that still fits → dense packing, fewer boxes.
   fires at threshold.
 - scale-down (Phase 3b): under-threshold + sustained → candidate; excludes dedicated;
   refuses without relocation available.
+- **concurrent placement race:** two deploys request the last slot → exactly one wins,
+  the other provisions/blocks (proves the lock).
+- **provision idempotency:** repeated unschedulable events reuse one job → no duplicate
+  Hetzner box; **cooldown under concurrency:** five simultaneous unschedulable → one job.
+- **unknown capacity:** failed Coolify fetch → box excluded (fail closed).
+- **unplanned resource** gets the default reservation and shows it in the Fleet UI.
+- **MAX cap:** at cap, deploy blocks + alerts, no provision call.
+- **runtime limit:** deploy applies the plan's Coolify memory limit; apply-failure blocks.
 
 ## Non-goals (v1 / later)
 
 - **Scale-down before the relocation primitive** (Phase 3b, sequenced).
-- **CPU/disk as *hard* gates** — RAM hard-gates; disk/CPU only warn (disk-full is a real
-  risk → warn loudly; hard disk gate is a fast-follow).
+- **CPU as a *hard* gate** — CPU stays warning-only. **Disk is a fast-follow hard gate**
+  (`MIN_FREE_DISK_GB`): a full disk kills deploys, DB, docker pulls, and TLS renewal, so
+  block placement on a near-full box and when disk telemetry is missing on a full-ish box.
 - Cross-region autoscaling; multi-instance-type node groups.
 - Auto-migrating/rebalancing existing sites for packing efficiency (only relocation for
   scale-down, not continuous rebalancing).
@@ -180,8 +256,14 @@ free space that still fits → dense packing, fewer boxes.
 ## Build order
 
 1. **A** — `capacity.js` (committed math + live telemetry sampler on the tick) +
-   `server_meta`/samples tables.
+   `server_meta`/`server_provision_jobs`/samples tables.
 2. **B** — Fleet admin page (hierarchy join + capacity bars).
-3. **C / Phase 3a** — `autoscale.js`: `pickBox` bin-packing + scale-up-on-unschedulable +
-   overprovision-ahead + guardrails, wired into the deploy/create path.
+3. **C / Phase 3a** — `autoscale.js`: placement **lock** + `pickBox` bin-packing +
+   scale-up-on-unschedulable + **provision-job idempotency** + overprovision-ahead +
+   guardrails + **runtime memory-limit enforcement**, wired into the deploy/create path.
+   *(The lock, the provision-job state machine, runtime-limit enforcement, and fail-closed
+   capacity are mandatory-before-3a, not fast-follows — they're what make the gate real.)*
 4. **C / Phase 3b** — `relocateSite` primitive, then scale-down on top of it.
+
+**Status: approved for implementation planning, not implementation-ready** until the
+mandatory-before-3a controls above are in the plan.
