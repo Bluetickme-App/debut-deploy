@@ -102,7 +102,19 @@ function DomainCard({ d, webmail, onChange, onRemove }) {
       {(d.mailboxes || []).length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-2.5" style={{ borderColor: "var(--border)" }}>
           {d.mailboxes.map((m) => (
-            <span key={m.address} className="mono rounded-md px-2 py-0.5 text-xs" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{m.address}</span>
+            <span key={m.address} className="mono inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+              {m.address}
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`Delete mailbox ${m.address}? This removes the inbox and all its mail.`)) return;
+                  try { await api.deleteMailbox(m.address); onChange(); } catch (e) { alert(e.message); }
+                }}
+                title="Delete mailbox"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 0, color: "var(--err-text)" }}
+              >
+                <Trash2 size={12} />
+              </button>
+            </span>
           ))}
         </div>
       )}
