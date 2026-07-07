@@ -937,9 +937,16 @@ app.get("/api/dns/discover", requireAuth, h(async (req) => {
   const orgId = req.org?.id ?? null;
   const records = domainconnect.recordsFor(kind, domain);
   const d = await domainconnect.discover(domain);
-  if (!d.supported) {
-    upsertDnsSetup({ orgId, domain, kind, provider: null, status: "manual" });
-    return { supported: false, provider: null, records };
+  // The provider supporting Domain Connect isn't enough — our template must be
+  // onboarded with THAT provider and signing enabled, or the apply URL errors on
+  // their side (GoDaddy: "error processing your request"). Gate one-click on
+  // DOMAINCONNECT_SIGNING (flipped on only post-onboarding); until then fall back
+  // to the manual records table, which always works.
+  const oneClickReady = process.env.DOMAINCONNECT_SIGNING === "on";
+  if (!d.supported || !oneClickReady) {
+    const provider = d.supported ? (d.providerName || d.providerId) : null;
+    upsertDnsSetup({ orgId, domain, kind, provider, status: "manual" });
+    return { supported: false, provider, records };
   }
   const state = domainconnect.makeState({ orgId, domain, kind });
   const applyUrl = domainconnect.buildApplyUrl({
