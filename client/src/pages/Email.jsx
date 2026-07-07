@@ -1,0 +1,176 @@
+import { useEffect, useState } from "react";
+import { Mail, Plus, Trash2, Copy, Check, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { api } from "../lib/api.js";
+import { PageHeader, Card, Button, Field, Input, Spinner, EmptyState } from "../components/ui.jsx";
+
+// Business email hosting — add a domain, publish its DNS, manage mailboxes.
+// Wired to the panel's /api/mail routes (Stalwart). Until the mail box is
+// configured (STALWART_URL/ADMIN), status.configured is false and we say so.
+export default function Email() {
+  const [status, setStatus] = useState(null);
+  const [domains, setDomains] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [newDomain, setNewDomain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  function load() {
+    api.mailStatus().then(setStatus).catch(() => setStatus({ configured: false }));
+    api.mailDomains().then((d) => setDomains(Array.isArray(d) ? d : [])).catch(() => setDomains([]));
+  }
+  useEffect(load, []);
+
+  async function addDomain(e) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    try {
+      await api.createMailDomain(newDomain.trim().toLowerCase());
+      setNewDomain(""); setAdding(false); load();
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
+  async function removeDomain(domain) {
+    if (!window.confirm(`Remove ${domain} and all its mailboxes?`)) return;
+    try { await api.deleteMailDomain(domain); load(); } catch (e) { alert(e.message); }
+  }
+
+  if (!status || domains === null) {
+    return <div className="flex h-64 items-center justify-center gap-2" style={{ color: "var(--text-muted)" }}><Spinner /> Loading…</div>;
+  }
+
+  return (
+    <div className="page">
+      <PageHeader
+        title="Email"
+        subtitle="Business mailboxes on your customers' domains — send, receive, webmail."
+        actions={<Button variant="primary" onClick={() => setAdding((v) => !v)}><Plus size={16} /> Add domain</Button>}
+      />
+
+      {!status.configured && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border p-3.5" style={{ background: "#fffbeb", borderColor: "#fde68a" }}>
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: "#b45309" }} />
+          <div className="text-[13px]" style={{ color: "#92400e" }}>
+            <b>Mail server not yet connected.</b> The Stalwart box is provisioned ({status.hostname}) — set{" "}
+            <code>STALWART_URL</code> + <code>STALWART_ADMIN</code> in the panel env to enable mailbox management.
+            You can still stage domains + copy their DNS records below.
+          </div>
+        </div>
+      )}
+
+      {adding && (
+        <Card className="mb-4">
+          <form onSubmit={addDomain} className="flex items-end gap-3">
+            <div className="flex-1">
+              <Field label="Domain"><Input placeholder="acme.com" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} autoFocus /></Field>
+            </div>
+            <Button type="submit" variant="primary" disabled={busy || !newDomain.trim()}>{busy ? <Spinner /> : "Add domain"}</Button>
+            <Button type="button" variant="ghost" onClick={() => { setAdding(false); setErr(null); }}>Cancel</Button>
+          </form>
+          {err && <p className="mt-2 text-sm" style={{ color: "var(--err-text)" }}>{err}</p>}
+        </Card>
+      )}
+
+      {domains.length === 0 ? (
+        <EmptyState title="No email domains yet" description="Add a domain to start hosting mailboxes on it." />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {domains.map((d) => <DomainCard key={d.domain} d={d} webmail={status.webmail} onChange={load} onRemove={() => removeDomain(d.domain)} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DomainCard({ d, webmail, onChange, onRemove }) {
+  const [open, setOpen] = useState(false);
+  const [showMailbox, setShowMailbox] = useState(false);
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <Mail size={18} style={{ color: "var(--accent)" }} />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold" style={{ color: "var(--text)" }}>{d.domain}</div>
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>{(d.mailboxes || []).length} mailbox{(d.mailboxes || []).length === 1 ? "" : "es"}</div>
+        </div>
+        <Button variant="secondary" onClick={() => setShowMailbox((v) => !v)}><Plus size={14} /> Mailbox</Button>
+        <button onClick={onRemove} title="Remove domain" className="btn btn-ghost p-1.5" style={{ color: "var(--err-text)" }}><Trash2 size={16} /></button>
+      </div>
+
+      {showMailbox && <NewMailbox domain={d.domain} onDone={() => { setShowMailbox(false); onChange(); }} />}
+
+      {(d.mailboxes || []).length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-2.5" style={{ borderColor: "var(--border)" }}>
+          {d.mailboxes.map((m) => (
+            <span key={m.address} className="mono rounded-md px-2 py-0.5 text-xs" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{m.address}</span>
+          ))}
+        </div>
+      )}
+
+      <button onClick={() => setOpen((v) => !v)} className="mt-3 flex items-center gap-1.5 text-xs font-medium" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--text-muted)" }}>
+        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} DNS records to publish ({d.records.length})
+      </button>
+      {open && <DnsTable records={d.records} webmail={webmail} domain={d.domain} />}
+    </Card>
+  );
+}
+
+function DnsTable({ records, webmail, domain }) {
+  const all = [...records, { type: "CNAME", name: webmail, value: "mail box", note: "Webmail (Roundcube)" }];
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full text-[12px]">
+        <thead>
+          <tr style={{ color: "var(--text-muted)" }}>
+            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Type</th>
+            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Name</th>
+            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {all.map((r, i) => (
+            <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+              <td className="px-2 py-1.5 mono">{r.type}</td>
+              <td className="px-2 py-1.5 mono" style={{ color: "var(--text-muted)" }}>{r.name}</td>
+              <td className="px-2 py-1.5"><CopyVal value={r.value} /><div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{r.note}</div></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CopyVal({ value }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+      className="mono inline-flex items-center gap-1.5" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--text)" }} title="Copy">
+      {value} {copied ? <Check size={12} style={{ color: "var(--ok-text)" }} /> : <Copy size={12} style={{ opacity: 0.5 }} />}
+    </button>
+  );
+}
+
+function NewMailbox({ domain, onDone }) {
+  const [local, setLocal] = useState("");
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  async function create(e) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    try { await api.createMailbox({ address: `${local}@${domain}`, password: pw, quotaMb: 2048 }); onDone(); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+  return (
+    <form onSubmit={create} className="mt-3 flex flex-wrap items-end gap-2 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-end gap-1">
+        <Field label="Mailbox"><Input placeholder="hello" value={local} onChange={(e) => setLocal(e.target.value.replace(/[^a-z0-9._-]/gi, ""))} /></Field>
+        <span className="pb-2.5 text-sm" style={{ color: "var(--text-muted)" }}>@{domain}</span>
+      </div>
+      <Field label="Password"><Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="min 8 chars" /></Field>
+      <Button type="submit" variant="primary" disabled={busy || !local || pw.length < 8}>{busy ? <Spinner /> : "Create"}</Button>
+      {err && <p className="w-full text-sm" style={{ color: "var(--err-text)" }}>{err}</p>}
+    </form>
+  );
+}

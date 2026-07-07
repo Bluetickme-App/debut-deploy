@@ -96,6 +96,13 @@ export const api = {
   hetznerLocations:   () => req("/hetzner/locations"),
   provisionServer:    (body) => req("/servers/provision", { method: "POST", body }),
   provisionStatus:    (id) => req(`/servers/${id}/provision-status`),
+  // Business email hosting (admin)
+  mailStatus:      () => req("/mail/status"),
+  mailDomains:     () => req("/mail/domains"),
+  createMailDomain:(domain) => req("/mail/domains", { method: "POST", body: { domain } }),
+  deleteMailDomain:(domain) => req(`/mail/domains/${encodeURIComponent(domain)}`, { method: "DELETE" }),
+  createMailbox:   (body) => req("/mail/mailboxes", { method: "POST", body }), // { address, password, quotaMb }
+  deleteMailbox:   (address) => req(`/mail/mailboxes/${encodeURIComponent(address)}`, { method: "DELETE" }),
   // Customers + billing (admin)
   customers: () => req("/customers"),
   billing: () => req("/billing"),

@@ -17,6 +17,7 @@ import NotificationSettings from "./pages/NotificationSettings.jsx";
 import SharedVars from "./pages/SharedVars.jsx";
 import Servers from "./pages/Servers.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
+import Email from "./pages/Email.jsx";
 import Projects from "./pages/Projects.jsx";
 import ProjectDetail from "./pages/ProjectDetail.jsx";
 import DocsCustomDomains from "./pages/DocsCustomDomains.jsx";
@@ -232,6 +233,7 @@ function Sidebar({ drawerOpen, onClose }) {
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
             <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
             <HoverNavLink to="/import"><DownloadCloud size={18} /><span>Import from Render</span></HoverNavLink>
+            <HoverNavLink to="/email"><Mail size={18} /><span>Email</span></HoverNavLink>
           </>
         )}
       </nav>
@@ -267,6 +269,7 @@ const CRUMB_MAP = {
   "/servers": "Servers",
   "/shared-vars": "Variable Groups",
   "/import": "Import from Render",
+  "/email": "Email",
   "/customers": "Customers",
   "/team": "Team",
   "/clients": "Clients",
@@ -526,6 +529,7 @@ function AppShell() {
             <Route path="/usage" element={<Usage />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/import" element={<ImportRender />} />
+            <Route path="/email" element={<Email />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/docs/custom-domains" element={<DocsCustomDomains />} />

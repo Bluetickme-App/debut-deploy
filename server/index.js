@@ -84,6 +84,7 @@ import * as hetzner from "./hetzner.js";
 import { provisionServer } from "./provision.js";
 import { importFromRender, migratePostgres } from "./migrate.js";
 import { scanEnv } from "./envscan.js";
+import * as mail from "./mail.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import { computePlans, dbPlans } from "./plans.js";
@@ -869,6 +870,48 @@ app.post(
     return result;
   })
 );
+
+// ── Business email hosting (Stalwart) — admin/operator only in Phase 1 ─────────
+app.get("/api/mail/status", requireAuth, requireAdmin, h(async () => ({
+  configured: mail.isConfigured(), hostname: mail.MAIL_HOSTNAME, webmail: mail.MAIL_WEBMAIL,
+})));
+
+app.get("/api/mail/domains", requireAuth, requireAdmin, h(async () => {
+  const domains = await mail.listDomains();
+  return Promise.all(domains.map(async (d) => ({
+    ...d, records: mail.dnsRecords(d.domain),
+    mailboxes: await mail.listMailboxes(d.domain).catch(() => []),
+  })));
+}));
+
+app.post("/api/mail/domains", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const domain = String(req.body?.domain || "").trim().toLowerCase();
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) throw Object.assign(new Error("A valid domain is required"), { status: 400 });
+  await mail.createDomain(domain);
+  record(req, "mail.domain.create", { metadata: { domain } });
+  return { domain, records: mail.dnsRecords(domain) };
+}));
+
+app.delete("/api/mail/domains/:domain", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  await mail.deleteDomain(req.params.domain);
+  record(req, "mail.domain.delete", { metadata: { domain: req.params.domain } });
+  return { ok: true };
+}));
+
+app.post("/api/mail/mailboxes", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const { address, password, quotaMb } = req.body || {};
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(address || ""))) throw Object.assign(new Error("A valid email address is required"), { status: 400 });
+  if (!password || String(password).length < 8) throw Object.assign(new Error("Password must be at least 8 characters"), { status: 400 });
+  await mail.createMailbox({ address, password, quotaMb: Number(quotaMb) || undefined });
+  record(req, "mail.mailbox.create", { metadata: { address } }); // never log the password
+  return { ok: true, address };
+}));
+
+app.delete("/api/mail/mailboxes/:address", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  await mail.deleteMailbox(req.params.address);
+  record(req, "mail.mailbox.delete", { metadata: { address: req.params.address } });
+  return { ok: true };
+}));
 
 // List bound domains with live Verified + Certificate status (Render-style manager).
 app.get(
