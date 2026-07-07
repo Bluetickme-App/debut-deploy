@@ -101,7 +101,7 @@ export const api = {
   // Business email hosting (admin)
   mailStatus:      () => req("/mail/status"),
   mailDomains:     () => req("/mail/domains"),
-  createMailDomain:(domain) => req("/mail/domains", { method: "POST", body: { domain } }),
+  createMailDomain:(domain, orgId) => req("/mail/domains", { method: "POST", body: { domain, orgId } }),
   deleteMailDomain:(domain) => req(`/mail/domains/${encodeURIComponent(domain)}`, { method: "DELETE" }),
   createMailbox:   (body) => req("/mail/mailboxes", { method: "POST", body }), // { address, password, quotaMb }
   deleteMailbox:   (address) => req(`/mail/mailboxes/${encodeURIComponent(address)}`, { method: "DELETE" }),

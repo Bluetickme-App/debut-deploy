@@ -10,14 +10,17 @@ import DnsSetup from "../components/DnsSetup.jsx";
 export default function Email() {
   const [status, setStatus] = useState(null);
   const [domains, setDomains] = useState(null);
+  const [orgs, setOrgs] = useState([]);
   const [adding, setAdding] = useState(false);
   const [newDomain, setNewDomain] = useState("");
+  const [newOrgId, setNewOrgId] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
   function load() {
     api.mailStatus().then(setStatus).catch(() => setStatus({ configured: false }));
     api.mailDomains().then((d) => setDomains(Array.isArray(d) ? d : [])).catch(() => setDomains([]));
+    api.customers().then((o) => setOrgs(Array.isArray(o) ? o : [])).catch(() => setOrgs([]));
   }
   useEffect(load, []);
 
@@ -25,8 +28,8 @@ export default function Email() {
     e.preventDefault();
     setBusy(true); setErr(null);
     try {
-      await api.createMailDomain(newDomain.trim().toLowerCase());
-      setNewDomain(""); setAdding(false); load();
+      await api.createMailDomain(newDomain.trim().toLowerCase(), newOrgId || null);
+      setNewDomain(""); setNewOrgId(""); setAdding(false); load();
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
@@ -52,8 +55,8 @@ export default function Email() {
         <div className="mb-4 flex items-start gap-2 rounded-lg border p-3.5" style={{ background: "#fffbeb", borderColor: "#fde68a" }}>
           <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: "#b45309" }} />
           <div className="text-[13px]" style={{ color: "#92400e" }}>
-            <b>Mail server not yet connected.</b> The Stalwart box is provisioned ({status.hostname}) — set{" "}
-            <code>STALWART_URL</code> + <code>STALWART_ADMIN</code> in the panel env to enable mailbox management.
+            <b>Mail server not yet connected.</b> The mailcow box is provisioned ({status.hostname}) — set{" "}
+            <code>MAILCOW_API_URL</code> + <code>MAILCOW_API_KEY</code> in the panel env to enable mailbox management.
             You can still stage domains + copy their DNS records below.
           </div>
         </div>
@@ -61,10 +64,17 @@ export default function Email() {
 
       {adding && (
         <Card className="mb-4">
-          <form onSubmit={addDomain} className="flex items-end gap-3">
-            <div className="flex-1">
+          <form onSubmit={addDomain} className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[180px]">
               <Field label="Domain"><Input placeholder="acme.com" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} autoFocus /></Field>
             </div>
+            <Field label="Bill to account">
+              <select value={newOrgId} onChange={(e) => setNewOrgId(e.target.value)}
+                className="rounded-md border px-2.5 py-2 text-sm" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)", minWidth: 170 }}>
+                <option value="">— unassigned —</option>
+                {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </Field>
             <Button type="submit" variant="primary" disabled={busy || !newDomain.trim()}>{busy ? <Spinner /> : "Add domain"}</Button>
             <Button type="button" variant="ghost" onClick={() => { setAdding(false); setErr(null); }}>Cancel</Button>
           </form>
@@ -76,22 +86,29 @@ export default function Email() {
         <EmptyState title="No email domains yet" description="Add a domain to start hosting mailboxes on it." />
       ) : (
         <div className="flex flex-col gap-3">
-          {domains.map((d) => <DomainCard key={d.domain} d={d} webmail={status.webmail} onChange={load} onRemove={() => removeDomain(d.domain)} />)}
+          {domains.map((d) => <DomainCard key={d.domain} d={d} orgs={orgs} webmail={status.webmail} onChange={load} onRemove={() => removeDomain(d.domain)} />)}
         </div>
       )}
     </div>
   );
 }
 
-function DomainCard({ d, webmail, onChange, onRemove }) {
+function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
   const [showMailbox, setShowMailbox] = useState(false);
+  const count = (d.mailboxes || []).length;
+  const owner = orgs?.find((o) => o.id === d.org_id)?.name;
+  const monthly = (count * 2.99).toFixed(2);
   return (
     <Card>
       <div className="flex items-center gap-3">
         <Mail size={18} style={{ color: "var(--accent)" }} />
         <div className="flex-1 min-w-0">
           <div className="font-semibold" style={{ color: "var(--text)" }}>{d.domain}</div>
-          <div className="text-xs" style={{ color: "var(--text-muted)" }}>{(d.mailboxes || []).length} mailbox{(d.mailboxes || []).length === 1 ? "" : "es"}</div>
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {count} mailbox{count === 1 ? "" : "es"}
+            {owner ? ` · ${owner}` : " · unassigned"}
+            {count > 0 && ` · £${monthly}/mo`}
+          </div>
         </div>
         <Button variant="secondary" onClick={() => setShowMailbox((v) => !v)}><Plus size={14} /> Mailbox</Button>
         <button onClick={onRemove} title="Remove domain" className="btn btn-ghost p-1.5" style={{ color: "var(--err-text)" }}><Trash2 size={16} /></button>
