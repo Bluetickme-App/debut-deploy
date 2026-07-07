@@ -460,7 +460,9 @@ export function upsertDnsSetup({ orgId, domain, kind, provider = null, status })
     ON CONFLICT(org_id, domain, kind) DO UPDATE SET
       provider = excluded.provider,
       status = excluded.status,
-      applied_at = COALESCE(excluded.applied_at, domain_dns_setup.applied_at)
+      applied_at = CASE WHEN excluded.status = 'applied' AND domain_dns_setup.applied_at IS NULL
+                        THEN excluded.applied_at
+                        ELSE domain_dns_setup.applied_at END
   `).run({ org, domain, kind, provider, status, now, applied: status === "applied" ? now : null });
 }
 
