@@ -17,6 +17,22 @@ export const DB_PLANS = [
   { id: "db-scale",   name: "DB Scale",   ram: "8 GB",   storage: "100 GB", priceMo: 90, costMo: 15,   renderMo: 100 },
 ];
 
+// Email hosting — priced natively in GBP (billed/shown in £, NOT converted from USD
+// like compute/db). One per-mailbox plan for now. costPence ≈ Stalwart licence + SES +
+// storage/backup (see the email-hosting spec COGS ~£0.35–0.55/mailbox/mo).
+export const MAIL_PLANS = [
+  { id: "mail-standard", name: "Business Email", pricePence: 299, costPence: 55, storageGb: 10, note: "Per mailbox · webmail + IMAP/SMTP" },
+];
+
+// GBP-native margin fields (pence → £), mirroring withMargin's shape for the matrix.
+export const mailPlans = () => MAIL_PLANS.map((p) => ({
+  ...p,
+  priceGbp: +(p.pricePence / 100).toFixed(2),
+  costGbp: +(p.costPence / 100).toFixed(2),
+  marginGbp: +((p.pricePence - p.costPence) / 100).toFixed(2),
+  marginPct: Math.round(((p.pricePence - p.costPence) / p.costPence) * 100),
+}));
+
 // Attach derived margin fields.
 const withMargin = (p) => ({
   ...p,

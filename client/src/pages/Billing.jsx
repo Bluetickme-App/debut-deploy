@@ -24,8 +24,10 @@ export default function Billing() {
   if (!Array.isArray(infra.servers)) infra.servers = [];
   const computePlans = Array.isArray(data.computePlans) ? data.computePlans : [];
   const dbPlans = Array.isArray(data.dbPlans) ? data.dbPlans : [];
+  const mailPlans = Array.isArray(data.mailPlans) ? data.mailPlans : [];
   const eur = (n) => `€${Number(n || 0).toFixed(2)}`;
   const usd = (n) => `$${Number(n || 0)}`;
+  const gbp = (n) => `£${Number(n || 0).toFixed(2)}`;
 
   return (
     <div className="page">
@@ -87,6 +89,28 @@ export default function Billing() {
           </Card>
         ))}
       </div>
+
+      {/* Email hosting (priced in GBP per mailbox) */}
+      {mailPlans.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 mt-6 mb-3" style={{ color: "var(--text)" }}>
+            <TrendingUp size={16} /> <span className="font-semibold text-sm">Email hosting (per mailbox)</span>
+          </div>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))" }}>
+            {mailPlans.map((p) => (
+              <Card key={p.id} className="card-hover">
+                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.name}</div>
+                <div className="mt-1 text-2xl font-bold" style={{ color: "var(--text)" }}>{gbp(p.priceGbp)}<span className="text-sm font-normal" style={{ color: "var(--text-muted)" }}>/mo</span></div>
+                <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{p.storageGb} GB · {p.note}</div>
+                <div className="mt-3 flex flex-col gap-1 text-xs">
+                  <span style={{ color: "var(--text-muted)" }}>cost {gbp(p.costGbp)}/mo</span>
+                  <span style={{ color: "var(--ok-text)" }}>margin {gbp(p.marginGbp)}/mo ({p.marginPct}%)</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

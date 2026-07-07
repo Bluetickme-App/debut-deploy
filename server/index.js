@@ -94,7 +94,7 @@ import * as mail from "./mail.js";
 import * as dbcreds from "./dbcreds.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
-import { computePlans, dbPlans } from "./plans.js";
+import { computePlans, dbPlans, mailPlans } from "./plans.js";
 import { repoKey, verifyWebhookSig } from "./webhook.js";
 import * as domainconnect from "./domainconnect.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
@@ -1302,6 +1302,7 @@ app.get(
     infra: await hetzner.listServersWithCost(),
     computePlans: computePlans(),
     dbPlans: dbPlans(),
+    mailPlans: mailPlans(),
   }))
 );
 
@@ -1317,7 +1318,8 @@ app.get(
       ram: p.ram, ramGb: p.ramGb, disk: p.disk, storage: p.storage, shared: p.shared,
       popular: !!p.popular, note: p.note, renderMo: p.renderMo,
     });
-    return { compute: computePlans().map(pub), db: dbPlans().map(pub) };
+    const mailPub = (p) => ({ id: p.id, name: p.name, priceGbp: p.priceGbp, storageGb: p.storageGb, note: p.note });
+    return { compute: computePlans().map(pub), db: dbPlans().map(pub), mail: mailPlans().map(mailPub) };
   })
 );
 
