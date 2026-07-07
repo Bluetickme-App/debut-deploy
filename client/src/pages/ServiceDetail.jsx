@@ -654,21 +654,25 @@ function RangeToggle({ value, onChange }) {
 function MetricsTab({ serviceId }) {
   const [window, setWindow] = useState("1h");
   const [data, setData] = useState(null);   // null = loading; else { series, stats } | { error }
+  const [host, setHost] = useState(null);   // host capacity (admin only; null if unavailable)
 
   useEffect(() => {
     let cancelled = false;
     setData(null);
-    const load = () =>
+    const load = () => {
       api.metricsHistory(serviceId, window)
         .then((d) => { if (!cancelled) setData(d || { stats: null }); })
         .catch((e) => { if (!cancelled) setData({ error: e.message, stats: null }); });
+      api.metricsHost(window).then((h) => { if (!cancelled) setHost(h?.stats ? h : null); }).catch(() => { if (!cancelled) setHost(null); });
+    };
     load();
     const t = setInterval(load, 15000); // graph refreshes as new samples land
     return () => { cancelled = true; clearInterval(t); };
   }, [serviceId, window]);
 
   const s = data?.stats;
-  const series = data?.series || { cpu: [], mem: [], net: [] };
+  const series = data?.series || { cpu: [], mem: [], net: [], throughput: [], diskio: [], pids: [] };
+  const rate = (n) => `${fmtBytes(n)}/s`;
 
   return (
     <div>
@@ -679,6 +683,11 @@ function MetricsTab({ serviceId }) {
             <span className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--ok)", animation: "dd-pulse 1.4s infinite" }} />
             Live
           </span>
+          {s?.uptimePct != null && (
+            <span className="rounded-md px-2 py-0.5 text-[11.5px] font-semibold" style={{ background: "var(--surface-2)", color: s.uptimePct >= 99 ? "var(--ok-text)" : "var(--text-muted)" }}>
+              {s.uptimePct}% uptime
+            </span>
+          )}
         </div>
         <RangeToggle value={window} onChange={setWindow} />
       </div>
@@ -712,15 +721,57 @@ function MetricsTab({ serviceId }) {
             color="var(--ok)"
           />
           <ChartCard
-            label="Network I/O (cumulative)"
-            big={fmtBytes(s.net.current)}
-            sub={`peak ${fmtBytes(s.net.peak)}`}
-            values={series.net.map((p) => p.v)}
-            peak={s.net.peak}
+            label="Network throughput"
+            big={rate(s.throughput?.current || 0)}
+            sub={`peak ${rate(s.throughput?.peak || 0)} · avg ${rate(s.throughput?.avg || 0)}`}
+            values={(series.throughput || []).map((p) => p.v)}
+            peak={s.throughput?.peak}
             color="#8b5cf6"
           />
+          <ChartCard
+            label="Disk I/O"
+            big={rate((series.diskio?.at(-1)?.v) || 0)}
+            sub={`peak ${fmtBytes(s.diskio?.peak || 0)}`}
+            values={(series.diskio || []).map((p) => p.v)}
+            peak={s.diskio?.peak}
+            color="#f59e0b"
+          />
+          <ChartCard
+            label="Processes"
+            big={`${s.pids?.current ?? 0}`}
+            sub={`peak ${s.pids?.peak ?? 0} · avg ${s.pids?.avg ?? 0}`}
+            values={(series.pids || []).map((p) => p.v)}
+            peak={s.pids?.peak}
+            color="#14b8a6"
+          />
+          {host?.stats && (
+            <div className="rounded-lg border px-[18px] py-4" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}>
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Host capacity (the box)</div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <HostStat label="CPU" pct={host.stats.cpu.current} />
+                <HostStat label="Memory" pct={host.stats.mem.current} sub={`${fmtBytes(host.stats.mem.bytes)} / ${fmtBytes(host.stats.mem.total)}`} />
+                <HostStat label="Disk" pct={host.stats.disk.current} sub={`${fmtBytes(host.stats.disk.bytes)} / ${fmtBytes(host.stats.disk.total)}`} warn={host.stats.disk.current >= 85} />
+              </div>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function HostStat({ label, pct, sub, warn }) {
+  const color = warn ? "var(--err-text)" : pct >= 75 ? "#f59e0b" : "var(--ok)";
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</span>
+        <span className="text-[15px] font-semibold" style={{ color, fontVariantNumeric: "tabular-nums" }}>{pct ?? 0}%</span>
+      </div>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct || 0)}%`, background: color }} />
+      </div>
+      {sub && <div className="mt-1 mono text-[11px]" style={{ color: "var(--text-muted)" }}>{sub}</div>}
     </div>
   );
 }
