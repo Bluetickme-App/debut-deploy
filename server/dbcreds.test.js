@@ -9,7 +9,7 @@ const PG = [{
   NetworkSettings: { Ports: {} },
 }];
 const REDIS = [{
-  Config: { Image: "redis:7.2", Env: ["REDIS_PASSWORD=secretpass"] },
+  Config: { Image: "redis:7.2", Env: ["REDIS_PASSWORD=s3cr!t:p@ss"] },
   HostConfig: { PortBindings: {} },
   NetworkSettings: { Ports: {} },
 }];
@@ -29,9 +29,9 @@ test("redis with no public port → external URL is null, internal has no /db", 
   const c = parseInspect(REDIS, { uuid: "red1", publicHost: "10.0.0.9" });
   assert.equal(c.engine, "redis");
   assert.equal(c.username, "default");
-  assert.equal(c.password, "secretpass");
+  assert.equal(c.password, "s3cr!t:p@ss");
   assert.equal(c.externalUrl, null);
-  assert.equal(c.internalUrl, "redis://default:secretpass@red1:6379");
+  assert.equal(c.internalUrl, "redis://default:s3cr!t%3Ap%40ss@red1:6379");
 });
 
 test("getDatabaseCredentials throws 404 when no container is found", async () => {

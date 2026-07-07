@@ -47,7 +47,7 @@ export function parseInspect(inspect, { uuid, publicHost }) {
   const enc = (s) => encodeURIComponent(String(s ?? ""));
   const scheme = spec?.scheme || "db";
   const auth = username ? `${enc(username)}:${enc(password)}@` : (password ? `:${enc(password)}@` : "");
-  const path = database ? `/${database}` : "";
+  const path = database ? `/${encodeURIComponent(database)}` : "";
   const internalUrl = spec ? `${scheme}://${auth}${uuid}:${internalPort}${path}` : null;
   const externalUrl = (spec && externalPort && publicHost) ? `${scheme}://${auth}${publicHost}:${externalPort}${path}` : null;
 
