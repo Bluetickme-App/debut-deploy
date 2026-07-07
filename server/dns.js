@@ -1,4 +1,5 @@
 import { resolve4, resolveMx as _resolveMx } from "node:dns/promises";
+import { MAIL_HOSTNAME as MAIL_HOST } from "./mail.js";
 
 const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
 export const expectedIp = BASE ? new URL(BASE).hostname : "";
@@ -29,8 +30,6 @@ export function appRecords(domain) {
     { type: "CNAME", name: `www.${domain}`, value: domain, note: "www → apex" },
   ];
 }
-
-const MAIL_HOST = process.env.MAIL_HOSTNAME || "mail.debutdepoly.com";
 
 export async function verifyMail(domain, { resolveMx = _resolveMx } = {}) {
   let resolvedMx = [];

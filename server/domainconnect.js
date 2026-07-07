@@ -2,8 +2,7 @@
 // domain owner opens to approve DNS changes in their own DNS provider. Record
 // content is never defined here — it comes from the canonical generators so the
 // one-click template and the manual fallback can't drift. See the design spec.
-import { resolveTxt as _resolveTxt } from "node:dns/promises";
-import { lookup } from "node:dns/promises";
+import { resolveTxt as _resolveTxt, lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { createHmac, timingSafeEqual, createSign } from "node:crypto";
 import { dnsRecords } from "./mail.js";
