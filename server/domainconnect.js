@@ -8,6 +8,7 @@ import { isIP } from "node:net";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { dnsRecords } from "./mail.js";
 import { appRecords, expectedIp } from "./dns.js";
+import { setDnsSetupStatus } from "./db.js";
 
 export const PROVIDER_ID = "debutdeploy.com";
 const SECRET = () => {
@@ -103,8 +104,6 @@ export async function discover(domain, { resolveTxt = _resolveTxt, fetchImpl = f
     return { supported: true, providerId: s.providerId, providerName: s.providerName, urlSyncUX: s.urlSyncUX };
   } catch { return { supported: false }; }
 }
-
-import { setDnsSetupStatus } from "./db.js";
 
 // Resolve a provider redirect into a persisted status. `verify` returns whether the
 // records are already live (so we can jump applied → verified without waiting).
