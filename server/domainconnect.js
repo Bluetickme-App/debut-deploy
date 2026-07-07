@@ -103,3 +103,15 @@ export async function discover(domain, { resolveTxt = _resolveTxt, fetchImpl = f
     return { supported: true, providerId: s.providerId, providerName: s.providerName, urlSyncUX: s.urlSyncUX };
   } catch { return { supported: false }; }
 }
+
+import { setDnsSetupStatus } from "./db.js";
+
+// Resolve a provider redirect into a persisted status. `verify` returns whether the
+// records are already live (so we can jump applied → verified without waiting).
+export async function applyCallbackResult({ orgId, domain, kind, error, verify }) {
+  if (error) { setDnsSetupStatus({ orgId, domain, kind, status: "failed" }); return "failed"; }
+  setDnsSetupStatus({ orgId, domain, kind, status: "applied" });
+  const live = await verify().catch(() => false);
+  if (live) { setDnsSetupStatus({ orgId, domain, kind, status: "verified", verified: true }); return "verified"; }
+  return "applied";
+}

@@ -90,6 +90,8 @@ import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDom
 import { computePlans, dbPlans } from "./plans.js";
 import { repoKey, verifyWebhookSig } from "./webhook.js";
 import { createRenderCredential, listRenderCredentials, getRenderCredential, deleteRenderCredential } from "./db.js";
+import * as domainconnect from "./domainconnect.js";
+import { upsertDnsSetup, getDnsSetup } from "./db.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
@@ -911,6 +913,60 @@ app.delete("/api/mail/mailboxes/:address", requireAuth, requireAdmin, mutateGuar
   await mail.deleteMailbox(req.params.address);
   record(req, "mail.mailbox.delete", { metadata: { address: req.params.address } });
   return { ok: true };
+}));
+
+// ── One-click DNS (Domain Connect) ─────────────────────────────────────────────
+const DNS_KINDS = new Set(["mail", "hosting"]);
+const publicBase = () => (process.env.OAUTH_CALLBACK_BASE || "").replace(/\/$/, "");
+
+function verifyByKind(kind, domain) {
+  return kind === "mail"
+    ? dns.verifyMail(domain).then((r) => r.pointsToMail)
+    : dns.verifyDomain(domain).then((r) => r.pointsToServer);
+}
+
+app.get("/api/dns/discover", requireAuth, h(async (req) => {
+  const domain = String(req.query.domain || "").trim().toLowerCase();
+  const kind = String(req.query.kind || "");
+  if (!DNS_KINDS.has(kind) || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain))
+    throw Object.assign(new Error("A valid domain and kind are required"), { status: 400 });
+  const orgId = req.org?.id ?? null;
+  const records = domainconnect.recordsFor(kind, domain);
+  const d = await domainconnect.discover(domain);
+  if (!d.supported) {
+    upsertDnsSetup({ orgId, domain, kind, provider: null, status: "manual" });
+    return { supported: false, provider: null, records };
+  }
+  const state = domainconnect.makeState({ orgId, domain, kind });
+  const applyUrl = domainconnect.buildApplyUrl({
+    urlSyncUX: d.urlSyncUX, domain, kind,
+    params: domainconnect.paramsFor(kind, domain),
+    redirectUri: `${publicBase()}/api/dns/callback`, state,
+  });
+  upsertDnsSetup({ orgId, domain, kind, provider: d.providerName || d.providerId, status: "pending" });
+  return { supported: true, provider: d.providerName || d.providerId, applyUrl, records };
+}));
+
+app.get("/api/dns/callback", h(async (req, res) => {
+  let s;
+  try { s = domainconnect.readState(req.query.state); }
+  catch { return res.redirect(`${publicBase()}/email?dns=error`); }
+  await domainconnect.applyCallbackResult({
+    orgId: s.orgId || null, domain: s.domain, kind: s.kind,
+    error: req.query.error || null,
+    verify: () => verifyByKind(s.kind, s.domain),
+  });
+  const back = s.kind === "mail" ? "/email" : "/services";
+  return res.redirect(`${publicBase()}${back}?dns=${req.query.error ? "error" : "ok"}`);
+}));
+
+app.get("/api/dns/status", requireAuth, h(async (req) => {
+  const domain = String(req.query.domain || "").trim().toLowerCase();
+  const kind = String(req.query.kind || "");
+  if (!DNS_KINDS.has(kind)) throw Object.assign(new Error("valid kind required"), { status: 400 });
+  const orgId = req.org?.id ?? null;
+  const row = getDnsSetup(orgId, domain, kind);
+  return { status: row?.status || "none", provider: row?.provider || null, verified: !!row?.verified_at };
 }));
 
 // List bound domains with live Verified + Certificate status (Render-style manager).
