@@ -1,8 +1,8 @@
 // node --test server/dns_records.test.js
-import "dotenv/config";
+process.env.COOLIFY_BASE_URL = "http://167.233.206.184:8000";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appRecords, verifyMail, expectedIp } from "./dns.js";
+const { appRecords, verifyMail, expectedIp } = await import("./dns.js");
 
 test("appRecords returns apex A -> expectedIp and www CNAME -> apex", () => {
   const recs = appRecords("acme.com");
