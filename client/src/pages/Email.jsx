@@ -119,7 +119,7 @@ function DomainCard({ d, webmail, onChange, onRemove }) {
         </div>
       )}
 
-      <DnsSetup domain={d.domain} kind="mail" webmail={webmail} />
+      <DnsSetup domain={d.domain} kind="mail" webmail={webmail} records={d.records} />
     </Card>
   );
 }

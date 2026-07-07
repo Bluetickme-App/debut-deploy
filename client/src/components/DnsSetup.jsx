@@ -5,13 +5,17 @@ import { Button, Spinner } from "./ui.jsx";
 
 // One-click DNS setup for a domain. `kind` is "mail" or "hosting". Falls back to a
 // copy-paste records table when the provider isn't Domain-Connect-capable.
-export default function DnsSetup({ domain, kind, webmail }) {
+export default function DnsSetup({ domain, kind, webmail, records: initialRecords }) {
   const [state, setState] = useState(null); // { supported, provider, applyUrl, records }
   const [status, setStatus] = useState(null); // { status, provider, verified }
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { api.dnsStatus(domain, kind).then(setStatus).catch(() => {}); }, [domain, kind]);
+  useEffect(() => {
+    const ac = new AbortController();
+    api.dnsStatus(domain, kind).then((s) => { if (!ac.signal.aborted) setStatus(s); }).catch(() => {});
+    return () => ac.abort();
+  }, [domain, kind]);
 
   async function discover() {
     setBusy(true);
@@ -23,7 +27,7 @@ export default function DnsSetup({ domain, kind, webmail }) {
     } finally { setBusy(false); }
   }
 
-  const records = state?.records;
+  const records = state?.records || initialRecords;
   const badge = status?.verified ? "Configured ✓"
     : status?.status === "applied" ? "Applied — verifying…"
     : status?.status === "failed" ? "Setup failed"
@@ -45,12 +49,12 @@ export default function DnsSetup({ domain, kind, webmail }) {
           </button>
         )}
       </div>
-      {open && records && <RecordsTable records={records} webmail={webmail} domain={domain} kind={kind} />}
+      {open && records && <RecordsTable records={records} webmail={webmail} kind={kind} />}
     </div>
   );
 }
 
-function RecordsTable({ records, webmail, domain, kind }) {
+function RecordsTable({ records, webmail, kind }) {
   const all = kind === "mail" && webmail
     ? [...records, { type: "CNAME", name: webmail, value: "mail.debutdepoly.com", note: "Webmail" }]
     : records;
