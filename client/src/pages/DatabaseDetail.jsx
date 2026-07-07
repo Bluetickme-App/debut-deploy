@@ -309,11 +309,8 @@ export default function DatabaseDetail() {
               </SettingsRow>
             </>
           )}
-          <SettingsRow label="Internal URL" desc="Host-only connection string (no password) exposed by Coolify.">
+          <SettingsRow label="Internal URL" desc="Host-only connection string (no password). Use “Connection details” above for the password + full URL.">
             <RevealField value={db.internalUrl} />
-          </SettingsRow>
-          <SettingsRow label="Password" desc="Set when the database was created.">
-            <NotAvailable note="Not available via API — Coolify does not expose the database password." />
           </SettingsRow>
         </SettingsSection>
 
