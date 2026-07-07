@@ -3,12 +3,18 @@
 // content is never defined here — it comes from the canonical generators so the
 // one-click template and the manual fallback can't drift. See the design spec.
 import { resolveTxt as _resolveTxt } from "node:dns/promises";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { dnsRecords } from "./mail.js";
 import { appRecords, expectedIp } from "./dns.js";
 
 export const PROVIDER_ID = "debutdeploy.com";
-const SECRET = () => process.env.SESSION_SECRET || "";
+const SECRET = () => {
+  const s = process.env.SESSION_SECRET;
+  if (!s) throw Object.assign(new Error("SESSION_SECRET is not set"), { status: 500 });
+  return s;
+};
 
 export function recordsFor(kind, domain) {
   if (kind === "mail") return dnsRecords(domain);
@@ -30,13 +36,20 @@ export function makeState({ orgId, domain, kind }) {
 }
 
 export function readState(token) {
-  const [payload, sig] = String(token || "").split(".");
-  if (!payload || !sig) throw Object.assign(new Error("Malformed state"), { status: 400 });
+  const str = String(token || "");
+  const dot = str.lastIndexOf(".");
+  if (dot <= 0) throw Object.assign(new Error("Malformed state"), { status: 400 });
+  const payload = str.slice(0, dot);
+  const sig = str.slice(dot + 1);
   const expect = hmac(payload);
   const a = Buffer.from(sig), b = Buffer.from(expect);
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw Object.assign(new Error("Bad state signature"), { status: 400 });
-  const { orgId, domain, kind } = JSON.parse(Buffer.from(payload, "base64url").toString());
-  return { orgId, domain, kind };
+  try {
+    const { orgId, domain, kind } = JSON.parse(Buffer.from(payload, "base64url").toString());
+    return { orgId, domain, kind };
+  } catch {
+    throw Object.assign(new Error("Malformed state payload"), { status: 400 });
+  }
 }
 
 export function buildApplyUrl({ urlSyncUX, domain, kind, params, redirectUri, state }) {
@@ -45,9 +58,36 @@ export function buildApplyUrl({ urlSyncUX, domain, kind, params, redirectUri, st
   return `${base}?${q.toString()}`;
 }
 
+// Reject addresses that must never be reachable from a server-side fetch.
+function isPrivateAddr(ip) {
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split(".").map(Number);
+    return a === 0 || a === 10 || a === 127
+      || (a === 172 && b >= 16 && b <= 31)
+      || (a === 192 && b === 168)
+      || (a === 169 && b === 254);
+  }
+  const s = ip.toLowerCase();
+  if (s === "::1" || s === "::") return true;
+  if (s.startsWith("::ffff:")) return isPrivateAddr(s.slice(7));
+  return s.startsWith("fe80") || s.startsWith("fc") || s.startsWith("fd");
+}
+
+// SSRF guard: require a plain hostname and reject any host that resolves to a
+// private/loopback/link-local address (dns.lookup on an IP literal returns it
+// unchanged, so literal private IPs are caught too).
+// ponytail: pre-fetch DNS check leaves a rebinding TOCTOU window; pin the resolved
+// IP into the connection if this ever guards more than a settings GET.
+async function assertPublicHost(host, { lookupImpl = lookup } = {}) {
+  if (!/^[a-z0-9.-]+$/i.test(host)) throw new Error("Invalid Domain Connect host");
+  const addrs = await lookupImpl(host, { all: true });
+  if (!addrs.length) throw new Error("Host does not resolve");
+  for (const { address } of addrs) if (isPrivateAddr(address)) throw new Error("Host resolves to a private address");
+}
+
 // Query _domainconnect TXT for the provider's API host, then its settings, to learn
 // urlSyncUX. Any miss (NXDOMAIN, non-2xx, malformed) → { supported:false }.
-export async function discover(domain, { resolveTxt = _resolveTxt, fetchImpl = fetch } = {}) {
+export async function discover(domain, { resolveTxt = _resolveTxt, fetchImpl = fetch, lookupImpl } = {}) {
   let host;
   try {
     const txt = await resolveTxt(`_domainconnect.${domain}`);
@@ -55,7 +95,8 @@ export async function discover(domain, { resolveTxt = _resolveTxt, fetchImpl = f
   } catch { return { supported: false }; }
   if (!host) return { supported: false };
   try {
-    const res = await fetchImpl(`https://${host}/v2/${domain}/settings`);
+    await assertPublicHost(host, { lookupImpl });
+    const res = await fetchImpl(`https://${host}/v2/${domain}/settings`, { redirect: "error" });
     if (!res.ok) return { supported: false };
     const s = await res.json();
     if (!s?.urlSyncUX) return { supported: false };

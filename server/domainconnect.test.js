@@ -38,7 +38,8 @@ test("buildApplyUrl assembles the sync-flow apply URL", () => {
 test("discover returns supported=true when TXT + settings resolve", async () => {
   const resolveTxt = async () => [["dcc.godaddy.com"]];
   const fetchImpl = async () => ({ ok: true, json: async () => ({ providerId: "godaddy", providerName: "GoDaddy", urlSyncUX: "https://dcc.godaddy.com/manage" }) });
-  const d = await discover("acme.com", { resolveTxt, fetchImpl });
+  const lookupImpl = async () => [{ address: "1.2.3.4", family: 4 }];
+  const d = await discover("acme.com", { resolveTxt, fetchImpl, lookupImpl });
   assert.equal(d.supported, true);
   assert.equal(d.providerName, "GoDaddy");
   assert.equal(d.urlSyncUX, "https://dcc.godaddy.com/manage");
@@ -48,4 +49,17 @@ test("discover returns supported=false when the TXT record is absent", async () 
   const resolveTxt = async () => { const e = new Error("nx"); e.code = "ENOTFOUND"; throw e; };
   const d = await discover("acme.com", { resolveTxt });
   assert.equal(d.supported, false);
+});
+
+test("discover returns supported=false when host resolves to a private address (SSRF guard)", async () => {
+  const resolveTxt = async () => [["internal.evil.example"]];
+  const lookupImpl = async () => [{ address: "127.0.0.1", family: 4 }];
+  const fetchImpl = async () => { throw new Error("fetch must not be reached"); };
+  const d = await discover("acme.com", { resolveTxt, lookupImpl, fetchImpl });
+  assert.equal(d.supported, false);
+});
+
+test("readState rejects a token with an appended dot segment", () => {
+  const tok = makeState({ orgId: "o", domain: "acme.com", kind: "mail" });
+  assert.throws(() => readState(tok + ".garbage"), /state/i);
 });
