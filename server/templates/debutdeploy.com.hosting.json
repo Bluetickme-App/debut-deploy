@@ -1,0 +1,11 @@
+{
+  "providerId": "debutdeploy.com",
+  "providerName": "DebutDeploy",
+  "serviceId": "hosting",
+  "serviceName": "DebutDeploy Hosting",
+  "syncBlock": false,
+  "records": [
+    { "type": "A", "host": "@", "pointsTo": "%ip%", "ttl": 3600 },
+    { "type": "CNAME", "host": "www", "pointsTo": "@", "ttl": 3600 }
+  ]
+}
