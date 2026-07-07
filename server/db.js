@@ -360,6 +360,23 @@ const MIGRATIONS = [
   (d) => {
     d.exec(`ALTER TABLE organizations ADD COLUMN billing_country TEXT;`);
   },
+  // -> user_version 23: one-click DNS (Domain Connect) setup status per (org, domain, kind)
+  (d) => {
+    d.exec(`
+      CREATE TABLE domain_dns_setup (
+        id INTEGER PRIMARY KEY,
+        org_id TEXT NOT NULL DEFAULT '',
+        domain TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('mail','hosting')),
+        provider TEXT,
+        status TEXT NOT NULL CHECK(status IN ('pending','manual','applied','verified','failed')),
+        applied_at TEXT,
+        verified_at TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE(org_id, domain, kind)
+      );
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -431,6 +448,37 @@ export function setSetting(key, value) {
     "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
   ).run(key, value, new Date().toISOString());
   return value;
+}
+
+// ── One-click DNS (Domain Connect) setup status ────────────────────────────────
+export function upsertDnsSetup({ orgId, domain, kind, provider = null, status }) {
+  const org = orgId ?? "";
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO domain_dns_setup (org_id, domain, kind, provider, status, applied_at, created_at)
+    VALUES (@org, @domain, @kind, @provider, @status, @applied, @now)
+    ON CONFLICT(org_id, domain, kind) DO UPDATE SET
+      provider = excluded.provider,
+      status = excluded.status,
+      applied_at = COALESCE(excluded.applied_at, domain_dns_setup.applied_at)
+  `).run({ org, domain, kind, provider, status, now, applied: status === "applied" ? now : null });
+}
+
+export function getDnsSetup(orgId, domain, kind) {
+  return db.prepare(
+    "SELECT * FROM domain_dns_setup WHERE org_id = ? AND domain = ? AND kind = ?"
+  ).get(orgId ?? "", domain, kind);
+}
+
+export function setDnsSetupStatus({ orgId, domain, kind, status, verified = false }) {
+  const now = new Date().toISOString();
+  db.prepare(`
+    UPDATE domain_dns_setup
+       SET status = @status,
+           applied_at = CASE WHEN @status = 'applied' AND applied_at IS NULL THEN @now ELSE applied_at END,
+           verified_at = CASE WHEN @verified = 1 THEN @now ELSE verified_at END
+     WHERE org_id = @org AND domain = @domain AND kind = @kind
+  `).run({ org: orgId ?? "", domain, kind, status, verified: verified ? 1 : 0, now });
 }
 
 // Idempotent: returns the existing user for this email, or creates one.
