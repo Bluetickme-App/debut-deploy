@@ -59,7 +59,8 @@ export const api = {
   // Returns the array of {time, level, message} lines; falls back if the shape is older (raw array/string).
   logs: (id) => req(`/services/${id}/logs`).then((d) => (Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : [])),
   metrics: (id) => req(`/services/${id}/metrics`),
-  metricsHistory: (id, window = "1h") => req(`/services/${id}/metrics/history?window=${window}`), // { window, series:{cpu,mem,net}, stats }
+  metricsHistory: (id, window = "1h") => req(`/services/${id}/metrics/history?window=${window}`), // { window, series:{cpu,mem,net,throughput,diskio,pids}, stats }
+  metricsHost: (window = "1h") => req(`/metrics/host?window=${window}`), // host CPU/RAM/disk % (admin)
   buildLogs: (id) => req(`/services/${id}/build-logs`), // { lines: [{time,type,message}], error? }
   envs: (id) => req(`/services/${id}/envs`),
   envScan: (id) => req(`/services/${id}/env-scan`), // { warnings: [...], scannable }

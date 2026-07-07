@@ -100,7 +100,7 @@ import * as domainconnect from "./domainconnect.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
-import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory } from "./metrics.js";
+import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory } from "./metrics.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
@@ -492,6 +492,22 @@ app.get(
     assertOwns(req.user, "application", req.params.id);
     const window = String(req.query.window || "1h");
     return demoMode ? demoHistory(window) : metricsHistory(req.params.id, window);
+  })
+);
+
+// Host capacity history (CPU/RAM/disk % of the box) — admin/operator view.
+app.get(
+  "/api/metrics/host",
+  requireAuth,
+  requireAdmin,
+  h(async (req) => {
+    const window = String(req.query.window || "1h");
+    if (demoMode) {
+      const d = demoHistory(window);
+      return { window: d.window, series: { cpu: d.series.cpu, mem: d.series.mem, disk: d.series.pids.map((p) => ({ t: p.t, v: 30 + p.v })) },
+        stats: { cpu: { current: d.stats.cpu.current }, mem: { current: d.stats.mem.current, bytes: 3.1e9, total: 8e9 }, disk: { current: 42, bytes: 34e9, total: 80e9 } } };
+    }
+    return hostHistory(window);
   })
 );
 

@@ -377,6 +377,23 @@ const MIGRATIONS = [
       );
     `);
   },
+  // -> user_version 24: extra per-service metrics (disk I/O, PIDs) + host capacity samples
+  (d) => {
+    d.exec(`
+      ALTER TABLE metrics_samples ADD COLUMN block_read_bytes INTEGER;
+      ALTER TABLE metrics_samples ADD COLUMN block_write_bytes INTEGER;
+      ALTER TABLE metrics_samples ADD COLUMN pids INTEGER;
+      CREATE TABLE host_samples (
+        sampled_at      TEXT NOT NULL,
+        cpu_pct         REAL,              -- 1-min loadavg / cores * 100
+        mem_used_bytes  INTEGER,
+        mem_total_bytes INTEGER,
+        disk_used_bytes INTEGER,
+        disk_total_bytes INTEGER
+      );
+      CREATE INDEX idx_host_samples_ts ON host_samples(sampled_at);
+    `);
+  },
 ];
 
 function resolveDbFile() {

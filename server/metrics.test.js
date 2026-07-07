@@ -17,16 +17,28 @@ test("parseBytes: binary vs SI units", () => {
   assert.equal(M.parseBytes("garbage"), null);
 });
 
-test("parseStatsLine: full line and malformed drop", () => {
-  const s = M.parseStatsLine("app-uuid123-x|0.87%|67.38MiB / 7.57GiB|4.20%|1.2kB / 3.4MB");
+test("parseStatsLine: full line (incl block I/O + PIDs) and malformed drop", () => {
+  const s = M.parseStatsLine("app-uuid123-x|0.87%|67.38MiB / 7.57GiB|4.20%|1.2kB / 3.4MB|5MB / 2MB|17");
   assert.equal(s.name, "app-uuid123-x");
   assert.equal(s.cpu_pct, 0.87);
   assert.equal(s.mem_pct, 4.2);
   assert.equal(s.mem_bytes, Math.round(67.38 * 1024 ** 2));
   assert.equal(s.net_rx_bytes, 1200);
   assert.equal(s.net_tx_bytes, 3_400_000);
+  assert.equal(s.block_read_bytes, 5_000_000);
+  assert.equal(s.block_write_bytes, 2_000_000);
+  assert.equal(s.pids, 17);
   assert.equal(M.parseStatsLine("only|two"), null);          // too few fields
   assert.equal(M.parseStatsLine("|x|y|z"), null);            // no name / bad cpu
+});
+
+test("parseHostCapacity: free/df/loadavg output → percentages", () => {
+  const out = "MEM_TOTAL=8000000000\nMEM_USED=3000000000\nDISK_TOTAL=80000000000\nDISK_USED=40000000000\nCORES=4\nLOAD1=2.0";
+  const h = M.parseHostCapacity(out);
+  assert.equal(h.mem_total_bytes, 8_000_000_000);
+  assert.equal(h.mem_used_bytes, 3_000_000_000);
+  assert.equal(h.disk_used_bytes, 40_000_000_000);
+  assert.equal(h.cpu_pct, 50);   // load 2.0 / 4 cores * 100
 });
 
 test("mapNamesToUuids: substring match, unowned dropped", () => {
@@ -47,7 +59,7 @@ test("windowCfg: known windows and default", () => {
 test("metricsHistory: empty → stats null", () => {
   const h = M.metricsHistory("nope", "1h");
   assert.equal(h.stats, null);
-  assert.deepEqual(h.series, { cpu: [], mem: [], net: [] });
+  assert.deepEqual(h.series, { cpu: [], mem: [], net: [], throughput: [], diskio: [], pids: [] });
 });
 
 test("metricsHistory: buckets, peak, current, net cumulative, retention", () => {
