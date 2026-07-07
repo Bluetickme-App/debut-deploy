@@ -2,7 +2,7 @@
 // index.js routes stay thin. Money is integer pence; balance = SUM(ledger).
 import Stripe from "stripe";
 import { db, getSetting, setSetting } from "./db.js";
-import { planPriceUsd } from "./plans.js";
+import { planPriceUsd, MAIL_PLANS } from "./plans.js";
 import { recordSystem } from "./audit.js";
 import { compFactor } from "./comp.js";
 
@@ -61,13 +61,23 @@ export const recentLedger = (orgId, limit = 20) =>
 export const currentPeriod = (d = new Date()) =>
   `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 
-// Sum the org's owned resources' plan price. Convert USD→pence once, after summing
-// (round once, not per-resource). NULL plan_id → 0 (free until assigned).
+// Email hosting is priced natively in GBP pence per mailbox (not USD→GBP converted).
+const MAILBOX_PENCE = MAIL_PLANS[0]?.pricePence || 299;
+
+// Per-org email charge (pence): mailbox count (tracked in mail_mailboxes) × the rate.
+export function mailChargePence(orgId) {
+  return db.prepare("SELECT COUNT(*) c FROM mail_mailboxes WHERE org_id = ?").get(orgId).c * MAILBOX_PENCE;
+}
+
+// Sum the org's owned resources' plan price + its email mailboxes. Compute/DB convert
+// USD→pence (round once); email is already GBP pence. comp/discount applies to both.
 export function computeMonthlyCharge(orgId) {
   const rows = db.prepare("SELECT plan_id FROM resource_ownership WHERE org_id = ?").all(orgId);
   const usd = rows.reduce((sum, r) => sum + planPriceUsd(r.plan_id), 0);
-  // Apply the org's comp/discount before the single USD→pence round (comp → factor 0 → £0).
-  return usdToPence(usd * compFactor(orgId));
+  const factor = compFactor(orgId);
+  const hardware = usdToPence(usd * factor);              // compute + DB (USD-priced)
+  const mail = Math.round(mailChargePence(orgId) * factor); // email (GBP-native)
+  return hardware + mail;
 }
 
 // Idempotent per (org, period). Debits the wallet (prepaid-only — NEVER calls Stripe).

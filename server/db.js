@@ -394,6 +394,25 @@ const MIGRATIONS = [
       CREATE INDEX idx_host_samples_ts ON host_samples(sampled_at);
     `);
   },
+  // -> user_version 25: email-hosting ownership + billing (domain → org, mailbox → org).
+  // Mailboxes tracked here so the monthly charge (sync) counts them without a live
+  // mailcow call; mailcow stays the source of truth for the mailboxes themselves.
+  (d) => {
+    d.exec(`
+      CREATE TABLE mail_domains (
+        domain     TEXT PRIMARY KEY,
+        org_id     INTEGER REFERENCES organizations(id),
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE mail_mailboxes (
+        address    TEXT PRIMARY KEY,
+        domain     TEXT NOT NULL,
+        org_id     INTEGER REFERENCES organizations(id),
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_mail_mailboxes_org ON mail_mailboxes(org_id);
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -866,3 +885,31 @@ export function ensureDefaultProjectEnv(orgId) {
   }
   return { projectId: proj.id, environmentId: env.id };
 }
+
+// --- email hosting: domain/mailbox ownership + billing counts ------------------
+export const setMailDomainOrg = (domain, orgId) =>
+  db.prepare("INSERT INTO mail_domains (domain, org_id, created_at) VALUES (?,?,?) " +
+    "ON CONFLICT(domain) DO UPDATE SET org_id = excluded.org_id").run(domain, orgId ?? null, nowIso());
+
+export const getMailDomainOrg = (domain) =>
+  db.prepare("SELECT org_id FROM mail_domains WHERE domain = ?").get(domain)?.org_id ?? null;
+
+export const listMailDomainOrgs = () =>
+  db.prepare("SELECT domain, org_id FROM mail_domains").all();
+
+// Domain removed → drop it and its mailbox rows (mailcow cascades the real mailboxes).
+export const deleteMailDomainRow = (domain) => {
+  db.prepare("DELETE FROM mail_mailboxes WHERE domain = ?").run(domain);
+  db.prepare("DELETE FROM mail_domains WHERE domain = ?").run(domain);
+};
+
+export const addMailboxRow = (address, domain, orgId) =>
+  db.prepare("INSERT INTO mail_mailboxes (address, domain, org_id, created_at) VALUES (?,?,?,?) " +
+    "ON CONFLICT(address) DO UPDATE SET domain = excluded.domain, org_id = excluded.org_id")
+    .run(address, domain, orgId ?? null, nowIso());
+
+export const deleteMailboxRow = (address) =>
+  db.prepare("DELETE FROM mail_mailboxes WHERE address = ?").run(address);
+
+export const orgMailboxCount = (orgId) =>
+  db.prepare("SELECT COUNT(*) c FROM mail_mailboxes WHERE org_id = ?").get(orgId).c;

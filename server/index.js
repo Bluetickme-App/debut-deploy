@@ -61,6 +61,11 @@ import {
   deleteRenderCredential,
   upsertDnsSetup,
   getDnsSetup,
+  setMailDomainOrg,
+  getMailDomainOrg,
+  deleteMailDomainRow,
+  addMailboxRow,
+  deleteMailboxRow,
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
@@ -916,6 +921,7 @@ app.get("/api/mail/domains", requireAuth, requireAdmin, h(async () => {
   const domains = await mail.listDomains();
   return Promise.all(domains.map(async (d) => ({
     ...d,
+    org_id: getMailDomainOrg(d.domain),
     records: [...mail.dnsRecords(d.domain), await mail.getDkimRecord(d.domain)].filter(Boolean),
     mailboxes: await mail.listMailboxes(d.domain).catch(() => []),
   })));
@@ -924,13 +930,16 @@ app.get("/api/mail/domains", requireAuth, requireAdmin, h(async () => {
 app.post("/api/mail/domains", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
   const domain = String(req.body?.domain || "").trim().toLowerCase();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) throw Object.assign(new Error("A valid domain is required"), { status: 400 });
+  const orgId = req.body?.orgId ? Number(req.body.orgId) : null; // owning account (for billing)
   await mail.createDomain(domain);
-  record(req, "mail.domain.create", { metadata: { domain } });
+  setMailDomainOrg(domain, orgId);
+  record(req, "mail.domain.create", { metadata: { domain, orgId } });
   return { domain, records: mail.dnsRecords(domain) };
 }));
 
 app.delete("/api/mail/domains/:domain", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
   await mail.deleteDomain(req.params.domain);
+  deleteMailDomainRow(req.params.domain); // drop ownership + mailbox billing rows
   record(req, "mail.domain.delete", { metadata: { domain: req.params.domain } });
   return { ok: true };
 }));
@@ -940,12 +949,15 @@ app.post("/api/mail/mailboxes", requireAuth, requireAdmin, mutateGuard, h(async 
   if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(address || ""))) throw Object.assign(new Error("A valid email address is required"), { status: 400 });
   if (!password || String(password).length < 8) throw Object.assign(new Error("Password must be at least 8 characters"), { status: 400 });
   await mail.createMailbox({ address, password, quotaMb: Number(quotaMb) || undefined });
+  const domain = String(address).slice(String(address).lastIndexOf("@") + 1);
+  addMailboxRow(address, domain, getMailDomainOrg(domain)); // bill to the domain's owning org
   record(req, "mail.mailbox.create", { metadata: { address } }); // never log the password
   return { ok: true, address };
 }));
 
 app.delete("/api/mail/mailboxes/:address", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
   await mail.deleteMailbox(req.params.address);
+  deleteMailboxRow(req.params.address); // stop billing for it
   record(req, "mail.mailbox.delete", { metadata: { address: req.params.address } });
   return { ok: true };
 }));
