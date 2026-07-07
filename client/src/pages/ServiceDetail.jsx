@@ -14,6 +14,7 @@ import ConfirmDelete from "../components/ConfirmDelete.jsx";
 import MoveToProject from "../components/MoveToProject.jsx";
 import AddDomainModal from "../components/AddDomainModal.jsx";
 import BillingGateModal from "../components/BillingGateModal.jsx";
+import DnsSetup from "../components/DnsSetup.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
 
@@ -1747,21 +1748,24 @@ function DomainsList({ serviceId, refreshKey }) {
   return (
     <div className="rounded-md border overflow-hidden" style={{ borderColor: "var(--border)" }}>
       {domains.map((d, i) => (
-        <div key={d.host} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5"
+        <div key={d.host} className="px-3.5 py-2.5"
           style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
-          <a href={`https://${d.host}`} target="_blank" rel="noreferrer" className="mono inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: "var(--accent-text)" }}>
-            {d.host}{d.free && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>free</span>}<ExternalLink className="h-3 w-3" />
-          </a>
-          <div className="flex items-center gap-2">
-            <DomainBadge ok={d.verified} okLabel="Verified" pendingLabel="DNS pending" />
-            <DomainBadge ok={d.certIssued} okLabel="Certificate" pendingLabel="Cert pending" />
-            <button onClick={() => remove(d.host)} disabled={busy === d.host} title="Remove domain"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--err)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}>
-              {busy === d.host ? <Spinner /> : <Trash2 className="h-3.5 w-3.5" />}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <a href={`https://${d.host}`} target="_blank" rel="noreferrer" className="mono inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: "var(--accent-text)" }}>
+              {d.host}{d.free && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>free</span>}<ExternalLink className="h-3 w-3" />
+            </a>
+            <div className="flex items-center gap-2">
+              <DomainBadge ok={d.verified} okLabel="Verified" pendingLabel="DNS pending" />
+              <DomainBadge ok={d.certIssued} okLabel="Certificate" pendingLabel="Cert pending" />
+              <button onClick={() => remove(d.host)} disabled={busy === d.host} title="Remove domain"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--err)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}>
+                {busy === d.host ? <Spinner /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            </div>
           </div>
+          {!d.free && <DnsSetup domain={d.host} kind="hosting" />}
         </div>
       ))}
     </div>

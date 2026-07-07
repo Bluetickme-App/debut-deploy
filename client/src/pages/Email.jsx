@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Mail, Plus, Trash2, Copy, Check, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { Mail, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Button, Field, Input, Spinner, EmptyState } from "../components/ui.jsx";
+import DnsSetup from "../components/DnsSetup.jsx";
 
 // Business email hosting — add a domain, publish its DNS, manage mailboxes.
 // Wired to the panel's /api/mail routes (Stalwart). Until the mail box is
@@ -83,7 +84,6 @@ export default function Email() {
 }
 
 function DomainCard({ d, webmail, onChange, onRemove }) {
-  const [open, setOpen] = useState(false);
   const [showMailbox, setShowMailbox] = useState(false);
   return (
     <Card>
@@ -119,47 +119,8 @@ function DomainCard({ d, webmail, onChange, onRemove }) {
         </div>
       )}
 
-      <button onClick={() => setOpen((v) => !v)} className="mt-3 flex items-center gap-1.5 text-xs font-medium" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--text-muted)" }}>
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} DNS records to publish ({d.records.length})
-      </button>
-      {open && <DnsTable records={d.records} webmail={webmail} domain={d.domain} />}
+      <DnsSetup domain={d.domain} kind="mail" webmail={webmail} />
     </Card>
-  );
-}
-
-function DnsTable({ records, webmail, domain }) {
-  const all = [...records, { type: "CNAME", name: webmail, value: "mail box", note: "Webmail (Roundcube)" }];
-  return (
-    <div className="mt-2 overflow-x-auto">
-      <table className="w-full text-[12px]">
-        <thead>
-          <tr style={{ color: "var(--text-muted)" }}>
-            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Type</th>
-            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Name</th>
-            <th className="px-2 py-1 text-left font-semibold uppercase tracking-wide">Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {all.map((r, i) => (
-            <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-              <td className="px-2 py-1.5 mono">{r.type}</td>
-              <td className="px-2 py-1.5 mono" style={{ color: "var(--text-muted)" }}>{r.name}</td>
-              <td className="px-2 py-1.5"><CopyVal value={r.value} /><div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{r.note}</div></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function CopyVal({ value }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
-      className="mono inline-flex items-center gap-1.5" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--text)" }} title="Copy">
-      {value} {copied ? <Check size={12} style={{ color: "var(--ok-text)" }} /> : <Copy size={12} style={{ opacity: 0.5 }} />}
-    </button>
   );
 }
 
