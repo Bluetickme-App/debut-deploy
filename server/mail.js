@@ -111,12 +111,24 @@ export async function deleteDomain(domain) {
   const acc = await accountId();
   const id = await domainId(domain);
   let r = await jmap([["x:Domain/set", { accountId: acc, destroy: [id] }, "0"]]);
-  // Enabling DKIM auto-creates DkimSignature objects linked to the domain; they
-  // block deletion with objectIsLinked. Destroy them, then retry the domain.
+  // A domain can't be destroyed while other principals reference it (objectIsLinked):
+  // its auto-generated DKIM signatures AND its mailboxes both pin it. The UI already
+  // warns "remove domain and all its mailboxes", so cascade both, then retry.
   const blocked = r[0]?.[1]?.notDestroyed?.[id];
   if (blocked?.type === "objectIsLinked") {
-    const dkim = (blocked.linkedObjects || []).filter((o) => o.object === "DkimSignature").map((o) => o.id);
+    const linked = blocked.linkedObjects || [];
+    // SystemSettings pins the mail server's DEFAULT domain — it genuinely can't be
+    // removed here (it also owns the admin account). Fail with a clear message.
+    if (linked.some((o) => o.object === "SystemSettings")) {
+      throw Object.assign(
+        new Error(`"${domain}" is the mail server's default domain and can't be removed. Add another domain and make it the default first.`),
+        { status: 409 },
+      );
+    }
+    const dkim = linked.filter((o) => o.object === "DkimSignature").map((o) => o.id);
+    const accounts = linked.filter((o) => o.object === "Account").map((o) => o.id);
     if (dkim.length) await jmap([["x:DkimSignature/set", { accountId: acc, destroy: dkim }, "0"]]);
+    if (accounts.length) await jmap([["x:Account/set", { accountId: acc, destroy: accounts }, "0"]]);
     r = await jmap([["x:Domain/set", { accountId: acc, destroy: [id] }, "0"]]);
   }
   assertSet(r[0]);
