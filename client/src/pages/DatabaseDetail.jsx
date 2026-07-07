@@ -84,6 +84,70 @@ function DbPlanScale({ dbUuid, currentPlanId, onSaved }) {
   );
 }
 
+function CopyBtn({ value }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <button type="button" title="Copy"
+      onClick={() => { navigator.clipboard?.writeText(value); setOk(true); setTimeout(() => setOk(false), 1200); }}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--text-muted)" }}>
+      <Copy size={14} /> {ok ? "copied" : ""}
+    </button>
+  );
+}
+
+// On-demand reveal of the database's connection details. Nothing is fetched until
+// the owner/admin clicks Reveal; the password sits behind a show/hide toggle.
+function DbCredentials({ dbUuid }) {
+  const [creds, setCreds] = useState(null);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function reveal() {
+    setBusy(true); setErr(null);
+    try { setCreds(await api.dbCredentials(dbUuid)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <SettingsSection id="credentials" title="Connection details">
+      {!creds ? (
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={reveal} disabled={busy}>{busy ? <Spinner /> : <Eye size={16} />} Reveal</Button>
+          {err && <span className="text-sm" style={{ color: "var(--err-text)" }}>{err}</span>}
+        </div>
+      ) : (
+        <>
+          <SettingsRow label="Username"><span className="mono">{creds.username || "—"}</span></SettingsRow>
+          <SettingsRow label="Password">
+            <span className="mono">{show ? (creds.password ?? "—") : "••••••••••"}</span>{" "}
+            <button type="button" onClick={() => setShow((v) => !v)} title={show ? "Hide" : "Show"}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+              {show ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+            {creds.password && <> <CopyBtn value={creds.password} /></>}
+          </SettingsRow>
+          <SettingsRow label="Host"><span className="mono">{creds.internalHost}:{creds.internalPort}</span></SettingsRow>
+          {creds.database && <SettingsRow label="Database"><span className="mono">{creds.database}</span></SettingsRow>}
+          {creds.internalUrl && (
+            <SettingsRow label="Internal URL">
+              <span className="mono break-all">{show ? creds.internalUrl : creds.internalUrl.replace(/:[^:@/]+@/, ":••••@")}</span> <CopyBtn value={creds.internalUrl} />
+            </SettingsRow>
+          )}
+          <SettingsRow label="External URL">
+            {creds.externalUrl ? (
+              <><span className="mono break-all">{show ? creds.externalUrl : creds.externalUrl.replace(/:[^:@/]+@/, ":••••@")}</span> <CopyBtn value={creds.externalUrl} /></>
+            ) : (
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>No public port — enable one to connect from outside the platform.</span>
+            )}
+          </SettingsRow>
+        </>
+      )}
+    </SettingsSection>
+  );
+}
+
 export default function DatabaseDetail() {
   const { uuid } = useParams();
   const navigate = useNavigate();
@@ -224,7 +288,10 @@ export default function DatabaseDetail() {
           </SettingsRow>
         </SettingsSection>
 
-        {/* 3 · Connections */}
+        {/* 3 · Connection details (on-demand reveal) */}
+        <DbCredentials dbUuid={uuid} />
+
+        {/* 4 · Connections */}
         <SettingsSection id="connections" title="Connections">
           <SettingsRow label="Hostname" desc="Internal hostname within the Coolify network.">
             <ReadOnly mono value={db.host || "—"} />
