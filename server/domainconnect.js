@@ -5,7 +5,7 @@
 import { resolveTxt as _resolveTxt } from "node:dns/promises";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, createSign } from "node:crypto";
 import { dnsRecords } from "./mail.js";
 import { appRecords, expectedIp } from "./dns.js";
 import { setDnsSetupStatus } from "./db.js";
@@ -53,9 +53,17 @@ export function readState(token) {
   }
 }
 
+function signQuery(search) {
+  if (process.env.DOMAINCONNECT_SIGNING !== "on" || !process.env.DOMAINCONNECT_PRIVATE_KEY) return null;
+  const sig = createSign("RSA-SHA256").update(search).sign(process.env.DOMAINCONNECT_PRIVATE_KEY, "base64");
+  return { sig, key: process.env.DOMAINCONNECT_KEY_HOST || "_dcsig" };
+}
+
 export function buildApplyUrl({ urlSyncUX, domain, kind, params, redirectUri, state }) {
   const base = `${urlSyncUX.replace(/\/$/, "")}/v2/domainTemplates/providers/${PROVIDER_ID}/services/${kind}/apply`;
   const q = new URLSearchParams({ domain, ...params, redirect_uri: redirectUri, state });
+  const signed = signQuery(q.toString());
+  if (signed) { q.set("sig", signed.sig); q.set("key", signed.key); }
   return `${base}?${q.toString()}`;
 }
 
