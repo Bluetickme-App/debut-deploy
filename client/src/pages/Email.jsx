@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Mail, Plus, Trash2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Button, Field, Input, Spinner, EmptyState } from "../components/ui.jsx";
 import DnsSetup from "../components/DnsSetup.jsx";
@@ -127,6 +127,7 @@ function DomainCard({ d, webmail, onChange, onRemove }) {
 function NewMailbox({ domain, onDone }) {
   const [local, setLocal] = useState("");
   const [pw, setPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   async function create(e) {
@@ -141,7 +142,15 @@ function NewMailbox({ domain, onDone }) {
         <Field label="Mailbox"><Input placeholder="hello" value={local} onChange={(e) => setLocal(e.target.value.replace(/[^a-z0-9._-]/gi, ""))} /></Field>
         <span className="pb-2.5 text-sm" style={{ color: "var(--text-muted)" }}>@{domain}</span>
       </div>
-      <Field label="Password"><Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="min 8 chars" /></Field>
+      <Field label="Password">
+        <div className="flex items-center gap-1.5">
+          <Input type={showPw ? "text" : "password"} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="min 8 chars" />
+          <button type="button" onClick={() => setShowPw((v) => !v)} title={showPw ? "Hide password" : "Show password"}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, lineHeight: 0, color: "var(--text-muted)" }}>
+            {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+      </Field>
       <Button type="submit" variant="primary" disabled={busy || !local || pw.length < 8}>{busy ? <Spinner /> : "Create"}</Button>
       {err && <p className="w-full text-sm" style={{ color: "var(--err-text)" }}>{err}</p>}
     </form>
