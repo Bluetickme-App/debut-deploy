@@ -183,12 +183,69 @@ mail-server status, **queue depth**, failed deliveries, **SES sending quota + bo
 complaint rate**, suspended mailboxes, domains pending DNS verification, domains failing
 DKIM/SPF/DMARC, backup status, and last restore-test result.
 
-## Billing
+## Billing & pricing
 
-A **mailbox = a new billable resource kind**, per-seat monthly plan, metered through the
-existing wallet/subscription spine (add seat = metered resource; remove = meter stops).
-**COGS folds in the Stalwart Enterprise per-mailbox license + SES per-email** — still
-comfortably under Google/MS per-seat, but not free; the pricing page math must reflect it.
+A **mailbox = a new billable resource kind**, sold **per seat / month**, metered through
+the existing wallet/subscription spine (add seat = metered resource; delete = meter stops;
+**suspend for abuse does *not* stop billing** — matches the test in Testing). Aliases and
+catch-all are **not** paid mailboxes.
+
+### Market research — custom-domain email, per mailbox/month (verified 2026-07-06; re-check, pricing drifts)
+
+| Provider | Effective £/mailbox/mo | Storage | Notes |
+|---|---|---|---|
+| Migadu Micro | ~pennies — flat **$19/yr** per account, unlimited mailboxes | 5 GB *account total* | **20 sent/day** cap; self-serve only |
+| MXroute Small | ~pennies — flat **$59/yr**, unlimited mailboxes/domains | 10 GB total | 400/hr; self-serve, no managed onboarding |
+| Purelymail | ~£0.70 — **$10/yr** per mailbox (3 GB), usage-priced | usage-based | pay-for-infrastructure |
+| Namecheap Private Email | ~£0.79 | 5 GB | per-mailbox |
+| Zoho Mail Lite | ~£0.90 — **$1**/user/mo | 5–10 GB | free tier: 5 users, 1 domain |
+| **Google Workspace Starter** | **£5.90** | 30 GB | premium anchor |
+| **Microsoft 365 Business Basic** | **£5.40** | 100 GB | premium anchor |
+
+Two markets: **premium** (Google/MS, £5–6, the "expensive" the product undercuts) and a
+**cheap floor** (Zoho/Namecheap per-mailbox ~£0.80–0.90; Migadu/MXroute flat-rate ~pennies
+but with tiny send caps + self-serve + no managed onboarding). We do **not** chase the
+flat-rate floor — differentiation is *managed DNS onboarding, panel + hosting integration,
+webmail, SES-backed sending with real limits, GBP billing + support*.
+
+### COGS per mailbox / month (GBP, modest scale)
+
+```text
+Stalwart Enterprise licence   ~£0.14   (€2/mailbox/yr)
+SES outbound (~900 mail/mo)   ~£0.08   ($0.10 per 1,000; inbound is free — our Stalwart)
+Compute (CX box ÷ 200–500 mbx) ~£0.02
+Storage + off-box backup      ~£0.10–0.30  (2–5 GB @ Hetzner + backup, 30-day retention) ← the swing cost
+────────────────────────────  ───────
+marginal COGS                 ~£0.35–0.55 / mailbox / mo
+```
+
+### Recommended retail (GBP / mailbox / mo)
+
+| Tier | Price | Storage | Send limit | Margin @ COGS ~£0.50 |
+|---|---|---|---|---|
+| **Lite** | £1.50 | 5 GB | standard | ~£1.00 (≈66%) |
+| **Standard** | £3.00 | 30 GB | standard | ~£2.50 (≈80%) |
+
+Lite matches the cheap per-mailbox floor (Zoho/Namecheap) on price with better sending +
+onboarding; Standard is **~half** of Google/MS with comparable storage. Both keep healthy
+margin. (Pricing is a lever, not locked — these are the defaults the pricing page starts
+from.) ponytail: two tiers to start; add a Pro/large-quota tier only if demand shows it.
+
+### Integration with the billing spine
+
+- New **`MAIL_PLANS`** in `plans.js` (alongside `COMPUTE_PLANS`/`DB_PLANS`): `{ id,
+  name, priceMo (GBP), storageGb, sendPerDay }`. `metering.js` already turns `priceMo`
+  into a pence/hour rate — a mailbox meters exactly like compute (`planRatePencePerHour`),
+  no new billing maths.
+- Mailbox rows carry `plan_id`; the wallet/subscription flow, arrears, and suspension
+  sweep all apply unchanged.
+- **Margin visibility:** the mail ops dashboard shows COGS (licence + SES + storage) vs
+  billed revenue so the per-tier margin above is monitored, not assumed.
+
+Sources: [Google Workspace pricing](https://workspace.google.com/pricing) ·
+[Microsoft 365 Business](https://www.microsoft.com/en-gb/microsoft-365/business/compare-all-microsoft-365-business-products) ·
+[Migadu pricing](https://www.migadu.com/pricing/) · [MXroute](https://mxroute.com/) ·
+[Purelymail](https://purelymail.com/) · [Zoho Mail pricing](https://www.zoho.com/mail/zohomail-pricing.html)
 
 ## Security / compliance
 
