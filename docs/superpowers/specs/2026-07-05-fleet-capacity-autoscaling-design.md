@@ -244,6 +244,42 @@ are full or unknown → **block** the deploy; never guess, never provision past
 - Auto-migrating/rebalancing existing sites for packing efficiency (only relocation for
   scale-down, not continuous rebalancing).
 
+## Unit economics & cost model (why the gate = the margin)
+
+No new customer billing here — apps on shared boxes are already billed via
+`COMPUTE_PLANS` (`plans.js`). This is the **operator cost model**, because autoscaling
+turns hosting cost from "one box" into "a fleet that grows with billed load".
+
+**A box is a fixed step cost.** A shared 8 GB box ≈ **€7–9/mo** (verify the current
+Hetzner CX SKU). Usable pool ≈ 8 GB − ~1.2 GB headroom ≈ **6.8 GB** on a workload agent
+box. Committed RAM (the placement gate) *is* the packing density, so **the same
+reservation number that prevents OOM also sets revenue-per-box:**
+
+```text
+packed with   reserve   sites/box   revenue/box (price)   box cost   gross/box
+Hobby  $5      0.5 GB      ~13         ~$65                 ~$8        ~$57  (~88%)
+Starter $9     1 GB        ~6          ~$54                 ~$8        ~$46  (~85%)
+Pro    $15     2 GB        ~3          ~$45                 ~$8        ~$37  (~82%)
+```
+
+Per-plan `costMo` in `plans.js` already encodes this — **but it assumes a *packed* box.**
+
+**The autoscaling wrinkle:** a freshly provisioned box is **partially filled**, so its
+true cost is the full ~€8/mo with only a fraction of the revenue until it fills. That's
+the economic guardrail, and it maps onto the scaling rules already in this spec:
+- **Provision only on genuine need** (unschedulable), so a new box always opens with ≥1
+  paying site — break-even is ~1 Pro or ~2 Starter, reached immediately.
+- **Overprovision-ahead spare = a deliberate, capped cost** (~€8/mo of idle box) bought to
+  hide the ~2-min cold-provision latency. Worth it, but it's why `MAX_SHARED_BOXES` and
+  the 85% ahead-threshold exist — don't hold more than one spare.
+- **`MIN_SHARED_BOXES` = your baseline fixed cost** (the warm floor runs even at zero load).
+- **Dedicated boxes are cost-passthrough** — the client pays the box via the dedicated
+  plans (Pro Plus $45 / Scale $85, `shared:false`), so they never dilute shared margin.
+
+**Fleet dashboard shows it:** per box, billed revenue (Σ plan price of its sites) vs
+Hetzner cost → live gross margin, so a chronically half-empty provisioned box is visible,
+not silently eating the ~85% margin the packed math assumes.
+
 ## Risks
 
 - **Autoscale spends money with no human** — mitigated by kill switch + hard cap +
