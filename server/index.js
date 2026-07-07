@@ -907,7 +907,7 @@ app.post(
   })
 );
 
-// ── Business email hosting (Stalwart) — admin/operator only in Phase 1 ─────────
+// ── Business email hosting (mailcow) — admin/operator only in Phase 1 ──────────
 app.get("/api/mail/status", requireAuth, requireAdmin, h(async () => ({
   configured: mail.isConfigured(), hostname: mail.MAIL_HOSTNAME, webmail: mail.MAIL_WEBMAIL,
 })));
@@ -915,7 +915,8 @@ app.get("/api/mail/status", requireAuth, requireAdmin, h(async () => ({
 app.get("/api/mail/domains", requireAuth, requireAdmin, h(async () => {
   const domains = await mail.listDomains();
   return Promise.all(domains.map(async (d) => ({
-    ...d, records: mail.dnsRecords(d.domain),
+    ...d,
+    records: [...mail.dnsRecords(d.domain), await mail.getDkimRecord(d.domain)].filter(Boolean),
     mailboxes: await mail.listMailboxes(d.domain).catch(() => []),
   })));
 }));
