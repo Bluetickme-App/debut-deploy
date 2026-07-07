@@ -74,6 +74,7 @@ export const api = {
   database: (uuid) => req(`/databases/${uuid}`),
   renameDatabase: (uuid, name) => req(`/databases/${uuid}/rename`, { method: "PATCH", body: { name } }),
   deleteDatabase: (uuid) => req(`/databases/${uuid}`, { method: "DELETE" }),
+  dbCredentials: (id) => req(`/databases/${encodeURIComponent(id)}/credentials`),
   servers: () => req("/servers"),
   getRepos: () =>
     fetch("/api/github/repos", { credentials: "same-origin" }).then((res) => {

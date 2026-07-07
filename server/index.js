@@ -91,6 +91,7 @@ import { provisionServer } from "./provision.js";
 import { importFromRender, migratePostgres } from "./migrate.js";
 import { scanEnv } from "./envscan.js";
 import * as mail from "./mail.js";
+import * as dbcreds from "./dbcreds.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
 import { computePlans, dbPlans } from "./plans.js";
@@ -764,6 +765,19 @@ app.get(
     // Merge the billing plan so the detail page can show price + preselect the tier.
     const own = db.prepare("SELECT plan_id FROM resource_ownership WHERE type='database' AND coolify_uuid = ?").get(req.params.uuid);
     return { ...d, plan_id: own?.plan_id || null };
+  })
+);
+
+// Reveal a database's connection credentials (owner or admin). On-demand: reads the
+// running container's env via docker inspect over SSH — never stored. Audit-logged.
+app.get(
+  "/api/databases/:id/credentials",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "database", req.params.id);
+    const creds = await dbcreds.getDatabaseCredentials(req.params.id);
+    record(req, "db.credentials.reveal", { resourceType: "database", resourceUuid: req.params.id });
+    return creds;
   })
 );
 
