@@ -1669,13 +1669,14 @@ app.patch(
   requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    const { rootDirectory, buildCommand, startCommand, preDeployCommand, healthCheckPath } = req.body || {};
+    const { rootDirectory, buildCommand, startCommand, preDeployCommand, healthCheckPath, branch } = req.body || {};
     await coolify.patchApp(req.params.id, {
       base_directory: rootDirectory,
       build_command: buildCommand,
       start_command: startCommand,
       pre_deployment_command: preDeployCommand,
       health_check_path: healthCheckPath,
+      git_branch: branch,  // deploy a test branch — applied on next deploy
     });
     record(req, "app.build", { resourceType: "application", resourceUuid: req.params.id });
     return { ok: true };

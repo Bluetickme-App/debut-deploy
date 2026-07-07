@@ -123,7 +123,12 @@ export function Spinner({ className = "" }) {
 
 export function timeAgo(iso) {
   if (!iso) return "—";
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  // Coolify stores timestamps as UTC WITHOUT a zone ("2026-07-06 15:47:47"); the
+  // browser would parse that as local time, skewing every "x ago" by the tz offset
+  // (why a 1-min-old deploy read "1h ago"). Treat a zone-less stamp as UTC.
+  const str = String(iso);
+  const d = /(Z|[+-]\d\d:?\d\d)$/.test(str) ? new Date(str) : new Date(str.replace(" ", "T") + "Z");
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;

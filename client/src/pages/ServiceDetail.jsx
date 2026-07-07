@@ -46,6 +46,16 @@ export default function ServiceDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
+  // A deploy is live when any listed deploy is still building/queued.
+  const deploying = (deploys || []).some((d) => /in_progress|queued|building/i.test(d.status || ""));
+
+  // While a deploy runs, poll the list so the spinner starts AND clears on its own.
+  useEffect(() => {
+    if (!deploying) return;
+    const t = setInterval(() => api.deployments(id).then(setDeploys).catch(() => {}), 5000);
+    return () => clearInterval(t);
+  }, [deploying, id]);
+
   async function action(kind, arg) {
     setBusy(true);
     try {
@@ -136,7 +146,7 @@ export default function ServiceDetail() {
         {/* action buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
           <DeployMenu
-            busy={busy}
+            busy={busy || deploying}
             onLatest={() => action("deploy")}
             onSpecific={() => {
               const c = window.prompt("Commit SHA to deploy:");
@@ -190,7 +200,7 @@ export default function ServiceDetail() {
       </div>
 
       {tab === "Deployments" && (
-        <Deployments deploys={deploys} serviceId={id} onRedeploy={() => action("deploy")} onDeploysChange={setDeploys} />
+        <Deployments deploys={deploys} serviceId={id} repo={svc.repo} onRedeploy={() => action("deploy")} onDeploysChange={setDeploys} />
       )}
       {tab === "Logs" && <LogsTab serviceId={id} name={svc.name} />}
       {tab === "Metrics" && <MetricsTab serviceId={id} />}
@@ -270,7 +280,14 @@ function runtimeName(runtime) {
 
 // ── Deployments tab ────────────────────────────────────────────────────────────
 
-function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
+// Repo → the GitHub base for linking commits (git@…:owner/repo.git or https URL).
+function githubBase(repo) {
+  const m = String(repo || "").match(/github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?$/i);
+  return m ? `https://github.com/${m[1]}` : null;
+}
+
+function Deployments({ deploys, serviceId, repo, onRedeploy, onDeploysChange }) {
+  const ghBase = githubBase(repo);
   async function rollback(d) {
     if (!d.commit) return;
     if (!window.confirm(`Roll back to commit ${d.commit}?\n\nThis will redeploy the service at that commit.`)) return;
@@ -291,16 +308,17 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
 
   const isOk = (d) => /success|finished|running|healthy|live/i.test(d.status || "");
   const isFail = (d) => /fail|error/i.test(d.status || "");
+  const deploying = deploys.some((d) => /in_progress|queued|building/i.test(d.status || ""));
   let liveSeen = false;
 
   return (
     <div>
       <div className="mb-3.5 flex items-center justify-between">
         <span className="text-[13px]" style={{ color: "var(--text-muted)" }}>
-          Showing latest {deploys.length} deploy{deploys.length === 1 ? "" : "s"}
+          {deploying ? "Deploying…" : `Showing latest ${deploys.length} deploy${deploys.length === 1 ? "" : "s"}`}
         </span>
-        <Button variant="secondary" onClick={onRedeploy}>
-          <RotateCw className="h-3.5 w-3.5" /> Redeploy latest
+        <Button variant="secondary" onClick={onRedeploy} disabled={deploying}>
+          {deploying ? <Spinner /> : <RotateCw className="h-3.5 w-3.5" />} {deploying ? "Deploying…" : "Redeploy latest"}
         </Button>
       </div>
 
@@ -336,7 +354,15 @@ function Deployments({ deploys, serviceId, onRedeploy, onDeploysChange }) {
                   {d.message || "—"}
                 </div>
                 <div className="mt-[3px] text-[11.5px]" style={{ color: "var(--text-muted)" }}>
-                  <Mono>{d.commit || "—"}</Mono> · <Mono>{d.branch || "main"}</Mono> · {d.trigger || "manual"}
+                  {d.commit && ghBase ? (
+                    <a href={`${ghBase}/commit/${d.commit}`} target="_blank" rel="noreferrer"
+                       onClick={(e) => e.stopPropagation()}
+                       className="hover:underline" style={{ color: "var(--accent-text)" }}
+                       title={`View commit ${d.commit} on GitHub`}>
+                      <Mono>{d.commit}</Mono>
+                    </a>
+                  ) : <Mono>{d.commit || "—"}</Mono>}
+                  {" · "}<Mono>{d.branch || "main"}</Mono> · {d.trigger || "manual"}
                 </div>
               </div>
               <span
@@ -1237,6 +1263,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
   const platformIp = user?.platformIp;
 
   // build & deploy (wired to /build; backend may 404 until added)
+  const [branch, setBranch] = useState(svc.branch || "main");
   const [rootDir, setRootDir] = useState(svc.rootDirectory || "");
   const [buildCmd, setBuildCmd] = useState(svc.buildCommand || "");
   const [startCmd, setStartCmd] = useState(svc.startCommand || "");
@@ -1296,6 +1323,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          branch: branch.trim() || undefined,
           rootDirectory: rootDir.trim() || undefined,
           buildCommand: buildCmd.trim(),
           startCommand: startCmd.trim(),
@@ -1378,8 +1406,11 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           <SettingsRow label="Source" desc="Repository this service builds from.">
             <ReadOnly mono value={svc.repo || "—"} />
           </SettingsRow>
-          <SettingsRow label="Branch" desc="Branch used for deploys.">
-            <ReadOnly mono value={svc.branch || "main"} />
+          <SettingsRow label="Branch" desc="Branch used for deploys. Change to deploy a test branch, then redeploy.">
+            <div className="flex flex-col gap-2">
+              <TextInput mono value={branch} onChange={setBranch} placeholder="main" />
+              <SaveInline busy={buildBusy} msg={buildMsg} onSave={saveBuild} />
+            </div>
           </SettingsRow>
           <SettingsRow label="Root directory" desc="Optional. Subdirectory to build from.">
             <TextInput mono value={rootDir} onChange={setRootDir} placeholder="./" />
