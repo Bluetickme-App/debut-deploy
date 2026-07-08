@@ -107,7 +107,7 @@ export async function getDkimRecord(domain) {
     const d = await mc("GET", `get/dkim/${encodeURIComponent(domain)}`);
     if (!d || !d.dkim_txt) return null;
     const selector = d.dkim_selector || "dkim";
-    return { type: "TXT", name: `${selector}._domainkey.${domain}`, value: d.dkim_txt, note: "DKIM (from mailcow)" };
+    return { key: "dkim", required: true, type: "TXT", name: `${selector}._domainkey.${domain}`, value: d.dkim_txt, note: "DKIM (from mailcow)" };
   } catch {
     return null;
   }
@@ -118,11 +118,15 @@ export async function getDkimRecord(domain) {
 // itself (not a relay). DKIM is appended by the route via getDkimRecord().
 export function dnsRecords(domain) {
   const host = MAIL_HOSTNAME;
+  // `key` matches the per-record verification in dns.js verifyMailDns so the panel can show a
+  // ✓/✗ on each line. `required` marks the records that mail actually needs (MX/SPF/DMARC) —
+  // the autoconfig/autodiscover/webmail CNAMEs are convenience and don't fail the overall badge.
   return [
-    { type: "MX", name: domain, value: `10 ${host}`, note: "Route inbound mail to your mail box" },
-    { type: "TXT", name: domain, value: "v=spf1 mx ~all", note: "SPF — authorises your mail host to send. Merge with any existing SPF." },
-    { type: "TXT", name: `_dmarc.${domain}`, value: `v=DMARC1; p=quarantine; rua=mailto:postmaster@${domain}`, note: "DMARC — start at quarantine" },
-    { type: "CNAME", name: `autoconfig.${domain}`, value: host, note: "Thunderbird autoconfig" },
-    { type: "CNAME", name: `autodiscover.${domain}`, value: host, note: "Outlook autodiscover" },
+    { key: "mx",    required: true,  type: "MX",  name: domain, value: `10 ${host}`, note: "Route inbound mail to your mail box" },
+    { key: "spf",   required: true,  type: "TXT", name: domain, value: "v=spf1 mx ~all", note: "SPF — authorises your mail host to send. Merge with any existing SPF." },
+    { key: "dmarc", required: true,  type: "TXT", name: `_dmarc.${domain}`, value: `v=DMARC1; p=quarantine; rua=mailto:postmaster@${domain}`, note: "DMARC — start at quarantine" },
+    { key: "autoconfig",   required: false, type: "CNAME", name: `autoconfig.${domain}`,   value: host, note: "Thunderbird autoconfig" },
+    { key: "autodiscover", required: false, type: "CNAME", name: `autodiscover.${domain}`, value: host, note: "Outlook autodiscover" },
+    { key: "webmail",      required: false, type: "CNAME", name: `webmail.${domain}`,      value: host, note: "Webmail" },
   ];
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Plus, Trash2, AlertTriangle, Eye, EyeOff, Check } from "lucide-react";
+import { Mail, Plus, Trash2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Button, Field, Input, Spinner, EmptyState } from "../components/ui.jsx";
 import DnsSetup from "../components/DnsSetup.jsx";
@@ -139,7 +139,8 @@ function MailClientSettings({ host }) {
 
 function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
   const [showMailbox, setShowMailbox] = useState(false);
-  const [checks, setChecks] = useState(null);   // null | [{key,label,ok,detail}]
+  // Seed from the last cached verify (persisted on the domain row) so checks show on load.
+  const [checks, setChecks] = useState(d.dnsChecks || null);   // null | [{key,label,ok,detail,required}]
   const [verifying, setVerifying] = useState(false);
   const count = (d.mailboxes || []).length;
   const owner = orgs?.find((o) => o.id === d.org_id)?.name;
@@ -150,7 +151,9 @@ function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
     catch (e) { alert(e.message); }
     finally { setVerifying(false); }
   }
-  const allOk = checks && checks.every((c) => c.ok);
+  // The overall badge keys on the REQUIRED records only — the convenience CNAMEs
+  // (autoconfig/autodiscover/webmail) don't make a working mail domain "incomplete".
+  const allOk = checks && checks.filter((c) => c.required).every((c) => c.ok);
   return (
     <Card>
       <div className="flex items-center gap-3">
@@ -175,17 +178,6 @@ function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
         <button onClick={onRemove} title="Remove domain" className="btn btn-ghost p-1.5" style={{ color: "var(--err-text)" }}><Trash2 size={16} /></button>
       </div>
 
-      {checks && (
-        <div className="mt-3 flex flex-wrap gap-2 border-t pt-2.5" style={{ borderColor: "var(--border)" }}>
-          {checks.map((c) => (
-            <span key={c.key} title={c.detail} className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
-              style={{ background: "var(--surface-2)", color: c.ok ? "var(--ok-text)" : "var(--text-muted)" }}>
-              {c.ok ? <Check size={12} /> : <span style={{ color: "var(--err-text)" }}>✕</span>} {c.label}
-            </span>
-          ))}
-        </div>
-      )}
-
       {showMailbox && <NewMailbox domain={d.domain} onDone={() => { setShowMailbox(false); onChange(); }} />}
 
       {(d.mailboxes || []).length > 0 && (
@@ -208,7 +200,7 @@ function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
         </div>
       )}
 
-      <DnsSetup domain={d.domain} kind="mail" webmail={webmail} records={d.records} />
+      <DnsSetup domain={d.domain} kind="mail" records={d.records} checks={checks} />
     </Card>
   );
 }

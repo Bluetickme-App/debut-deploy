@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Copy, Check, ChevronDown, ChevronRight, Wand2 } from "lucide-react";
+import { Copy, Check, X, ChevronDown, ChevronRight, Wand2 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Button, Spinner } from "./ui.jsx";
 
 // One-click DNS setup for a domain. `kind` is "mail" or "hosting". Falls back to a
 // copy-paste records table when the provider isn't Domain-Connect-capable.
-export default function DnsSetup({ domain, kind, webmail, records: initialRecords }) {
+export default function DnsSetup({ domain, kind, records: initialRecords, checks }) {
   const [state, setState] = useState(null); // { supported, provider, applyUrl, records }
   const [status, setStatus] = useState(null); // { status, provider, verified }
   const [open, setOpen] = useState(false);
@@ -49,31 +49,41 @@ export default function DnsSetup({ domain, kind, webmail, records: initialRecord
           </button>
         )}
       </div>
-      {open && records && <RecordsTable records={records} webmail={webmail} kind={kind} />}
+      {open && records && <RecordsTable records={records} checks={checks} />}
     </div>
   );
 }
 
-function RecordsTable({ records, webmail, kind }) {
-  const all = kind === "mail" && webmail
-    ? [...records, { type: "CNAME", name: webmail, value: "mail.debutdepoly.com", note: "Webmail" }]
-    : records;
+function RecordsTable({ records, checks }) {
+  // Match each record to its live verification by `key` → the ✓/✗ sits on its own line.
+  const byKey = Object.fromEntries((checks || []).map((c) => [c.key, c]));
   return (
     <div className="mt-2 overflow-x-auto">
       <table className="w-full text-[12px]">
         <thead><tr style={{ color: "var(--text-muted)" }}>
+          <th className="px-2 py-1 text-left font-semibold uppercase" style={{ width: 22 }} aria-label="Status" />
           <th className="px-2 py-1 text-left font-semibold uppercase">Type</th>
           <th className="px-2 py-1 text-left font-semibold uppercase">Name</th>
           <th className="px-2 py-1 text-left font-semibold uppercase">Value</th>
         </tr></thead>
         <tbody>
-          {all.map((r, i) => (
-            <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-              <td className="px-2 py-1.5 mono">{r.type}</td>
-              <td className="px-2 py-1.5 mono" style={{ color: "var(--text-muted)" }}>{r.name}</td>
-              <td className="px-2 py-1.5"><CopyVal value={r.value} /><div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{r.note}</div></td>
-            </tr>
-          ))}
+          {records.map((r, i) => {
+            const c = r.key ? byKey[r.key] : null;
+            return (
+              <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                <td className="px-2 py-1.5 align-top" title={c ? `${c.label}: ${c.detail}` : ""}>
+                  {c
+                    ? (c.ok
+                      ? <Check size={13} style={{ color: "var(--ok-text)" }} />
+                      : <X size={13} style={{ color: "var(--err-text)" }} />)
+                    : <span style={{ color: "var(--text-muted)", opacity: 0.4 }}>·</span>}
+                </td>
+                <td className="px-2 py-1.5 mono align-top">{r.type}</td>
+                <td className="px-2 py-1.5 mono align-top" style={{ color: "var(--text-muted)" }}>{r.name}</td>
+                <td className="px-2 py-1.5"><CopyVal value={r.value} /><div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{r.note}</div></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

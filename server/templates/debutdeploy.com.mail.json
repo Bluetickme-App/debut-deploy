@@ -9,6 +9,7 @@
     { "type": "TXT", "host": "@", "data": "v=spf1 mx ~all", "ttl": 3600 },
     { "type": "TXT", "host": "_dmarc", "data": "v=DMARC1; p=quarantine; rua=mailto:postmaster@%domain%", "ttl": 3600 },
     { "type": "CNAME", "host": "autoconfig", "pointsTo": "mail.debutdepoly.com", "ttl": 3600 },
-    { "type": "CNAME", "host": "autodiscover", "pointsTo": "mail.debutdepoly.com", "ttl": 3600 }
+    { "type": "CNAME", "host": "autodiscover", "pointsTo": "mail.debutdepoly.com", "ttl": 3600 },
+    { "type": "CNAME", "host": "webmail", "pointsTo": "mail.debutdepoly.com", "ttl": 3600 }
   ]
 }

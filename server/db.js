@@ -413,6 +413,15 @@ const MIGRATIONS = [
       CREATE INDEX idx_mail_mailboxes_org ON mail_mailboxes(org_id);
     `);
   },
+  // -> user_version 26: cache a mail domain's last DNS verification (per-record ✓/✗) so the
+  // Email panel shows status on load without re-querying DNS, until the next Verify run.
+  // Nullable JSON; cascades away with the domain row (deleteMailDomainRow).
+  (d) => {
+    d.exec(`
+      ALTER TABLE mail_domains ADD COLUMN dns_checks     TEXT;
+      ALTER TABLE mail_domains ADD COLUMN dns_checked_at TEXT;
+    `);
+  },
 ];
 
 function resolveDbFile() {
@@ -896,6 +905,18 @@ export const getMailDomainOrg = (domain) =>
 
 export const listMailDomainOrgs = () =>
   db.prepare("SELECT domain, org_id FROM mail_domains").all();
+
+// Cache the last per-record DNS verification for a domain, read back until the next Verify run.
+export const setMailDnsChecks = (domain, checks) =>
+  db.prepare("UPDATE mail_domains SET dns_checks = ?, dns_checked_at = ? WHERE domain = ?")
+    .run(JSON.stringify(checks), nowIso(), domain);
+
+export const getMailDnsChecks = (domain) => {
+  const row = db.prepare("SELECT dns_checks, dns_checked_at FROM mail_domains WHERE domain = ?").get(domain);
+  if (!row?.dns_checks) return null;
+  try { return { checks: JSON.parse(row.dns_checks), checkedAt: row.dns_checked_at }; }
+  catch { return null; }
+};
 
 // Domain removed → drop it and its mailbox rows (mailcow cascades the real mailboxes).
 export const deleteMailDomainRow = (domain) => {

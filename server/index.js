@@ -66,6 +66,8 @@ import {
   deleteMailDomainRow,
   addMailboxRow,
   deleteMailboxRow,
+  getMailDnsChecks,
+  setMailDnsChecks,
 } from "./db.js";
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
@@ -928,12 +930,17 @@ app.get("/api/mail/status", requireAuth, h(async () => ({
 app.get("/api/mail/domains", requireAuth, attachOrgContext, h(async (req) => {
   const all = await mail.listDomains();
   const domains = req.user.role === "admin" ? all : all.filter((d) => getMailDomainOrg(d.domain) === req.org.id);
-  return Promise.all(domains.map(async (d) => ({
-    ...d,
-    org_id: getMailDomainOrg(d.domain),
-    records: [...mail.dnsRecords(d.domain), await mail.getDkimRecord(d.domain)].filter(Boolean),
-    mailboxes: await mail.listMailboxes(d.domain).catch(() => []),
-  })));
+  return Promise.all(domains.map(async (d) => {
+    const cached = getMailDnsChecks(d.domain); // last Verify result, shown until the next run
+    return {
+      ...d,
+      org_id: getMailDomainOrg(d.domain),
+      records: [...mail.dnsRecords(d.domain), await mail.getDkimRecord(d.domain)].filter(Boolean),
+      mailboxes: await mail.listMailboxes(d.domain).catch(() => []),
+      dnsChecks: cached?.checks ?? null,
+      dnsCheckedAt: cached?.checkedAt ?? null,
+    };
+  }));
 }));
 
 app.post("/api/mail/domains", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
@@ -955,10 +962,13 @@ app.delete("/api/mail/domains/:domain", requireAuth, attachOrgContext, mutateGua
   return { ok: true };
 }));
 
-// Check the domain's live DNS (MX/SPF/DKIM/DMARC) against what we publish.
+// Check the domain's live DNS (one ✓/✗ per record) against what we publish, and CACHE the
+// result on the domain row so the panel shows it on load until the next Verify run.
 app.get("/api/mail/domains/:domain/verify", requireAuth, attachOrgContext, h(async (req) => {
   assertMailDomainOrg(req, req.params.domain);
-  return { checks: await dns.verifyMailDns(req.params.domain) };
+  const checks = await dns.verifyMailDns(req.params.domain);
+  setMailDnsChecks(req.params.domain, checks);
+  return { checks, checkedAt: new Date().toISOString() };
 }));
 
 app.post("/api/mail/mailboxes", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
