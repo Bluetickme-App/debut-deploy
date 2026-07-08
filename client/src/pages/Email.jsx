@@ -70,13 +70,15 @@ export default function Email() {
             <div className="flex-1 min-w-[180px]">
               <Field label="Domain"><Input placeholder="acme.com" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} autoFocus /></Field>
             </div>
-            <Field label="Bill to account">
-              <select value={newOrgId} onChange={(e) => setNewOrgId(e.target.value)}
-                className="rounded-md border px-2.5 py-2 text-sm" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)", minWidth: 170 }}>
-                <option value="">— unassigned —</option>
-                {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
-            </Field>
+            {orgs.length > 0 && (
+              <Field label="Bill to account">
+                <select value={newOrgId} onChange={(e) => setNewOrgId(e.target.value)}
+                  className="rounded-md border px-2.5 py-2 text-sm" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)", minWidth: 170 }}>
+                  <option value="">— unassigned —</option>
+                  {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </Field>
+            )}
             <Button type="submit" variant="primary" disabled={busy || !newDomain.trim()}>{busy ? <Spinner /> : "Add domain"}</Button>
             <Button type="button" variant="ghost" onClick={() => { setAdding(false); setErr(null); }}>Cancel</Button>
           </form>

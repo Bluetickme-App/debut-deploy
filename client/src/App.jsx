@@ -220,6 +220,10 @@ function Sidebar({ drawerOpen, onClose }) {
           <HoverNavLink to="/usage"><Gauge size={18} /><span>Usage</span></HoverNavLink>
         )}
 
+        {(user?.orgRole || user?.role === "admin") && (
+          <HoverNavLink to="/email"><Mail size={18} /><span>Email</span></HoverNavLink>
+        )}
+
         {user?.role === "admin" && (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 10px 6px" }}>
@@ -233,7 +237,6 @@ function Sidebar({ drawerOpen, onClose }) {
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
             <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
             <HoverNavLink to="/import"><DownloadCloud size={18} /><span>Import from Render</span></HoverNavLink>
-            <HoverNavLink to="/email"><Mail size={18} /><span>Email</span></HoverNavLink>
           </>
         )}
       </nav>

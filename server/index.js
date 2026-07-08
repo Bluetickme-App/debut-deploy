@@ -912,13 +912,22 @@ app.post(
   })
 );
 
-// ── Business email hosting (mailcow) — admin/operator only in Phase 1 ──────────
-app.get("/api/mail/status", requireAuth, requireAdmin, h(async () => ({
+// ── Business email hosting (mailcow) — customer self-service, org-scoped ────────
+// Admins (req.org === null) see/act on ALL domains; customers only on domains their
+// org owns (mail_domains.org_id). Cross-org access → 404 (not 403) so a customer
+// can't even probe another org's domain existence.
+function assertMailDomainOrg(req, domain) {
+  if (req.user?.role === "admin") return;
+  if (getMailDomainOrg(domain) !== req.org?.id) throw Object.assign(new Error("Not found"), { status: 404 });
+}
+
+app.get("/api/mail/status", requireAuth, h(async () => ({
   configured: mail.isConfigured(), hostname: mail.MAIL_HOSTNAME, webmail: mail.MAIL_WEBMAIL,
 })));
 
-app.get("/api/mail/domains", requireAuth, requireAdmin, h(async () => {
-  const domains = await mail.listDomains();
+app.get("/api/mail/domains", requireAuth, attachOrgContext, h(async (req) => {
+  const all = await mail.listDomains();
+  const domains = req.user.role === "admin" ? all : all.filter((d) => getMailDomainOrg(d.domain) === req.org.id);
   return Promise.all(domains.map(async (d) => ({
     ...d,
     org_id: getMailDomainOrg(d.domain),
@@ -927,35 +936,40 @@ app.get("/api/mail/domains", requireAuth, requireAdmin, h(async () => {
   })));
 }));
 
-app.post("/api/mail/domains", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+app.post("/api/mail/domains", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
   const domain = String(req.body?.domain || "").trim().toLowerCase();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) throw Object.assign(new Error("A valid domain is required"), { status: 400 });
-  const orgId = req.body?.orgId ? Number(req.body.orgId) : null; // owning account (for billing)
+  // Customer → auto-assigned to their own org; admin → the "bill to account" picker (or unassigned).
+  const orgId = req.user.role === "admin" ? (req.body?.orgId ? Number(req.body.orgId) : null) : req.org.id;
   await mail.createDomain(domain);
   setMailDomainOrg(domain, orgId);
   record(req, "mail.domain.create", { metadata: { domain, orgId } });
   return { domain, records: mail.dnsRecords(domain) };
 }));
 
-app.delete("/api/mail/domains/:domain", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+app.delete("/api/mail/domains/:domain", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
+  assertMailDomainOrg(req, req.params.domain);
   await mail.deleteDomain(req.params.domain);
   deleteMailDomainRow(req.params.domain); // drop ownership + mailbox billing rows
   record(req, "mail.domain.delete", { metadata: { domain: req.params.domain } });
   return { ok: true };
 }));
 
-app.post("/api/mail/mailboxes", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+app.post("/api/mail/mailboxes", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
   const { address, password, quotaMb } = req.body || {};
   if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(address || ""))) throw Object.assign(new Error("A valid email address is required"), { status: 400 });
   if (!password || String(password).length < 8) throw Object.assign(new Error("Password must be at least 8 characters"), { status: 400 });
-  await mail.createMailbox({ address, password, quotaMb: Number(quotaMb) || undefined });
   const domain = String(address).slice(String(address).lastIndexOf("@") + 1);
+  assertMailDomainOrg(req, domain); // can only add mailboxes on a domain your org owns
+  await mail.createMailbox({ address, password, quotaMb: Number(quotaMb) || undefined });
   addMailboxRow(address, domain, getMailDomainOrg(domain)); // bill to the domain's owning org
   record(req, "mail.mailbox.create", { metadata: { address } }); // never log the password
   return { ok: true, address };
 }));
 
-app.delete("/api/mail/mailboxes/:address", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+app.delete("/api/mail/mailboxes/:address", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
+  const domain = String(req.params.address).slice(String(req.params.address).lastIndexOf("@") + 1);
+  assertMailDomainOrg(req, domain);
   await mail.deleteMailbox(req.params.address);
   deleteMailboxRow(req.params.address); // stop billing for it
   record(req, "mail.mailbox.delete", { metadata: { address: req.params.address } });
