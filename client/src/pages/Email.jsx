@@ -62,6 +62,8 @@ export default function Email() {
         </div>
       )}
 
+      {status.configured && <MailClientSettings host={status.hostname} webmail={status.webmail} />}
+
       {adding && (
         <Card className="mb-4">
           <form onSubmit={addDomain} className="flex flex-wrap items-end gap-3">
@@ -90,6 +92,46 @@ export default function Email() {
         </div>
       )}
     </div>
+  );
+}
+
+function MailClientSettings({ host, webmail }) {
+  const [open, setOpen] = useState(false);
+  const webmailUrl = `https://${webmail}/SOGo`;
+  const rows = [
+    ["IMAP (incoming)", `${host} · port 993 · SSL/TLS`],
+    ["SMTP (outgoing)", `${host} · port 587 (STARTTLS) or 465 (SSL)`],
+    ["Username", "your full email address"],
+    ["Password", "your mailbox password"],
+  ];
+  return (
+    <Card className="mb-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Mail size={16} style={{ color: "var(--accent)" }} />
+        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Connect your mail app</span>
+        <a href={webmailUrl} target="_blank" rel="noreferrer" className="btn btn-secondary text-sm" style={{ padding: "5px 12px" }}>Open webmail →</a>
+        <button onClick={() => setOpen((v) => !v)} className="text-xs font-medium" style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+          {open ? "Hide manual settings" : "Manual IMAP/SMTP settings"}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+          <p className="mb-2.5 text-[13px]" style={{ color: "var(--text-muted)" }}>
+            Most apps (Apple Mail, Outlook, Thunderbird) configure <b>automatically</b> — just enter your email address + password (autoconfig/autodiscover is published for your domain). Use these only if you set it up by hand:
+          </p>
+          <table className="w-full text-[13px]">
+            <tbody>
+              {rows.map(([k, v]) => (
+                <tr key={k} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td className="py-1.5 pr-4 font-medium" style={{ color: "var(--text-muted)", whiteSpace: "nowrap" }}>{k}</td>
+                  <td className="py-1.5 mono" style={{ color: "var(--text)" }}>{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
   );
 }
 
