@@ -955,6 +955,12 @@ app.delete("/api/mail/domains/:domain", requireAuth, attachOrgContext, mutateGua
   return { ok: true };
 }));
 
+// Check the domain's live DNS (MX/SPF/DKIM/DMARC) against what we publish.
+app.get("/api/mail/domains/:domain/verify", requireAuth, attachOrgContext, h(async (req) => {
+  assertMailDomainOrg(req, req.params.domain);
+  return { checks: await dns.verifyMailDns(req.params.domain) };
+}));
+
 app.post("/api/mail/mailboxes", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
   const { address, password, quotaMb } = req.body || {};
   if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(address || ""))) throw Object.assign(new Error("A valid email address is required"), { status: 400 });

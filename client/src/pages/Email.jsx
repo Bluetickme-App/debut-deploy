@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Plus, Trash2, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { Mail, Plus, Trash2, AlertTriangle, Eye, EyeOff, Check } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Button, Field, Input, Spinner, EmptyState } from "../components/ui.jsx";
 import DnsSetup from "../components/DnsSetup.jsx";
@@ -97,9 +97,9 @@ export default function Email() {
   );
 }
 
-function MailClientSettings({ host, webmail }) {
+function MailClientSettings({ host }) {
   const [open, setOpen] = useState(false);
-  const webmailUrl = `https://${webmail}/SOGo`;
+  const webmailUrl = `https://${host}/SOGo`; // SOGo is served on the mail host, not a webmail.* subdomain
   const rows = [
     ["IMAP (incoming)", `${host} · port 993 · SSL/TLS`],
     ["SMTP (outgoing)", `${host} · port 587 (STARTTLS) or 465 (SSL)`],
@@ -139,24 +139,52 @@ function MailClientSettings({ host, webmail }) {
 
 function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
   const [showMailbox, setShowMailbox] = useState(false);
+  const [checks, setChecks] = useState(null);   // null | [{key,label,ok,detail}]
+  const [verifying, setVerifying] = useState(false);
   const count = (d.mailboxes || []).length;
   const owner = orgs?.find((o) => o.id === d.org_id)?.name;
   const monthly = (count * 2.99).toFixed(2);
+  async function verify() {
+    setVerifying(true);
+    try { const r = await api.verifyMailDns(d.domain); setChecks(r.checks || []); }
+    catch (e) { alert(e.message); }
+    finally { setVerifying(false); }
+  }
+  const allOk = checks && checks.every((c) => c.ok);
   return (
     <Card>
       <div className="flex items-center gap-3">
         <Mail size={18} style={{ color: "var(--accent)" }} />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold" style={{ color: "var(--text)" }}>{d.domain}</div>
+          <div className="font-semibold flex items-center gap-2" style={{ color: "var(--text)" }}>
+            {d.domain}
+            {checks && (
+              <span className="rounded px-1.5 py-0.5 text-[10.5px] font-semibold" style={{ background: "var(--surface-2)", color: allOk ? "var(--ok-text)" : "var(--err-text)" }}>
+                {allOk ? "DNS verified" : "DNS incomplete"}
+              </span>
+            )}
+          </div>
           <div className="text-xs" style={{ color: "var(--text-muted)" }}>
             {count} mailbox{count === 1 ? "" : "es"}
             {owner ? ` · ${owner}` : " · unassigned"}
             {count > 0 && ` · £${monthly}/mo`}
           </div>
         </div>
+        <Button variant="ghost" onClick={verify} disabled={verifying}>{verifying ? <Spinner /> : "Verify DNS"}</Button>
         <Button variant="secondary" onClick={() => setShowMailbox((v) => !v)}><Plus size={14} /> Mailbox</Button>
         <button onClick={onRemove} title="Remove domain" className="btn btn-ghost p-1.5" style={{ color: "var(--err-text)" }}><Trash2 size={16} /></button>
       </div>
+
+      {checks && (
+        <div className="mt-3 flex flex-wrap gap-2 border-t pt-2.5" style={{ borderColor: "var(--border)" }}>
+          {checks.map((c) => (
+            <span key={c.key} title={c.detail} className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
+              style={{ background: "var(--surface-2)", color: c.ok ? "var(--ok-text)" : "var(--text-muted)" }}>
+              {c.ok ? <Check size={12} /> : <span style={{ color: "var(--err-text)" }}>✕</span>} {c.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {showMailbox && <NewMailbox domain={d.domain} onDone={() => { setShowMailbox(false); onChange(); }} />}
 

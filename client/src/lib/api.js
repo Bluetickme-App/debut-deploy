@@ -105,6 +105,7 @@ export const api = {
   deleteMailDomain:(domain) => req(`/mail/domains/${encodeURIComponent(domain)}`, { method: "DELETE" }),
   createMailbox:   (body) => req("/mail/mailboxes", { method: "POST", body }), // { address, password, quotaMb }
   deleteMailbox:   (address) => req(`/mail/mailboxes/${encodeURIComponent(address)}`, { method: "DELETE" }),
+  verifyMailDns:   (domain) => req(`/mail/domains/${encodeURIComponent(domain)}/verify`), // { checks:[{key,label,ok,detail}] }
   // One-click DNS (Domain Connect)
   dnsDiscover: (domain, kind) => req(`/dns/discover?domain=${encodeURIComponent(domain)}&kind=${kind}`),
   dnsStatus:   (domain, kind) => req(`/dns/status?domain=${encodeURIComponent(domain)}&kind=${kind}`),
