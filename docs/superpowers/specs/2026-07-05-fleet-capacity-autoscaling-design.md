@@ -303,3 +303,73 @@ not silently eating the ~85% margin the packed math assumes.
 
 **Status: approved for implementation planning, not implementation-ready** until the
 mandatory-before-3a controls above are in the plan.
+
+## Addendum (2026-07-08) — Hetzner reality, stable-IP ingress, provisioning-can-fail, costings
+
+Informed by a senior-infra review of the live Hetzner offering (sources in the handover).
+Three things this design MUST absorb.
+
+### A. Stable-IP ingress (customers never re-do DNS on a box change)
+
+Decouple "the IP a customer points at" from "the box that runs it", so upgrade / replace /
+rescale / autoscale-drain never forces a customer DNS change. Granularity decides coverage:
+
+- **Shared app pool → a Hetzner Load Balancer (one stable IP).** Customers point their
+  domain at the **LB IP**; the LB routes to whichever backend box runs their app via
+  **label-selector targets** + health checks. Replace, migrate-between-boxes, and autoscale
+  are all transparent — the autoscaler adds/removes boxes and the LB re-targets by label,
+  DNS untouched. Best fit for the autoscaled pool.
+- **Dedicated / stateful boxes (mail, big single-tenant) → one Floating IPv4 each.** No LB;
+  the box *is* the service. Replacement = reassign the Floating IP via one API call →
+  reputation + rDNS travel with the IP (critical for mail). The box must **bind the Floating
+  IP** (cloud-init/netplan) or the benefit is inbound-only.
+- **Onboarding implication:** the DNS-setup/verify flow must emit the **stable IP (LB or
+  Floating IP), not a box's primary IP**. One-time change for the customer; zero thereafter.
+
+### B. Provisioning-can-fail (promote to a first-class failure mode)
+
+Hetzner has **no managed autoscaler** — our hcloud-API controller is the only path — and
+**`POST /servers` can fail** (there is an active "Limited availability of cloud instances"
+incident, and existing customers get randomly restricted). The controller MUST:
+- **Retry with backoff** on capacity errors; never put node-create on a user's sync path.
+- **Fallback by server type** (CX→CPX) and **by region** (fsn1→nbg1→hel1) on capacity failure.
+- Keep a **warm headroom node** so a burst doesn't wait on a cold (or failing) provision.
+- Bring nodes up from a **golden snapshot** (baked Coolify-agent image) — seconds, not full
+  cloud-init.
+- Raise the **per-account resource limit** (console request, needs ≥1mo tenure) BEFORE go-live;
+  respect hard caps: **placement group = 10 servers**, **private network = 100 servers**,
+  hcloud **API rate limits** (cache state, poll actions async).
+- Alarm on **create-failure rate** — an autoscaler that assumes create always succeeds pages at 3am.
+
+### C. Costings (EUR/mo, ex-VAT; new-order rates — model the fleet on these, not grandfathered)
+
+| Item | Cost | Role in this design |
+|---|---|---|
+| CX23 4 GB / CX33 8 GB / CX43 16 GB | €5.49 / €8.49 / €15.99 | shared pool nodes (bin-packed) |
+| CPX32 8 GB / CPX52 24 GB | €35.49 / €100.49 | higher-clock / heavy boxes |
+| CCX23 16 GB / CCX33 32 GB (dedicated) | €85.99 / €138.49 | noisy/isolated single-tenant |
+| **Primary IPv4** | €0.50 | default per box |
+| **Floating IPv4** | €3.00 | per stateful box (mail, dedicated) — stable IP |
+| **Load Balancer (LB11)** | €5.39–7.49 | one per shared pool — stable ingress IP |
+| **Cloud Firewall / Private Network / Placement Group** | **free** | apply to every box by role |
+| **Snapshot** | €0.0143/GB-mo (compressed) | golden image for fast node bring-up |
+| **Volume** | €0.0572/GB-mo | survive-the-box data (mail store, DBs) |
+| **Object Storage** | €4.99 incl. 1 TB | off-box backups (DR floor) |
+| **Automatic Backups** | +20% of server price | stateful boxes only, not cattle |
+
+**Unit-economics deltas vs the earlier "box = step cost" model:**
+- A shared pool node is now **box + share of one LB** (€5.39–7.49 amortised across the pool),
+  not box + per-box Floating IP — so the LB is a *fixed pool overhead*, not per-node. Cheap
+  once the pool has >1 node.
+- A **dedicated/stateful box** carries **+€3 Floating IP + Volume (€0.057/GB) + 20% backups**
+  on top of the box — fold into that customer's price.
+- **Rescale re-prices to new rates**, so prefer **replace-with-snapshot** over rescale for
+  predictable per-node cost.
+- Fixed platform overhead to budget regardless of load: **1 LB (€~7) + Object Storage (€5) +
+  control-plane box backups (20%)** ≈ €15–20/mo floor before any customer node.
+
+**Net:** the primitives are cheap-to-free (firewalls, networks, placement groups free; IPs/
+snapshots/volumes trivial); the only non-trivial recurring adds are the **LB (~€7, pooled)**
+and **per-stateful-box Floating IP (€3)**. The real cost risk is not these line items — it's
+the **capacity crunch** forcing fallback to pricier types/regions, which the controller must
+handle and the margin model must tolerate.
