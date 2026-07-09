@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Cpu, MemoryStick, HardDrive, RefreshCw } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Button, Card, PageHeader, Spinner, StatusPill } from "../components/ui.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 const gb = (b) => (b == null ? "—" : `${(b / 1e9).toFixed(1)} GB`);
 const barColor = (v) => (v > 90 ? "var(--err)" : v > 75 ? "var(--warn)" : "var(--ok)");
@@ -25,8 +26,17 @@ export default function Fleet() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
+  const [situations, setSituations] = useState([]);
+  // ponytail: single shared dialog avoids N dialog states
+  const [dialog, setDialog] = useState(null); // { situation } | null
+  const [remBusy, setRemBusy] = useState(false);
+  const [remErr, setRemErr] = useState("");
 
-  const load = () => api.fleetOverview().then((d) => { setErr(""); setData(d); }).catch((e) => setErr(e.message || "Failed to load"));
+  const load = () => {
+    api.fleetOverview().then((d) => { setErr(""); setData(d); }).catch((e) => setErr(e.message || "Failed to load"));
+    // ponytail: situations failure is isolated — fleet overview still renders
+    api.situations().then((d) => setSituations(d.situations || [])).catch(() => setSituations([]));
+  };
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
 
   async function restart(uuid) {
@@ -36,11 +46,55 @@ export default function Fleet() {
     finally { setBusy(""); }
   }
 
+  async function remediate() {
+    if (!dialog) return;
+    setRemBusy(true);
+    setRemErr("");
+    try {
+      await api.remediateSituation(dialog.situation.id);
+      setDialog(null);
+      load();
+    } catch (e) {
+      setRemErr(e.message || "Remediation failed");
+    } finally {
+      setRemBusy(false);
+    }
+  }
+
   const h = data?.host;
   return (
     <div className="page space-y-6">
       <PageHeader title="Fleet" subtitle="Host capacity and per-site usage" />
       {err && <p className="text-sm" style={{ color: "var(--err)" }}>{err}</p>}
+
+      {situations.length > 0 && (
+        <Card>
+          <div className="mb-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>Situations</div>
+          {remErr && <p className="mb-2 text-xs" style={{ color: "var(--err)" }}>{remErr}</p>}
+          <div className="space-y-2">
+            {situations.map((s) => (
+              <div key={s.id} className="flex items-start justify-between gap-3 rounded p-2" style={{ background: "var(--surface-2)" }}>
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 rounded px-1.5 py-0.5 text-xs font-semibold" style={{
+                    background: s.severity === "crit" ? "var(--err)" : "var(--warn)",
+                    color: "#fff",
+                  }}>{s.severity}</span>
+                  <div>
+                    <div className="text-sm font-medium" style={{ color: "var(--text)" }}>{s.type}</div>
+                    {s.detail && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{s.detail}</div>}
+                  </div>
+                </div>
+                {s.suggested_remediation && (
+                  <Button variant="ghost" onClick={() => { setRemErr(""); setDialog({ situation: s }); }}>
+                    Apply fix
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {!data ? (
         <div className="flex h-40 items-center justify-center gap-2" style={{ color: "var(--text-muted)" }}><Spinner /> Loading…</div>
       ) : (
@@ -81,6 +135,16 @@ export default function Fleet() {
           </Card>
         </>
       )}
+
+      <ConfirmDialog
+        open={!!dialog}
+        title="Apply fix?"
+        message={dialog ? `Run suggested remediation "${dialog.situation.suggested_remediation}" for ${dialog.situation.type}${dialog.situation.target ? ` on ${dialog.situation.target}` : ""}?` : ""}
+        confirmLabel="Apply fix"
+        busy={remBusy}
+        onConfirm={remediate}
+        onCancel={() => { setDialog(null); setRemErr(""); }}
+      />
     </div>
   );
 }

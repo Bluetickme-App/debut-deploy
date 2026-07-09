@@ -187,4 +187,6 @@ export const api = {
   // Fleet monitoring
   fleetOverview: () => req("/fleet/overview"),
   restartService: (id) => req(`/services/${id}/restart`, { method: "POST" }),
+  situations: () => req("/situations"),
+  remediateSituation: (id) => req(`/situations/${id}/remediate`, { method: "POST" }),
 };

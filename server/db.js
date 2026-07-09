@@ -431,6 +431,24 @@ const MIGRATIONS = [
     try { d.exec("ALTER TABLE host_samples ADD COLUMN vol_used_bytes INTEGER"); } catch { /* exists */ }
     try { d.exec("ALTER TABLE host_samples ADD COLUMN vol_total_bytes INTEGER"); } catch { /* exists */ }
   },
+  // -> user_version 29: fleet situations (open/resolved operational conditions)
+  (d) => {
+    d.exec(`CREATE TABLE IF NOT EXISTS situations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL, target TEXT NOT NULL, severity TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open', detail TEXT,
+  suggested_remediation TEXT, opened_at TEXT NOT NULL,
+  resolved_at TEXT, auto_applied_at TEXT
+)`);
+  },
+  // -> user_version 30: remediation audit log
+  (d) => {
+    d.exec(`CREATE TABLE IF NOT EXISTS remediation_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  situation_id INTEGER, action TEXT NOT NULL, actor TEXT NOT NULL,
+  command TEXT, ok INTEGER, result TEXT, at TEXT NOT NULL
+)`);
+  },
 ];
 
 function resolveDbFile() {

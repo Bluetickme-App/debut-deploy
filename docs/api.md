@@ -308,6 +308,29 @@ curl https://app.debutdepoly.com/api/services/$UUID/metrics \
   -H "Authorization: Bearer $DD_TOKEN"
 ```
 
+### Situations & remediation — Admin
+
+Active fleet alerts (disk pressure, unhealthy services, zombie deploys) with suggested remediations.
+
+| Method | Path | Purpose | Query/Body | Admin |
+|---|---|---|---|---|
+| GET | `/api/situations` | List open situations (alerts). Pass `?all=1` to include resolved. | `?all=1` (optional) | yes |
+| POST | `/api/situations/:id/remediate` | Execute the suggested remediation for situation `:id`. Returns `{ ok, result }`. | — | yes |
+
+Remediation commands are fixed registry strings — no situation data is ever interpolated into a shell command.
+
+```bash
+# List open alerts
+curl https://app.debutdepoly.com/api/situations \
+  -H "Authorization: Bearer $DD_TOKEN"
+
+# Run remediation for situation id 7
+curl -X POST https://app.debutdepoly.com/api/situations/7/remediate \
+  -H "Authorization: Bearer $DD_TOKEN"
+```
+
+MCP tools: `list_situations` (optional `all: true`), `run_remediation` (`id: number`).
+
 ### Billing, shared vars, customers, admin — Admin
 
 | Method | Path | Purpose | Body | Admin |
