@@ -78,3 +78,44 @@ test("evaluateSituations: status 'stopped' + health 'healthy' → service.unheal
   assert.equal(s.severity, "warn");
   assert.equal(s.suggested_remediation, "restart-service");
 });
+
+// ── reconcileSituations + listSituations ─────────────────────────────────────
+// Unique type/target so these tests are isolated from all other rows in the shared :memory: db.
+
+const { reconcileSituations, listSituations } = await import("./situations.js");
+
+const RECON_ITEM = { type: "test.recon", target: "recon-A", severity: "warn", detail: "disk at 90%", suggested_remediation: "prune-docker" };
+const NOW1 = "2026-01-01T00:00:00.000Z";
+const NOW2 = "2026-01-02T00:00:00.000Z";
+const NOW3 = "2026-01-03T00:00:00.000Z";
+
+test("reconcile [A] → opened:[A], row in db", () => {
+  const r = reconcileSituations([RECON_ITEM], NOW1);
+  assert.equal(r.opened.length, 1);
+  assert.equal(r.resolved.length, 0);
+  assert.equal(r.opened[0].type, "test.recon");
+  assert.equal(r.opened[0].target, "recon-A");
+});
+
+test("reconcile same [A] again → idempotent, opened:[] resolved:[]", () => {
+  const r = reconcileSituations([RECON_ITEM], NOW2);
+  assert.equal(r.opened.length, 0);
+  assert.equal(r.resolved.length, 0);
+});
+
+test("reconcile [] → resolved:[A]", () => {
+  const r = reconcileSituations([], NOW3);
+  const mine = r.resolved.filter((x) => x.type === "test.recon" && x.target === "recon-A");
+  assert.equal(mine.length, 1);
+});
+
+test("listSituations() returns only open rows (none for test.recon after resolve)", () => {
+  const open = listSituations().filter((x) => x.type === "test.recon" && x.target === "recon-A");
+  assert.equal(open.length, 0);
+});
+
+test("listSituations({includeResolved:true}) includes the resolved test.recon row", () => {
+  const all = listSituations({ includeResolved: true }).filter((x) => x.type === "test.recon" && x.target === "recon-A");
+  assert.equal(all.length, 1);
+  assert.equal(all[0].status, "resolved");
+});

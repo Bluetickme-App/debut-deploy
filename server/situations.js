@@ -1,4 +1,5 @@
-// ponytail: pure evaluator — no DB/SSH; Task 3 will add DB helpers to this file
+// ponytail: pure evaluator + DB lifecycle; Task 3 added reconcile/list below
+import { db } from "./db.js";
 const DOWN_STATUSES = new Set(["exited", "stopped", "dead", "not_running", "paused"]);
 
 export const DISK_WARN = 85;
@@ -66,4 +67,56 @@ export function evaluateSituations({ host, sites, deploys }) {
     out.push({ type: "deploy.pileup", target: "host", severity: "warn", detail: `${queued.length} deploys queued`, suggested_remediation: null });
 
   return out;
+}
+
+const stmtOpenRows = db.prepare("SELECT * FROM situations WHERE status = 'open'");
+const stmtInsert = db.prepare(
+  "INSERT INTO situations (type, target, severity, detail, suggested_remediation, status, opened_at) VALUES (?,?,?,?,?,'open',?)"
+);
+const stmtResolve = db.prepare(
+  "UPDATE situations SET status = 'resolved', resolved_at = ? WHERE id = ?"
+);
+
+/**
+ * Diff desired situations against open DB rows; open new ones, resolve stale ones.
+ * @param {Array<{type,target,severity,detail,suggested_remediation}>} desired
+ * @param {string} nowIso  — ISO 8601 timestamp for opened_at / resolved_at
+ * @returns {{ opened: object[], resolved: object[] }}
+ */
+export function reconcileSituations(desired, nowIso) {
+  const run = db.transaction(() => {
+    const openRows = stmtOpenRows.all();
+    const openKeys = new Set(openRows.map((r) => r.type + "|" + r.target));
+    const desiredKeys = new Set(desired.map((d) => d.type + "|" + d.target));
+
+    const opened = [];
+    for (const item of desired) {
+      if (!openKeys.has(item.type + "|" + item.target)) {
+        const info = stmtInsert.run(item.type, item.target, item.severity, item.detail ?? null, item.suggested_remediation ?? null, nowIso);
+        opened.push({ id: info.lastInsertRowid, ...item, status: "open", opened_at: nowIso });
+      }
+    }
+
+    const resolved = [];
+    for (const row of openRows) {
+      if (!desiredKeys.has(row.type + "|" + row.target)) {
+        stmtResolve.run(nowIso, row.id);
+        resolved.push({ ...row, status: "resolved", resolved_at: nowIso });
+      }
+    }
+
+    return { opened, resolved };
+  });
+  return run();
+}
+
+/**
+ * @param {{ includeResolved?: boolean }} [opts]
+ * @returns {object[]}
+ */
+export function listSituations({ includeResolved = false } = {}) {
+  const sql = includeResolved
+    ? "SELECT * FROM situations ORDER BY opened_at DESC"
+    : "SELECT * FROM situations WHERE status = 'open' ORDER BY opened_at DESC";
+  return db.prepare(sql).all();
 }
