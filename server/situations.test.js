@@ -217,6 +217,34 @@ test("selectAutoRemediations: exactly cooldownSec ago is re-eligible (strict <)"
   assert.equal(selectAutoRemediations(open, recent, now).length, 1);
 });
 
+// ── markAutoApplied + recentRemediationLog (Task 2) ──────────────────────────
+
+const { markAutoApplied, recentRemediationLog } = await import("./situations.js");
+
+test("markAutoApplied: sets auto_applied_at → selectAutoRemediations returns [] for that row", () => {
+  const nowIso = "2026-05-01T00:00:00.000Z";
+  const r = reconcileSituations([{ type: "test.maa", target: "maa-target-001", severity: "crit", detail: "disk", suggested_remediation: "prune-docker" }], nowIso);
+  const id = r.opened[0].id;
+
+  markAutoApplied(id, nowIso);
+
+  // reload from DB so auto_applied_at reflects the UPDATE
+  const reloaded = listSituations({ includeResolved: false }).find((x) => x.id === id);
+  assert.ok(reloaded, "situation should still be open");
+  assert.equal(reloaded.auto_applied_at, nowIso, "auto_applied_at must be set");
+  assert.equal(selectAutoRemediations([reloaded], [], Date.now()).length, 0, "already auto-applied → skip");
+});
+
+test("recentRemediationLog: returns rows written by applyRemediation within the window", async () => {
+  const r = reconcileSituations([{ type: "test.rrl", target: "rrl-target-001", severity: "crit", detail: "disk", suggested_remediation: "prune-docker" }], "2026-05-02T00:00:00.000Z");
+  const id = r.opened[0].id;
+
+  await applyRemediation(id, "auto", { runOnHostFn: async () => "ok" });
+
+  const log = recentRemediationLog(new Date(Date.now() - 60_000).toISOString()); // last minute
+  assert.ok(log.some((e) => e.action === "prune-docker"), "log must include prune-docker entry");
+});
+
 test("applyRemediation: null suggested_remediation → ok:false, no control call, no log row", async () => {
   const r = reconcileSituations([{ type: "test.apply", target: "uuid-apply-002", severity: "warn", detail: "mem pressure", suggested_remediation: null }], "2026-01-11T00:00:00.000Z");
   const situationId = r.opened[0].id;

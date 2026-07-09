@@ -182,6 +182,19 @@ export function listSituations({ includeResolved = false } = {}) {
   return (includeResolved ? stmtListAll : stmtListOpen).all();
 }
 
+const stmtMarkAutoApplied = db.prepare("UPDATE situations SET auto_applied_at = ? WHERE id = ?");
+const stmtRecentLog = db.prepare("SELECT action, at FROM remediation_log WHERE at >= ? ORDER BY at DESC");
+
+/** @param {number} situationId @param {string} nowIso */
+export function markAutoApplied(situationId, nowIso) {
+  stmtMarkAutoApplied.run(nowIso, situationId);
+}
+
+/** @param {string} sinceIso @returns {Array<{action:string, at:string}>} */
+export function recentRemediationLog(sinceIso) {
+  return stmtRecentLog.all(sinceIso);
+}
+
 const stmtGetSituation = db.prepare("SELECT * FROM situations WHERE id = ?");
 const stmtLogRemediation = db.prepare(
   "INSERT INTO remediation_log (situation_id, action, actor, command, ok, result, at) VALUES (?,?,?,?,?,?,?)"

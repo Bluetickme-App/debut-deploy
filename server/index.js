@@ -108,7 +108,7 @@ import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
 import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory, fleetOverview } from "./metrics.js";
-import { evaluateSituations, reconcileSituations, collectSituationInputs, listSituations, applyRemediation } from "./situations.js";
+import { evaluateSituations, reconcileSituations, collectSituationInputs, listSituations, applyRemediation, AUTO_REMEDIATE_ENABLED, selectAutoRemediations, markAutoApplied, recentRemediationLog } from "./situations.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
@@ -2665,6 +2665,20 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
           if (s.target !== "host") notifyOwner(s.target, { type: "situation", message: `${s.type} (${s.severity})` });
         }
       } catch (e) { console.error("situations:", e.message); }
+
+      // ponytail: gated — entire block skipped when AUTO_REMEDIATE_ENABLED is false (the default)
+      if (AUTO_REMEDIATE_ENABLED) {
+        try {
+          const open = listSituations();
+          const auto = selectAutoRemediations(open, recentRemediationLog(new Date(Date.now() - 6 * 3600_000).toISOString()), Date.now());
+          for (const { situation } of auto) {
+            const r = await applyRemediation(situation.id, "auto");
+            markAutoApplied(situation.id, new Date().toISOString());
+            recordSystem("situation.auto_remediated", { resourceType: situation.target === "host" ? "host" : "application", resourceUuid: situation.target, metadata: { type: situation.type, ok: r.ok } });
+            if (situation.target !== "host") notifyOwner(situation.target, { type: "situation", message: `auto-fixed ${situation.type}` });
+          }
+        } catch (e) { console.error("auto-remediate:", e.message); }
+      }
     } catch (err) {
       console.error("health monitor:", err.message);
     } finally {
