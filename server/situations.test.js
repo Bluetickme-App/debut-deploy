@@ -187,6 +187,7 @@ test("REGISTRY: only prune-docker + clear-deploy-queue are auto+high; restart-se
   assert.equal(REGISTRY["prune-docker"].auto, true);
   assert.equal(REGISTRY["prune-docker"].confidence, "high");
   assert.equal(REGISTRY["clear-deploy-queue"].auto, true);
+  assert.equal(REGISTRY["clear-deploy-queue"].confidence, "high");
   assert.notEqual(REGISTRY["restart-service"].auto, true);
 });
 
@@ -207,6 +208,13 @@ test("selectAutoRemediations: skips within cooldown", () => {
 test("selectAutoRemediations: skips already auto_applied + skips suggest-only", () => {
   assert.equal(selectAutoRemediations([{ id: 1, suggested_remediation: "prune-docker", auto_applied_at: "2026-01-01T00:00:00Z" }], [], 1e6).length, 0);
   assert.equal(selectAutoRemediations([{ id: 2, suggested_remediation: "restart-service", auto_applied_at: null }], [], 1e6).length, 0);
+});
+
+test("selectAutoRemediations: exactly cooldownSec ago is re-eligible (strict <)", () => {
+  const now = 5_000_000;
+  const open = [{ id: 99, type: "host.disk", suggested_remediation: "prune-docker", auto_applied_at: null }];
+  const recent = [{ action: "prune-docker", at: new Date(now - 3600 * 1000).toISOString() }];
+  assert.equal(selectAutoRemediations(open, recent, now).length, 1);
 });
 
 test("applyRemediation: null suggested_remediation → ok:false, no control call, no log row", async () => {
