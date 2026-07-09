@@ -14,9 +14,9 @@ const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "produ
 export const PG_IMAGE = process.env.PG_MIGRATE_IMAGE || "postgres:16";
 
 // Verify the host key against a pinned SHA-256 (hex) to prevent MITM. Fails closed.
-function makeHostVerifier() {
-  const pinnedHex = (process.env.MIGRATION_SSH_HOSTKEY_SHA256 || "").replace(/[:\s]/g, "").toLowerCase();
-  const pinned = pinnedHex ? Buffer.from(pinnedHex, "hex") : null;
+function makeHostVerifier(pinnedHex) {
+  const hex = (pinnedHex || "").replace(/[:\s]/g, "").toLowerCase();
+  const pinned = hex ? Buffer.from(hex, "hex") : null;
   return (keyBlob) => {
     if (!pinned || !pinned.length) return false; // no pin configured → refuse
     const got = createHash("sha256").update(keyBlob).digest();
@@ -24,15 +24,22 @@ function makeHostVerifier() {
   };
 }
 
-export function runOnHost(command) {
+// opts = { host, hostKeySha256 } — both optional; defaults to env vars.
+// SECURITY: if host overrides the default, hostKeySha256 MUST also be supplied.
+// Never connects unpinned regardless of opts.
+export function runOnHost(command, opts = {}) {
   return new Promise((resolve, reject) => {
-    const host = process.env.MIGRATION_SSH_HOST;
+    const host = opts.host || process.env.MIGRATION_SSH_HOST;
     const user = process.env.MIGRATION_SSH_USER || "root";
     const key = (process.env.MIGRATION_SSH_KEY || "").replace(/\\n/g, "\n");
     if (!host || !key) {
       return reject(Object.assign(new Error("DB migration host not configured (set MIGRATION_SSH_HOST + MIGRATION_SSH_KEY)"), { status: 501 }));
     }
-    if (!process.env.MIGRATION_SSH_HOSTKEY_SHA256) {
+    // Determine which pinned fingerprint to use.
+    // If a non-default host is specified, the caller MUST supply its own hostKeySha256.
+    const isNonDefaultHost = opts.host && opts.host !== process.env.MIGRATION_SSH_HOST;
+    const pinnedHex = opts.hostKeySha256 || (isNonDefaultHost ? null : process.env.MIGRATION_SSH_HOSTKEY_SHA256);
+    if (!pinnedHex) {
       return reject(Object.assign(new Error("MIGRATION_SSH_HOSTKEY_SHA256 not set — refusing to connect without a pinned host key"), { status: 501 }));
     }
     const conn = new Client();
@@ -58,7 +65,7 @@ export function runOnHost(command) {
         username: user,
         privateKey: key,
         readyTimeout: 15000,
-        hostVerifier: makeHostVerifier(), // pinned SHA-256 of the host key (MITM guard)
+        hostVerifier: makeHostVerifier(pinnedHex), // pinned SHA-256 of the host key (MITM guard)
         algorithms: { serverHostKey: ["ssh-ed25519"] }, // match the key type we fingerprinted
       });
   });

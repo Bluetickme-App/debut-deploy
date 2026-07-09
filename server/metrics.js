@@ -64,12 +64,39 @@ export function parseDiskLine(line) {
   return { name, disk_bytes: bytes };
 }
 
+// Parse SAMPLE_HOSTS env var: comma-separated "host|hostKeySha256" pairs.
+// Returns [{ host, hostKeySha256 }]. Ignores blank/malformed entries. Pure.
+export function parseSampleHosts(raw) {
+  if (!raw) return [];
+  return raw.split(",").flatMap((entry) => {
+    const [host, sha] = entry.trim().split("|");
+    if (!host || !sha) return [];
+    // must be a non-empty hex string
+    if (!/^[0-9a-f]+$/i.test(sha.trim())) return [];
+    return [{ host: host.trim(), hostKeySha256: sha.trim() }];
+  });
+}
+
+// Primary host (empty opts = default env vars) + any extra hosts from SAMPLE_HOSTS.
+function sampleTargets() {
+  return [{}].concat(parseSampleHosts(process.env.SAMPLE_HOSTS));
+}
+
 // One SSH round-trip: total footprint of every container. `docker ps -s` is heavier
 // than `docker stats` (it walks layer sizes), so this is called on a slower cadence.
 export async function sampleContainerDisk() {
   if (DEMO) return [];
-  const out = await runOnHost("docker ps -s --format '{{.Names}}|{{.Size}}'");
-  return String(out).trim().split("\n").filter(Boolean).map(parseDiskLine).filter(Boolean);
+  const cmd = "docker ps -s --format '{{.Names}}|{{.Size}}'";
+  const results = await Promise.all(sampleTargets().map(async (opts) => {
+    try {
+      const out = await runOnHost(cmd, opts);
+      return String(out).trim().split("\n").filter(Boolean).map(parseDiskLine).filter(Boolean);
+    } catch (e) {
+      console.error(`[metrics] sampleContainerDisk skipped host ${opts.host || "primary"}: ${e.message}`);
+      return [];
+    }
+  }));
+  return results.flat();
 }
 
 // Attach the owning service uuid to each stats row by "uuid is a substring of the
@@ -84,15 +111,22 @@ export function mapNamesToUuids(rows, ownedUuids) {
   return out;
 }
 
-// One SSH round-trip: `docker stats` over ALL running containers (no name filter),
-// so cost is flat regardless of fleet size. DEMO returns nothing (the tick is off
-// in demo anyway; the history endpoint synthesises demo data instead).
+// One SSH round-trip per host: `docker stats` over ALL running containers (no name
+// filter), so cost is flat regardless of fleet size. DEMO returns nothing (the tick
+// is off in demo anyway; the history endpoint synthesises demo data instead).
 export async function sampleAllContainers() {
   if (DEMO) return [];
-  const out = await runOnHost(
-    "docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}'"
-  );
-  return String(out).trim().split("\n").filter(Boolean).map(parseStatsLine).filter(Boolean);
+  const cmd = "docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}'";
+  const results = await Promise.all(sampleTargets().map(async (opts) => {
+    try {
+      const out = await runOnHost(cmd, opts);
+      return String(out).trim().split("\n").filter(Boolean).map(parseStatsLine).filter(Boolean);
+    } catch (e) {
+      console.error(`[metrics] sampleAllContainers skipped host ${opts.host || "primary"}: ${e.message}`);
+      return [];
+    }
+  }));
+  return results.flat();
 }
 
 export function insertMetricsSamples(rows, sampledAt) {
