@@ -289,6 +289,25 @@ HMAC-verified, auto-deploys matching services).
 | GET | `/api/notifications` | Get your notification settings. | — | — |
 | PUT | `/api/notifications` | Update notification settings. | `webhookUrl`, `enabled` | — |
 
+### Metrics & fleet — Admin
+
+| Method | Path | Purpose | Query | Admin |
+|---|---|---|---|---|
+| GET | `/api/fleet/overview` | Fleet snapshot: host RAM/CPU/root-disk/volume-disk + latest per-site memory/CPU/disk. | — | yes |
+| GET | `/api/metrics/host` | Host capacity history (CPU/RAM/disk %) for the box. | `?window=1h\|6h\|24h` (default `1h`) | yes |
+| GET | `/api/services/:id/metrics` | Live per-container resource stats for one service (incl. current usage). | — | — |
+
+```bash
+curl https://app.debutdepoly.com/api/fleet/overview \
+  -H "Authorization: Bearer $DD_TOKEN"
+
+curl "https://app.debutdepoly.com/api/metrics/host?window=6h" \
+  -H "Authorization: Bearer $DD_TOKEN"
+
+curl https://app.debutdepoly.com/api/services/$UUID/metrics \
+  -H "Authorization: Bearer $DD_TOKEN"
+```
+
 ### Billing, shared vars, customers, admin — Admin
 
 | Method | Path | Purpose | Body | Admin |
