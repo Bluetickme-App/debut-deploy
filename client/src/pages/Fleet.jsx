@@ -79,12 +79,15 @@ export default function Fleet() {
                     background: s.severity === "crit" ? "var(--err)" : "var(--warn)",
                     color: "#fff",
                   }}>{s.severity}</span>
+                  {s.auto_applied_at && (
+                    <span className="mt-0.5 rounded px-1.5 py-0.5 text-xs font-semibold" style={{ color: "var(--ok)", background: "color-mix(in srgb, var(--ok) 15%, transparent)" }}>auto-fixed</span>
+                  )}
                   <div>
                     <div className="text-sm font-medium" style={{ color: "var(--text)" }}>{s.type}</div>
                     {s.detail && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{s.detail}</div>}
                   </div>
                 </div>
-                {s.suggested_remediation && (
+                {s.suggested_remediation && !s.auto_applied_at && (
                   <Button variant="ghost" onClick={() => { setRemErr(""); setDialog({ situation: s }); }}>
                     Apply fix
                   </Button>

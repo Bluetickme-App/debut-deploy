@@ -43,12 +43,15 @@ export const REGISTRY = {
   "prune-docker": {
     title: "Reclaim disk (prune images + build cache)",
     situationTypes: ["host.disk"],
+    auto: true,
     confidence: "high",
+    cooldownSec: 3600,
     command: "docker image prune -af --filter until=24h && docker builder prune -f --keep-storage 20GB",
   },
   "restart-service": {
     title: "Restart the unhealthy service",
     situationTypes: ["service.unhealthy"],
+    auto: false,
     confidence: "medium",
     // ponytail: routes through control_service, not a raw host cmd — see applyRemediation (Task 3)
     command: "coolify-restart",
@@ -56,10 +59,38 @@ export const REGISTRY = {
   "clear-deploy-queue": {
     title: "Clear the stuck deploy (restart coolify to reconcile)",
     situationTypes: ["deploy.zombie"],
+    auto: true,
     confidence: "high",
+    cooldownSec: 1800,
     command: "docker restart coolify",
   },
 };
+
+// ponytail: safety default OFF — requires explicit opt-in via env
+export const AUTO_REMEDIATE_ENABLED = process.env.AUTO_REMEDIATE === "true";
+
+/**
+ * Pure selector: returns which open situations should be auto-remediated.
+ * Does NOT check AUTO_REMEDIATE_ENABLED — caller gates on that.
+ *
+ * @param {Array<{id:number, suggested_remediation:string|null, auto_applied_at:string|null}>} openSituations
+ * @param {Array<{action:string, at:string}>} recentLog
+ * @param {number} nowMs  — Date.now()-style timestamp
+ * @returns {Array<{situation:object, remediationId:string}>}
+ */
+export function selectAutoRemediations(openSituations, recentLog, nowMs) {
+  return openSituations.flatMap((situation) => {
+    const key = situation.suggested_remediation;
+    const reg = key ? REGISTRY[key] : null;
+    if (!reg || !reg.auto || reg.confidence !== "high") return [];
+    if (situation.auto_applied_at) return [];
+    const withinCooldown = recentLog.some(
+      (entry) => entry.action === key && nowMs - Date.parse(entry.at) < reg.cooldownSec * 1000
+    );
+    if (withinCooldown) return [];
+    return [{ situation, remediationId: key }];
+  });
+}
 
 /**
  * @param {{ host: { diskRoot: {pct:number}, diskVolume: {pct:number}|null, mem: {pct:number} },
@@ -149,6 +180,19 @@ export function reconcileSituations(desired, nowIso) {
  */
 export function listSituations({ includeResolved = false } = {}) {
   return (includeResolved ? stmtListAll : stmtListOpen).all();
+}
+
+const stmtMarkAutoApplied = db.prepare("UPDATE situations SET auto_applied_at = ? WHERE id = ?");
+const stmtRecentLog = db.prepare("SELECT action, at FROM remediation_log WHERE at >= ? ORDER BY at DESC");
+
+/** @param {number} situationId @param {string} nowIso */
+export function markAutoApplied(situationId, nowIso) {
+  stmtMarkAutoApplied.run(nowIso, situationId);
+}
+
+/** @param {string} sinceIso @returns {Array<{action:string, at:string}>} */
+export function recentRemediationLog(sinceIso) {
+  return stmtRecentLog.all(sinceIso);
 }
 
 const stmtGetSituation = db.prepare("SELECT * FROM situations WHERE id = ?");
