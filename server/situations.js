@@ -76,6 +76,8 @@ const stmtInsert = db.prepare(
 const stmtResolve = db.prepare(
   "UPDATE situations SET status = 'resolved', resolved_at = ? WHERE id = ?"
 );
+const stmtListOpen = db.prepare("SELECT * FROM situations WHERE status='open' ORDER BY opened_at DESC, id DESC");
+const stmtListAll  = db.prepare("SELECT * FROM situations ORDER BY opened_at DESC, id DESC");
 
 /**
  * Diff desired situations against open DB rows; open new ones, resolve stale ones.
@@ -115,8 +117,5 @@ export function reconcileSituations(desired, nowIso) {
  * @returns {object[]}
  */
 export function listSituations({ includeResolved = false } = {}) {
-  const sql = includeResolved
-    ? "SELECT * FROM situations ORDER BY opened_at DESC"
-    : "SELECT * FROM situations WHERE status = 'open' ORDER BY opened_at DESC";
-  return db.prepare(sql).all();
+  return (includeResolved ? stmtListAll : stmtListOpen).all();
 }
