@@ -2,7 +2,7 @@ process.env.DATABASE_FILE = ":memory:";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 const { db } = await import("./db.js");
-import { evaluateSituations, REGISTRY } from "./situations.js";
+import { evaluateSituations, REGISTRY, selectAutoRemediations } from "./situations.js";
 
 test("situations + remediation_log tables exist with expected columns", () => {
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
@@ -57,10 +57,9 @@ test("evaluateSituations: root disk warn (no volume)", () => {
   assert.match(s.detail, /root/i);
 });
 
-test("REGISTRY: every command is a fixed string, none auto in phase 2", () => {
+test("REGISTRY: every command is a fixed string", () => {
   for (const r of Object.values(REGISTRY)) {
     assert.equal(typeof r.command, "string");
-    assert.notEqual(r.auto, true);
   }
 });
 
@@ -180,6 +179,34 @@ test("applyRemediation: prune-docker calls runOnHostFn with the fixed REGISTRY c
   assert.equal(capturedCmd, REGISTRY["prune-docker"].command);
   const logRow = db.prepare("SELECT * FROM remediation_log WHERE situation_id = ?").get(situationId);
   assert.ok(logRow && logRow.ok === 1 && logRow.actor === "tester-shell");
+});
+
+// ── selectAutoRemediations + REGISTRY flags (Task 1 / Phase 3) ───────────────
+
+test("REGISTRY: only prune-docker + clear-deploy-queue are auto+high; restart-service is not", () => {
+  assert.equal(REGISTRY["prune-docker"].auto, true);
+  assert.equal(REGISTRY["prune-docker"].confidence, "high");
+  assert.equal(REGISTRY["clear-deploy-queue"].auto, true);
+  assert.notEqual(REGISTRY["restart-service"].auto, true);
+});
+
+test("selectAutoRemediations: picks auto+high with no cooldown/auto_applied", () => {
+  const open = [{ id: 1, type: "host.disk", suggested_remediation: "prune-docker", auto_applied_at: null }];
+  const sel = selectAutoRemediations(open, [], 1_000_000);
+  assert.equal(sel.length, 1);
+  assert.equal(sel[0].remediationId, "prune-docker");
+});
+
+test("selectAutoRemediations: skips within cooldown", () => {
+  const open = [{ id: 1, type: "host.disk", suggested_remediation: "prune-docker", auto_applied_at: null }];
+  const now = 1_000_000;
+  const recent = [{ action: "prune-docker", at: new Date(now - 60_000).toISOString() }]; // 60s ago, cooldown 3600s
+  assert.equal(selectAutoRemediations(open, recent, now).length, 0);
+});
+
+test("selectAutoRemediations: skips already auto_applied + skips suggest-only", () => {
+  assert.equal(selectAutoRemediations([{ id: 1, suggested_remediation: "prune-docker", auto_applied_at: "2026-01-01T00:00:00Z" }], [], 1e6).length, 0);
+  assert.equal(selectAutoRemediations([{ id: 2, suggested_remediation: "restart-service", auto_applied_at: null }], [], 1e6).length, 0);
 });
 
 test("applyRemediation: null suggested_remediation → ok:false, no control call, no log row", async () => {
