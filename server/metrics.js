@@ -49,6 +49,29 @@ export function parseStatsLine(line) {
   };
 }
 
+// One `docker ps -s --format '{{.Names}}|{{.Size}}'` line → per-container disk footprint.
+// The Size cell is "<writable> (virtual <total-incl-image>)"; we keep the total (virtual).
+// Falls back to the writable figure if "(virtual …)" is absent. null on malformed/no-name.
+export function parseDiskLine(line) {
+  const p = String(line ?? "").split("|");
+  if (p.length < 2) return null;
+  const name = p[0]?.trim();
+  if (!name) return null;
+  const size = p[1] ?? "";
+  const virt = size.match(/virtual\s+([\d.]+\s*[a-zA-Z]+)/i);
+  const bytes = parseBytes((virt ? virt[1] : size.split("(")[0]).trim());
+  if (bytes == null) return null;
+  return { name, disk_bytes: bytes };
+}
+
+// One SSH round-trip: total footprint of every container. `docker ps -s` is heavier
+// than `docker stats` (it walks layer sizes), so this is called on a slower cadence.
+export async function sampleContainerDisk() {
+  if (DEMO) return [];
+  const out = await runOnHost("docker ps -s --format '{{.Names}}|{{.Size}}'");
+  return String(out).trim().split("\n").filter(Boolean).map(parseDiskLine).filter(Boolean);
+}
+
 // Attach the owning service uuid to each stats row by "uuid is a substring of the
 // container name" (Coolify names embed the uuid; the live endpoint filters the same
 // way). Rows matching no owned resource are dropped. Pure — ownedUuids is injected.

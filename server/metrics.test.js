@@ -87,3 +87,14 @@ test("demoHistory: shaped like real payload", () => {
   assert.ok(h.stats.cpu.peak >= h.stats.cpu.avg);
   assert.equal(typeof h.stats.net.current, "number");
 });
+
+test("parseDiskLine: 'SizeRW (virtual SizeRootFs)' → total footprint bytes", () => {
+  // docker ps -s Size cell: "<writable> (virtual <total>)"
+  const s = M.parseDiskLine("app-uuid123-x|12.3MB (virtual 1.2GB)");
+  assert.equal(s.name, "app-uuid123-x");
+  assert.equal(s.disk_bytes, 1_200_000_000); // uses the virtual (total incl image) figure
+  const noVirt = M.parseDiskLine("x-y|5MB");   // some engines omit "(virtual ...)"
+  assert.equal(noVirt.disk_bytes, 5_000_000);
+  assert.equal(M.parseDiskLine("bad line no pipe"), null);
+  assert.equal(M.parseDiskLine("|12MB"), null); // no name
+});

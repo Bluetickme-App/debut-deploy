@@ -422,6 +422,10 @@ const MIGRATIONS = [
       ALTER TABLE mail_domains ADD COLUMN dns_checked_at TEXT;
     `);
   },
+  // -> user_version 27: per-container disk footprint (sampled on a slower cadence than cpu/mem)
+  (d) => {
+    try { d.exec("ALTER TABLE metrics_samples ADD COLUMN disk_bytes INTEGER"); } catch { /* exists */ }
+  },
 ];
 
 function resolveDbFile() {
