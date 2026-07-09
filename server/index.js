@@ -2601,7 +2601,7 @@ app.use((err, _req, res, _next) => {
 
 // --- health monitor: poll live services, audit + notify owners on transitions ---
 let healthSnapshot = {};
-let healthTickN = 0;
+let healthTickN = 9; // start at 9 so the FIRST tick (→0) samples disk immediately after a restart
 let healthRunning = false; // reentrancy guard: a slow tick must not overlap the next
 if (!demoMode && process.env.NODE_ENV !== "test") {
   const timer = setInterval(async () => {

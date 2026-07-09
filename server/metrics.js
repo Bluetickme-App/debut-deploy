@@ -178,7 +178,10 @@ export function fleetOverview() {
   const pct = (u, t) => (t > 0 ? Math.round((1000 * u) / t) / 10 : 0);
   const host = db.prepare("SELECT * FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get();
   const sites = db.prepare(`
-    SELECT m.coolify_uuid AS uuid, m.cpu_pct, m.mem_bytes, m.mem_pct, m.disk_bytes
+    SELECT m.coolify_uuid AS uuid, m.cpu_pct, m.mem_bytes, m.mem_pct,
+      (SELECT d.disk_bytes FROM metrics_samples d
+        WHERE d.coolify_uuid = m.coolify_uuid AND d.disk_bytes IS NOT NULL
+        ORDER BY d.sampled_at DESC LIMIT 1) AS disk_bytes
     FROM metrics_samples m
     JOIN (SELECT coolify_uuid, MAX(sampled_at) AS mx FROM metrics_samples GROUP BY coolify_uuid) l
       ON l.coolify_uuid = m.coolify_uuid AND l.mx = m.sampled_at

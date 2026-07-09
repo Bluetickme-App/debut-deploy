@@ -139,3 +139,16 @@ test("fleetOverview: latest host + per-site rows shaped for the dashboard", () =
   assert.equal(s.disk_bytes, 8.8e9);
   assert.equal(s.mem_pct, 5);
 });
+
+test("fleetOverview: disk_bytes reads latest NON-NULL when newest row is null (disk sampled every 10th tick)", () => {
+  const svc = "fleet-disknull-svc";
+  // earlier row carries disk; the newer row (a non-disk tick) has disk_bytes NULL
+  M.insertMetricsSamples([{ coolify_uuid: svc, cpu_pct: 1, mem_bytes: 100, mem_pct: 1,
+    net_rx_bytes: 0, net_tx_bytes: 0, block_read_bytes: 0, block_write_bytes: 0, pids: 1 }], "2099-02-01T00:00:00.000Z");
+  M.upsertDiskBytes([{ coolify_uuid: svc, disk_bytes: 5_000_000 }], "2099-02-01T00:00:00.000Z");
+  M.insertMetricsSamples([{ coolify_uuid: svc, cpu_pct: 2, mem_bytes: 200, mem_pct: 2,
+    net_rx_bytes: 0, net_tx_bytes: 0, block_read_bytes: 0, block_write_bytes: 0, pids: 1 }], "2099-02-01T00:01:00.000Z");
+  const s = M.fleetOverview().sites.find((x) => x.uuid === svc);
+  assert.equal(s.mem_bytes, 200);        // shape reads the newest row (mem/cpu)
+  assert.equal(s.disk_bytes, 5_000_000); // but disk comes from the earlier non-null row, not the null newest
+});
