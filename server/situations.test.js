@@ -171,6 +171,17 @@ test("applyRemediation: restart-service calls control(target, 'restart') and wri
   assert.equal(logRow.action, "restart-service");
 });
 
+test("applyRemediation: prune-docker calls runOnHostFn with the fixed REGISTRY command (no interpolation) and logs ok", async () => {
+  const r = reconcileSituations([{ type: "test.apply.shell", target: "host", severity: "crit", detail: "disk at 95%", suggested_remediation: "prune-docker" }], "2026-01-12T00:00:00.000Z");
+  const situationId = r.opened[0].id;
+  let capturedCmd = null;
+  const result = await applyRemediation(situationId, "tester-shell", { runOnHostFn: async (cmd) => { capturedCmd = cmd; return "pruned"; } });
+  assert.ok(result.ok);
+  assert.equal(capturedCmd, REGISTRY["prune-docker"].command);
+  const logRow = db.prepare("SELECT * FROM remediation_log WHERE situation_id = ?").get(situationId);
+  assert.ok(logRow && logRow.ok === 1 && logRow.actor === "tester-shell");
+});
+
 test("applyRemediation: null suggested_remediation → ok:false, no control call, no log row", async () => {
   const r = reconcileSituations([{ type: "test.apply", target: "uuid-apply-002", severity: "warn", detail: "mem pressure", suggested_remediation: null }], "2026-01-11T00:00:00.000Z");
   const situationId = r.opened[0].id;

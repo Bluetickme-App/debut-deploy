@@ -177,7 +177,7 @@ export async function applyRemediation(situationId, actor, { control = _controlS
   let result = "";
   try {
     if (reg.command === "coolify-restart") {
-      // ponytail: routes through controlService — situation.target is the app uuid, never shell-interpolated
+      // ponytail: situation.target must be an app UUID — only service.unhealthy maps here, and its target IS the uuid
       await control(situation.target, "restart");
       result = `restarted ${situation.target}`;
     } else {
@@ -188,6 +188,7 @@ export async function applyRemediation(situationId, actor, { control = _controlS
   } catch (e) {
     result = e.message ?? String(e);
   }
+  // ponytail: log written on both success and failure — intentional audit trail of every remediation attempt
   stmtLogRemediation.run(situationId, situation.suggested_remediation, actor, reg.command, ok ? 1 : 0, result.slice(0, 1000), at);
   return ok ? { ok: true, result } : { ok: false, error: result };
 }
