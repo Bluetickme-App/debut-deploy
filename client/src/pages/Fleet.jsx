@@ -26,7 +26,7 @@ export default function Fleet() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
 
-  const load = () => api.fleetOverview().then(setData).catch((e) => setErr(e.message || "Failed to load"));
+  const load = () => api.fleetOverview().then((d) => { setErr(""); setData(d); }).catch((e) => setErr(e.message || "Failed to load"));
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
 
   async function restart(uuid) {
