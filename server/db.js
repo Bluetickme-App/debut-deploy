@@ -422,6 +422,15 @@ const MIGRATIONS = [
       ALTER TABLE mail_domains ADD COLUMN dns_checked_at TEXT;
     `);
   },
+  // -> user_version 27: per-container disk footprint (sampled on a slower cadence than cpu/mem)
+  (d) => {
+    try { d.exec("ALTER TABLE metrics_samples ADD COLUMN disk_bytes INTEGER"); } catch { /* exists */ }
+  },
+  // -> user_version 28: /mnt/dockerdata Docker volume capacity alongside root disk
+  (d) => {
+    try { d.exec("ALTER TABLE host_samples ADD COLUMN vol_used_bytes INTEGER"); } catch { /* exists */ }
+    try { d.exec("ALTER TABLE host_samples ADD COLUMN vol_total_bytes INTEGER"); } catch { /* exists */ }
+  },
 ];
 
 function resolveDbFile() {

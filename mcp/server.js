@@ -182,5 +182,24 @@ server.registerTool(
   tool(() => api("/api/billing"))
 );
 
+server.registerTool(
+  "fleet_overview",
+  { description: "Fleet snapshot: host RAM/CPU/root-disk/volume-disk + latest per-site memory/CPU/disk. Admin.", inputSchema: {} },
+  tool(() => api("/api/fleet/overview"))
+);
+
+server.registerTool(
+  "host_metrics",
+  { description: "Host capacity history (CPU/RAM/disk %) for the box. Admin.",
+    inputSchema: { window: z.enum(["1h", "6h", "24h"]).optional().describe("Lookback window (default 1h)") } },
+  tool(({ window }) => api(`/api/metrics/host${window ? `?window=${window}` : ""}`))
+);
+
+server.registerTool(
+  "container_disk",
+  { description: "Live per-container resource stats for one service (incl. current usage).", inputSchema: { id } },
+  tool(({ id }) => api(`/api/services/${id}/metrics`))
+);
+
 const transport = new StdioServerTransport();
 await server.connect(transport);

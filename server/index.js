@@ -107,7 +107,7 @@ import * as domainconnect from "./domainconnect.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
-import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory } from "./metrics.js";
+import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory, fleetOverview } from "./metrics.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
@@ -515,6 +515,26 @@ app.get(
         stats: { cpu: { current: d.stats.cpu.current }, mem: { current: d.stats.mem.current, bytes: 3.1e9, total: 8e9 }, disk: { current: 42, bytes: 34e9, total: 80e9 } } };
     }
     return hostHistory(window);
+  })
+);
+
+// Fleet overview: host capacity (root + volume) + latest per-site usage. Admin.
+app.get(
+  "/api/fleet/overview",
+  requireAuth,
+  requireAdmin,
+  h(async (req) => {
+    if (demoMode) return {
+      host: { cpu: 12, mem: { used: 3.1e9, total: 8e9, pct: 39 },
+        diskRoot: { used: 2.4e9, total: 75e9, pct: 4 }, diskVolume: { used: 73e9, total: 196e9, pct: 37 } },
+      sites: [{ uuid: "demo-svc", cpu_pct: 3.2, mem_bytes: 4.8e8, mem_pct: 6, disk_bytes: 8.8e9 }],
+    };
+    const o = fleetOverview();
+    // enrich uuids with names/status from the services list (falls back gracefully if Coolify unavailable)
+    const svcs = await coolify.listServices().then((all) => filterByOwnership(all, req.user, "application")).catch(() => []);
+    const byId = Object.fromEntries(svcs.map((s) => [s.uuid, s]));
+    o.sites = o.sites.map((s) => ({ ...s, name: byId[s.uuid]?.name || s.uuid, status: byId[s.uuid]?.status, health: byId[s.uuid]?.health }));
+    return o;
   })
 );
 
@@ -2558,6 +2578,7 @@ app.use((err, _req, res, _next) => {
 
 // --- health monitor: poll live services, audit + notify owners on transitions ---
 let healthSnapshot = {};
+let healthTickN = 0;
 let healthRunning = false; // reentrancy guard: a slow tick must not overlap the next
 if (!demoMode && process.env.NODE_ENV !== "test") {
   const timer = setInterval(async () => {
@@ -2603,8 +2624,11 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
       // --- metrics history sampling (best-effort; must never crash the monitor) ---
       // ponytail: one SSH `docker stats` over ALL containers per tick; a failed
       // sample skips one minute, never throws (same stance as metering).
+      // Disk (`docker ps -s`) is heavier so sampled every 10th tick (~10 min).
       try {
-        await sampleAndStore(new Date().toISOString());
+        const now = new Date().toISOString();
+        healthTickN = (healthTickN + 1) % 10;              // module-scope: let healthTickN = 0;
+        await sampleAndStore(now, { withDisk: healthTickN === 0 });
       } catch (mErr) {
         console.error("metrics sampling:", mErr.message);
       }

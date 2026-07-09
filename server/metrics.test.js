@@ -87,3 +87,55 @@ test("demoHistory: shaped like real payload", () => {
   assert.ok(h.stats.cpu.peak >= h.stats.cpu.avg);
   assert.equal(typeof h.stats.net.current, "number");
 });
+
+test("parseHostCapacity: includes docker volume when present", () => {
+  const out = "MEM_TOTAL=8000000000\nMEM_USED=3000000000\nDISK_TOTAL=80000000000\nDISK_USED=40000000000\n" +
+              "CORES=4\nLOAD1=2.0\nVOL_TOTAL=200000000000\nVOL_USED=73000000000";
+  const h = M.parseHostCapacity(out);
+  assert.equal(h.vol_total_bytes, 200_000_000_000);
+  assert.equal(h.vol_used_bytes, 73_000_000_000);
+});
+
+test("parseHostCapacity: volume absent → null volume fields", () => {
+  const out = "MEM_TOTAL=8000000000\nMEM_USED=3000000000\nDISK_TOTAL=80000000000\nDISK_USED=40000000000\nCORES=4\nLOAD1=1.0";
+  const h = M.parseHostCapacity(out);
+  assert.equal(h.vol_total_bytes, null);
+  assert.equal(h.vol_used_bytes, null);
+});
+
+test("parseDiskLine: 'SizeRW (virtual SizeRootFs)' → total footprint bytes", () => {
+  // docker ps -s Size cell: "<writable> (virtual <total>)"
+  const s = M.parseDiskLine("app-uuid123-x|12.3MB (virtual 1.2GB)");
+  assert.equal(s.name, "app-uuid123-x");
+  assert.equal(s.disk_bytes, 1_200_000_000); // uses the virtual (total incl image) figure
+  const noVirt = M.parseDiskLine("x-y|5MB");   // some engines omit "(virtual ...)"
+  assert.equal(noVirt.disk_bytes, 5_000_000);
+  assert.equal(M.parseDiskLine("bad line no pipe"), null);
+  assert.equal(M.parseDiskLine("|12MB"), null); // no name
+});
+
+test("upsertDiskBytes: attaches latest disk_bytes to a uuid's most recent sample", () => {
+  const at = new Date().toISOString();
+  M.insertMetricsSamples([{ coolify_uuid: "svc1", cpu_pct: 1, mem_bytes: 100, mem_pct: 1,
+    net_rx_bytes: 0, net_tx_bytes: 0, block_read_bytes: 0, block_write_bytes: 0, pids: 1 }], at);
+  const n = M.upsertDiskBytes([{ coolify_uuid: "svc1", disk_bytes: 5_000_000 }], at);
+  assert.equal(n, 1);
+  const hist = M.metricsHistory("svc1", "1h");
+  assert.ok(hist.stats.mem.bytes >= 0); // sanity: row exists
+});
+
+test("fleetOverview: latest host + per-site rows shaped for the dashboard", () => {
+  // ponytail: fixed far-future timestamp so this test's rows always win MAX/ORDER BY DESC
+  const at = "2099-01-01T00:00:00.000Z";
+  M.insertHostSample({ cpu_pct: 12, mem_used_bytes: 3e9, mem_total_bytes: 8e9,
+    disk_used_bytes: 2.4e9, disk_total_bytes: 75e9, vol_used_bytes: 73e9, vol_total_bytes: 196e9 }, at);
+  M.insertMetricsSamples([{ coolify_uuid: "fleet-ov-svc", cpu_pct: 5, mem_bytes: 4e8, mem_pct: 5,
+    net_rx_bytes: 0, net_tx_bytes: 0, block_read_bytes: 0, block_write_bytes: 0, pids: 3 }], at);
+  M.upsertDiskBytes([{ coolify_uuid: "fleet-ov-svc", disk_bytes: 8.8e9 }], at);
+  const o = M.fleetOverview();
+  assert.equal(o.host.diskRoot.pct, 3.2);          // 2.4/75
+  assert.equal(o.host.diskVolume.pct, 37.2);       // 73/196
+  const s = o.sites.find((x) => x.uuid === "fleet-ov-svc");
+  assert.equal(s.disk_bytes, 8.8e9);
+  assert.equal(s.mem_pct, 5);
+});

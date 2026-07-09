@@ -49,6 +49,29 @@ export function parseStatsLine(line) {
   };
 }
 
+// One `docker ps -s --format '{{.Names}}|{{.Size}}'` line → per-container disk footprint.
+// The Size cell is "<writable> (virtual <total-incl-image>)"; we keep the total (virtual).
+// Falls back to the writable figure if "(virtual …)" is absent. null on malformed/no-name.
+export function parseDiskLine(line) {
+  const p = String(line ?? "").split("|");
+  if (p.length < 2) return null;
+  const name = p[0]?.trim();
+  if (!name) return null;
+  const size = p[1] ?? "";
+  const virt = size.match(/virtual\s+([\d.]+\s*[a-zA-Z]+)/i);
+  const bytes = parseBytes((virt ? virt[1] : size.split("(")[0]).trim());
+  if (bytes == null) return null;
+  return { name, disk_bytes: bytes };
+}
+
+// One SSH round-trip: total footprint of every container. `docker ps -s` is heavier
+// than `docker stats` (it walks layer sizes), so this is called on a slower cadence.
+export async function sampleContainerDisk() {
+  if (DEMO) return [];
+  const out = await runOnHost("docker ps -s --format '{{.Names}}|{{.Size}}'");
+  return String(out).trim().split("\n").filter(Boolean).map(parseDiskLine).filter(Boolean);
+}
+
 // Attach the owning service uuid to each stats row by "uuid is a substring of the
 // container name" (Coolify names embed the uuid; the live endpoint filters the same
 // way). Rows matching no owned resource are dropped. Pure — ownedUuids is injected.
@@ -97,7 +120,10 @@ export function parseHostCapacity(out) {
   const cores = num(/CORES=(\d+)/) || 1;
   const load1 = num(/LOAD1=([\d.]+)/);
   const cpu_pct = load1 != null ? Math.round((load1 / cores) * 1000) / 10 : null;
-  return { cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes };
+  const vol_total_bytes = num(/VOL_TOTAL=(\d+)/);
+  const vol_used_bytes = num(/VOL_USED=(\d+)/);
+  const volT = vol_total_bytes || null;
+  return { cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_total_bytes: volT, vol_used_bytes: volT ? vol_used_bytes : null };
 }
 
 export async function sampleHostCapacity() {
@@ -105,7 +131,9 @@ export async function sampleHostCapacity() {
   const out = await runOnHost(
     "echo MEM_TOTAL=$(free -b | awk '/^Mem:/{print $2}'); echo MEM_USED=$(free -b | awk '/^Mem:/{print $3}'); " +
     "echo DISK_TOTAL=$(df -B1 --output=size / | tail -1); echo DISK_USED=$(df -B1 --output=used / | tail -1); " +
-    "echo CORES=$(nproc); echo LOAD1=$(awk '{print $1}' /proc/loadavg)"
+    "echo CORES=$(nproc); echo LOAD1=$(awk '{print $1}' /proc/loadavg); " +
+    "echo VOL_TOTAL=$(df -B1 --output=size /mnt/dockerdata 2>/dev/null | tail -1 || echo 0); " +
+    "echo VOL_USED=$(df -B1 --output=used /mnt/dockerdata 2>/dev/null | tail -1 || echo 0)"
   );
   return parseHostCapacity(out);
 }
@@ -113,18 +141,58 @@ export async function sampleHostCapacity() {
 export function insertHostSample(sample, sampledAt) {
   if (!sample) return 0;
   db.prepare(
-    "INSERT INTO host_samples (sampled_at, cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes) VALUES (?,?,?,?,?,?)"
-  ).run(sampledAt, sample.cpu_pct, sample.mem_used_bytes, sample.mem_total_bytes, sample.disk_used_bytes, sample.disk_total_bytes);
+    "INSERT INTO host_samples (sampled_at, cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_used_bytes, vol_total_bytes) VALUES (?,?,?,?,?,?,?,?)"
+  ).run(sampledAt, sample.cpu_pct, sample.mem_used_bytes, sample.mem_total_bytes, sample.disk_used_bytes, sample.disk_total_bytes, sample.vol_used_bytes ?? null, sample.vol_total_bytes ?? null);
   return 1;
 }
 
+// Write disk_bytes onto this tick's just-inserted rows (matched by uuid + sampledAt).
+export function upsertDiskBytes(rows, sampledAt) {
+  if (!rows.length) return 0;
+  const stmt = db.prepare("UPDATE metrics_samples SET disk_bytes = ? WHERE coolify_uuid = ? AND sampled_at = ?");
+  let n = 0;
+  const tx = db.transaction((rs) => { for (const r of rs) n += stmt.run(r.disk_bytes, r.coolify_uuid, sampledAt).changes; });
+  tx(rows);
+  return n;
+}
+
 // Orchestrates one sampling pass. Called best-effort from the health tick.
-export async function sampleAndStore(sampledAt) {
+export async function sampleAndStore(sampledAt, { withDisk = false } = {}) {
   const owned = db.prepare("SELECT coolify_uuid FROM resource_ownership").all().map((r) => r.coolify_uuid);
   const rows = mapNamesToUuids(await sampleAllContainers(), owned);
   const n = insertMetricsSamples(rows, sampledAt);
   try { insertHostSample(await sampleHostCapacity(), sampledAt); } catch { /* host sample best-effort */ }
+  if (withDisk) {
+    try {
+      const owned = db.prepare("SELECT coolify_uuid FROM resource_ownership").all().map((r) => r.coolify_uuid);
+      const disk = mapNamesToUuids(await sampleContainerDisk(), owned);
+      upsertDiskBytes(disk, sampledAt);
+    } catch { /* disk sample best-effort */ }
+  }
   return n;
+}
+
+// Latest host capacity + each service's most-recent sample, shaped for the Fleet dashboard.
+// Reads only the newest row per uuid (cheap; no bucketing). Pure DB read, no side effects.
+export function fleetOverview() {
+  const pct = (u, t) => (t > 0 ? Math.round((1000 * u) / t) / 10 : 0);
+  const host = db.prepare("SELECT * FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get();
+  const sites = db.prepare(`
+    SELECT m.coolify_uuid AS uuid, m.cpu_pct, m.mem_bytes, m.mem_pct, m.disk_bytes
+    FROM metrics_samples m
+    JOIN (SELECT coolify_uuid, MAX(sampled_at) AS mx FROM metrics_samples GROUP BY coolify_uuid) l
+      ON l.coolify_uuid = m.coolify_uuid AND l.mx = m.sampled_at
+  `).all();
+  const h = host || {};
+  return {
+    host: {
+      cpu: h.cpu_pct ?? null,
+      mem: { used: h.mem_used_bytes ?? null, total: h.mem_total_bytes ?? null, pct: pct(h.mem_used_bytes, h.mem_total_bytes) },
+      diskRoot: { used: h.disk_used_bytes ?? null, total: h.disk_total_bytes ?? null, pct: pct(h.disk_used_bytes, h.disk_total_bytes) },
+      diskVolume: h.vol_total_bytes ? { used: h.vol_used_bytes, total: h.vol_total_bytes, pct: pct(h.vol_used_bytes, h.vol_total_bytes) } : null,
+    },
+    sites,
+  };
 }
 
 // Retention: drop samples older than the cutoff (health-tick sweep passes now-24h).
@@ -226,7 +294,7 @@ export function hostHistory(window, nowMs = Date.now()) {
     GROUP BY CAST(strftime('%s', sampled_at) / ? AS INT) ORDER BY t
   `).all(from, cfg.bucket);
   if (!buckets.length) return { window: windowKey(window), series: { cpu: [], mem: [], disk: [] }, stats: null };
-  const cur = db.prepare("SELECT cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get() || {};
+  const cur = db.prepare("SELECT cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_used_bytes, vol_total_bytes FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get() || {};
   const pct = (u, t) => (t > 0 ? round((100 * u) / t, 1) : 0);
   return {
     window: windowKey(window),
@@ -239,6 +307,7 @@ export function hostHistory(window, nowMs = Date.now()) {
       cpu: { current: round(cur.cpu_pct, 1) },
       mem: { current: pct(cur.mem_used_bytes, cur.mem_total_bytes), bytes: cur.mem_used_bytes, total: cur.mem_total_bytes },
       disk: { current: pct(cur.disk_used_bytes, cur.disk_total_bytes), bytes: cur.disk_used_bytes, total: cur.disk_total_bytes },
+      volume: cur.vol_total_bytes ? { current: pct(cur.vol_used_bytes, cur.vol_total_bytes), bytes: cur.vol_used_bytes, total: cur.vol_total_bytes } : null,
     },
   };
 }
