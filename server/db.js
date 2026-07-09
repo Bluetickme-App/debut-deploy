@@ -449,6 +449,10 @@ const MIGRATIONS = [
   command TEXT, ok INTEGER, result TEXT, at TEXT NOT NULL
 )`);
   },
+  // -> user_version 31: per-host label on host_samples (NULL = primary, backward-compat)
+  (d) => {
+    try { d.exec("ALTER TABLE host_samples ADD COLUMN host TEXT"); } catch { /* exists */ }
+  },
 ];
 
 function resolveDbFile() {

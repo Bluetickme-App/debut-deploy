@@ -61,7 +61,9 @@ export default function Fleet() {
     }
   }
 
-  const h = data?.host;
+  // ponytail: fall back to singleton so old API shape keeps working
+  const hosts = data?.hosts ?? (data?.host ? [{ name: "primary", ...data.host }] : []);
+  const hostLabel = (name) => name === "primary" ? "Primary host" : name;
   return (
     <div className="page space-y-6">
       <PageHeader title="Fleet" subtitle="Host capacity and per-site usage" />
@@ -102,12 +104,17 @@ export default function Fleet() {
         <div className="flex h-40 items-center justify-center gap-2" style={{ color: "var(--text-muted)" }}><Spinner /> Loading…</div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <Gauge icon={Cpu} label="CPU" pct={h.cpu} />
-            <Gauge icon={MemoryStick} label="RAM" pct={h.mem.pct} sub={`${gb(h.mem.used)} / ${gb(h.mem.total)}`} />
-            <Gauge icon={HardDrive} label="Root disk" pct={h.diskRoot.pct} sub={`${gb(h.diskRoot.used)} / ${gb(h.diskRoot.total)}`} />
-            {h.diskVolume && <Gauge icon={HardDrive} label="Docker volume" pct={h.diskVolume.pct} sub={`${gb(h.diskVolume.used)} / ${gb(h.diskVolume.total)}`} />}
-          </div>
+          {hosts.map((h) => (
+            <div key={h.name}>
+              <div className="mb-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{hostLabel(h.name)}</div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <Gauge icon={Cpu} label="CPU" pct={h.cpu} />
+                <Gauge icon={MemoryStick} label="RAM" pct={h.mem?.pct} sub={h.mem ? `${gb(h.mem.used)} / ${gb(h.mem.total)}` : null} />
+                <Gauge icon={HardDrive} label="Root disk" pct={h.diskRoot?.pct} sub={h.diskRoot ? `${gb(h.diskRoot.used)} / ${gb(h.diskRoot.total)}` : null} />
+                {h.diskVolume && <Gauge icon={HardDrive} label="Docker volume" pct={h.diskVolume.pct} sub={`${gb(h.diskVolume.used)} / ${gb(h.diskVolume.total)}`} />}
+              </div>
+            </div>
+          ))}
 
           <Card>
             <table className="w-full text-sm">

@@ -64,22 +64,22 @@ export function parseDiskLine(line) {
   return { name, disk_bytes: bytes };
 }
 
-// Parse SAMPLE_HOSTS env var: comma-separated "host|hostKeySha256" pairs.
-// Returns [{ host, hostKeySha256 }]. Ignores blank/malformed entries. Pure.
+// Parse SAMPLE_HOSTS env var: comma-separated "host|hostKeySha256[|name]" entries.
+// Returns [{ host, hostKeySha256, name }]. name defaults to host. Pure.
 export function parseSampleHosts(raw) {
   if (!raw) return [];
   return raw.split(",").flatMap((entry) => {
-    const [host, sha] = entry.trim().split("|");
+    const [host, sha, name] = entry.trim().split("|");
     if (!host || !sha) return [];
     // must be a non-empty hex string
     if (!/^[0-9a-f]+$/i.test(sha.trim())) return [];
-    return [{ host: host.trim(), hostKeySha256: sha.trim() }];
+    return [{ host: host.trim(), hostKeySha256: sha.trim(), name: (name?.trim() || host.trim()) }];
   });
 }
 
-// Primary host (empty opts = default env vars) + any extra hosts from SAMPLE_HOSTS.
+// Primary host (empty SSH opts = default env vars, labeled "primary") + extras from SAMPLE_HOSTS.
 function sampleTargets() {
-  return [{}].concat(parseSampleHosts(process.env.SAMPLE_HOSTS));
+  return [{ name: "primary" }].concat(parseSampleHosts(process.env.SAMPLE_HOSTS));
 }
 
 // One SSH round-trip: total footprint of every container. `docker ps -s` is heavier
@@ -160,23 +160,24 @@ export function parseHostCapacity(out) {
   return { cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_total_bytes: volT, vol_used_bytes: volT ? vol_used_bytes : null };
 }
 
-export async function sampleHostCapacity() {
+export async function sampleHostCapacity(opts = {}) {
   if (DEMO) return null;
   const out = await runOnHost(
     "echo MEM_TOTAL=$(free -b | awk '/^Mem:/{print $2}'); echo MEM_USED=$(free -b | awk '/^Mem:/{print $3}'); " +
     "echo DISK_TOTAL=$(df -B1 --output=size / | tail -1); echo DISK_USED=$(df -B1 --output=used / | tail -1); " +
     "echo CORES=$(nproc); echo LOAD1=$(awk '{print $1}' /proc/loadavg); " +
     "echo VOL_TOTAL=$(df -B1 --output=size /mnt/dockerdata 2>/dev/null | tail -1 || echo 0); " +
-    "echo VOL_USED=$(df -B1 --output=used /mnt/dockerdata 2>/dev/null | tail -1 || echo 0)"
+    "echo VOL_USED=$(df -B1 --output=used /mnt/dockerdata 2>/dev/null | tail -1 || echo 0)",
+    opts
   );
   return parseHostCapacity(out);
 }
 
-export function insertHostSample(sample, sampledAt) {
+export function insertHostSample(sample, sampledAt, host = null) {
   if (!sample) return 0;
   db.prepare(
-    "INSERT INTO host_samples (sampled_at, cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_used_bytes, vol_total_bytes) VALUES (?,?,?,?,?,?,?,?)"
-  ).run(sampledAt, sample.cpu_pct, sample.mem_used_bytes, sample.mem_total_bytes, sample.disk_used_bytes, sample.disk_total_bytes, sample.vol_used_bytes ?? null, sample.vol_total_bytes ?? null);
+    "INSERT INTO host_samples (sampled_at, cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_used_bytes, vol_total_bytes, host) VALUES (?,?,?,?,?,?,?,?,?)"
+  ).run(sampledAt, sample.cpu_pct, sample.mem_used_bytes, sample.mem_total_bytes, sample.disk_used_bytes, sample.disk_total_bytes, sample.vol_used_bytes ?? null, sample.vol_total_bytes ?? null, host);
   return 1;
 }
 
@@ -195,7 +196,11 @@ export async function sampleAndStore(sampledAt, { withDisk = false } = {}) {
   const owned = db.prepare("SELECT coolify_uuid FROM resource_ownership").all().map((r) => r.coolify_uuid);
   const rows = mapNamesToUuids(await sampleAllContainers(), owned);
   const n = insertMetricsSamples(rows, sampledAt);
-  try { insertHostSample(await sampleHostCapacity(), sampledAt); } catch { /* host sample best-effort */ }
+  // Sample capacity for each host (primary + extras from SAMPLE_HOSTS), best-effort per host.
+  for (const { name, ...sshOpts } of sampleTargets()) {
+    try { insertHostSample(await sampleHostCapacity(sshOpts), sampledAt, name); }
+    catch (e) { console.error(`[metrics] host capacity skipped (${name}): ${e.message}`); }
+  }
   if (withDisk) {
     try {
       const owned = db.prepare("SELECT coolify_uuid FROM resource_ownership").all().map((r) => r.coolify_uuid);
@@ -210,7 +215,24 @@ export async function sampleAndStore(sampledAt, { withDisk = false } = {}) {
 // Reads only the newest row per uuid (cheap; no bucketing). Pure DB read, no side effects.
 export function fleetOverview() {
   const pct = (u, t) => (t > 0 ? Math.round((1000 * u) / t) / 10 : 0);
-  const host = db.prepare("SELECT * FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get();
+  // Latest row per host label. NULL host treated as 'primary' (pre-migration rows).
+  const hostRows = db.prepare(`
+    SELECT h.*
+    FROM host_samples h
+    JOIN (SELECT COALESCE(host,'primary') AS label, MAX(sampled_at) AS mx
+          FROM host_samples GROUP BY COALESCE(host,'primary')) l
+      ON COALESCE(h.host,'primary') = l.label AND h.sampled_at = l.mx
+    ORDER BY CASE WHEN COALESCE(h.host,'primary') = 'primary' THEN 0 ELSE 1 END, h.host
+  `).all();
+  const shapeHost = (h, label) => ({
+    name: label,
+    cpu: h.cpu_pct ?? null,
+    mem: { used: h.mem_used_bytes ?? null, total: h.mem_total_bytes ?? null, pct: pct(h.mem_used_bytes, h.mem_total_bytes) },
+    diskRoot: { used: h.disk_used_bytes ?? null, total: h.disk_total_bytes ?? null, pct: pct(h.disk_used_bytes, h.disk_total_bytes) },
+    diskVolume: h.vol_total_bytes ? { used: h.vol_used_bytes, total: h.vol_total_bytes, pct: pct(h.vol_used_bytes, h.vol_total_bytes) } : null,
+  });
+  const hosts = hostRows.map((h) => shapeHost(h, h.host ?? "primary"));
+  const primaryRaw = hostRows.find((h) => (h.host ?? "primary") === "primary") || {};
   const sites = db.prepare(`
     SELECT m.coolify_uuid AS uuid, m.cpu_pct, m.mem_bytes, m.mem_pct,
       (SELECT d.disk_bytes FROM metrics_samples d
@@ -220,14 +242,16 @@ export function fleetOverview() {
     JOIN (SELECT coolify_uuid, MAX(sampled_at) AS mx FROM metrics_samples GROUP BY coolify_uuid) l
       ON l.coolify_uuid = m.coolify_uuid AND l.mx = m.sampled_at
   `).all();
-  const h = host || {};
+  const h = primaryRaw;
   return {
+    // ponytail: backward-compat key; current UI reads this; hosts[] is the new multi-host surface
     host: {
       cpu: h.cpu_pct ?? null,
       mem: { used: h.mem_used_bytes ?? null, total: h.mem_total_bytes ?? null, pct: pct(h.mem_used_bytes, h.mem_total_bytes) },
       diskRoot: { used: h.disk_used_bytes ?? null, total: h.disk_total_bytes ?? null, pct: pct(h.disk_used_bytes, h.disk_total_bytes) },
       diskVolume: h.vol_total_bytes ? { used: h.vol_used_bytes, total: h.vol_total_bytes, pct: pct(h.vol_used_bytes, h.vol_total_bytes) } : null,
     },
+    hosts,
     sites,
   };
 }
