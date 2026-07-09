@@ -167,6 +167,41 @@ test("parseSampleHosts: two valid pairs → length 2", () => {
   assert.equal(r[1].host, "10.0.0.5");
 });
 
+test("parseSampleHosts: 3-field entry → name set; 2-field → name defaults to host", () => {
+  const sha = "f6e8aef9bd99c75436341fe33dac83511e92068f975b99bdbe78acb45b0e1236";
+  const r3 = M.parseSampleHosts(`157.90.1.1|${sha}|mailbox`);
+  assert.equal(r3.length, 1);
+  assert.equal(r3[0].name, "mailbox");
+  assert.equal(r3[0].host, "157.90.1.1");
+  const r2 = M.parseSampleHosts(`157.90.1.2|${sha}`);
+  assert.equal(r2.length, 1);
+  assert.equal(r2[0].name, "157.90.1.2"); // defaults to host
+});
+
+test("fleetOverview: hosts[] contains one entry per host label; host key = primary", () => {
+  // ponytail: far-future timestamps with unique prefix to avoid collision with other tests
+  const atPrimary = "2099-06-01T00:00:00.000Z";
+  const atMailbox = "2099-06-01T00:01:00.000Z";
+  const sample = (cpu, mem, disk) => ({
+    cpu_pct: cpu, mem_used_bytes: mem, mem_total_bytes: 8e9,
+    disk_used_bytes: disk, disk_total_bytes: 100e9, vol_used_bytes: null, vol_total_bytes: null,
+  });
+  M.insertHostSample(sample(10, 2e9, 20e9), atPrimary, "primary");
+  M.insertHostSample(sample(50, 4e9, 40e9), atMailbox, "mailbox");
+
+  const o = M.fleetOverview();
+  assert.ok(Array.isArray(o.hosts), "hosts is array");
+  const hp = o.hosts.find((x) => x.name === "primary");
+  const hm = o.hosts.find((x) => x.name === "mailbox");
+  assert.ok(hp, "primary in hosts[]");
+  assert.ok(hm, "mailbox in hosts[]");
+  assert.equal(hp.cpu, 10);
+  assert.equal(hm.cpu, 50);
+  assert.equal(hm.mem.pct, Math.round((4e9 / 8e9) * 1000) / 10); // 50.0
+  // backward-compat: o.host still returns the primary
+  assert.equal(o.host.cpu, 10);
+});
+
 test("fleetOverview: disk_bytes reads latest NON-NULL when newest row is null (disk sampled every 10th tick)", () => {
   const svc = "fleet-disknull-svc";
   // earlier row carries disk; the newer row (a non-disk tick) has disk_bytes NULL
