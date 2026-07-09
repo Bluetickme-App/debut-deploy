@@ -113,3 +113,13 @@ test("parseDiskLine: 'SizeRW (virtual SizeRootFs)' → total footprint bytes", (
   assert.equal(M.parseDiskLine("bad line no pipe"), null);
   assert.equal(M.parseDiskLine("|12MB"), null); // no name
 });
+
+test("upsertDiskBytes: attaches latest disk_bytes to a uuid's most recent sample", () => {
+  const at = new Date().toISOString();
+  M.insertMetricsSamples([{ coolify_uuid: "svc1", cpu_pct: 1, mem_bytes: 100, mem_pct: 1,
+    net_rx_bytes: 0, net_tx_bytes: 0, block_read_bytes: 0, block_write_bytes: 0, pids: 1 }], at);
+  const n = M.upsertDiskBytes([{ coolify_uuid: "svc1", disk_bytes: 5_000_000 }], at);
+  assert.equal(n, 1);
+  const hist = M.metricsHistory("svc1", "1h");
+  assert.ok(hist.stats.mem.bytes >= 0); // sanity: row exists
+});

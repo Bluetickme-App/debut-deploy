@@ -146,12 +146,29 @@ export function insertHostSample(sample, sampledAt) {
   return 1;
 }
 
+// Write disk_bytes onto this tick's just-inserted rows (matched by uuid + sampledAt).
+export function upsertDiskBytes(rows, sampledAt) {
+  if (!rows.length) return 0;
+  const stmt = db.prepare("UPDATE metrics_samples SET disk_bytes = ? WHERE coolify_uuid = ? AND sampled_at = ?");
+  let n = 0;
+  const tx = db.transaction((rs) => { for (const r of rs) n += stmt.run(r.disk_bytes, r.coolify_uuid, sampledAt).changes; });
+  tx(rows);
+  return n;
+}
+
 // Orchestrates one sampling pass. Called best-effort from the health tick.
-export async function sampleAndStore(sampledAt) {
+export async function sampleAndStore(sampledAt, { withDisk = false } = {}) {
   const owned = db.prepare("SELECT coolify_uuid FROM resource_ownership").all().map((r) => r.coolify_uuid);
   const rows = mapNamesToUuids(await sampleAllContainers(), owned);
   const n = insertMetricsSamples(rows, sampledAt);
   try { insertHostSample(await sampleHostCapacity(), sampledAt); } catch { /* host sample best-effort */ }
+  if (withDisk) {
+    try {
+      const owned = db.prepare("SELECT coolify_uuid FROM resource_ownership").all().map((r) => r.coolify_uuid);
+      const disk = mapNamesToUuids(await sampleContainerDisk(), owned);
+      upsertDiskBytes(disk, sampledAt);
+    } catch { /* disk sample best-effort */ }
+  }
   return n;
 }
 

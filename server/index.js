@@ -2558,6 +2558,7 @@ app.use((err, _req, res, _next) => {
 
 // --- health monitor: poll live services, audit + notify owners on transitions ---
 let healthSnapshot = {};
+let healthTickN = 0;
 let healthRunning = false; // reentrancy guard: a slow tick must not overlap the next
 if (!demoMode && process.env.NODE_ENV !== "test") {
   const timer = setInterval(async () => {
@@ -2603,8 +2604,11 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
       // --- metrics history sampling (best-effort; must never crash the monitor) ---
       // ponytail: one SSH `docker stats` over ALL containers per tick; a failed
       // sample skips one minute, never throws (same stance as metering).
+      // Disk (`docker ps -s`) is heavier so sampled every 10th tick (~10 min).
       try {
-        await sampleAndStore(new Date().toISOString());
+        const now = new Date().toISOString();
+        healthTickN = (healthTickN + 1) % 10;              // module-scope: let healthTickN = 0;
+        await sampleAndStore(now, { withDisk: healthTickN === 0 });
       } catch (mErr) {
         console.error("metrics sampling:", mErr.message);
       }
