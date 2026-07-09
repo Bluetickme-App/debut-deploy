@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge, Landmark, Settings as SettingsIcon,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge, Landmark, Settings as SettingsIcon, Monitor,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -16,6 +16,7 @@ import Activity from "./pages/Activity.jsx";
 import NotificationSettings from "./pages/NotificationSettings.jsx";
 import SharedVars from "./pages/SharedVars.jsx";
 import Servers from "./pages/Servers.jsx";
+import Fleet from "./pages/Fleet.jsx";
 import ImportRender from "./pages/ImportRender.jsx";
 import Email from "./pages/Email.jsx";
 import Projects from "./pages/Projects.jsx";
@@ -235,6 +236,7 @@ function Sidebar({ drawerOpen, onClose }) {
             <HoverNavLink to="/stripe"><Landmark size={18} /><span>Stripe</span></HoverNavLink>
             <HoverNavLink to="/new-git"><GitBranch size={18} /><span>Deploy from Git</span></HoverNavLink>
             <HoverNavLink to="/servers"><ServerCog size={18} /><span>Servers</span></HoverNavLink>
+            <HoverNavLink to="/fleet"><Monitor size={18} /><span>Fleet</span></HoverNavLink>
             <HoverNavLink to="/shared-vars"><Braces size={18} /><span>Variable Groups</span></HoverNavLink>
             <HoverNavLink to="/import"><DownloadCloud size={18} /><span>Import from Render</span></HoverNavLink>
           </>
@@ -270,6 +272,7 @@ const CRUMB_MAP = {
   "/activity": "Activity",
   "/notifications": "Notifications",
   "/servers": "Servers",
+  "/fleet": "Fleet",
   "/shared-vars": "Variable Groups",
   "/import": "Import from Render",
   "/email": "Email",
@@ -522,6 +525,7 @@ function AppShell() {
             <Route path="/notifications" element={<NotificationSettings />} />
             <Route path="/shared-vars" element={<SharedVars />} />
             <Route path="/servers" element={<Servers />} />
+            <Route path="/fleet" element={<Fleet />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/team" element={<Team />} />
             <Route path="/clients" element={<Clients />} />

@@ -184,4 +184,7 @@ export const api = {
   stripeOverview: () => req("/admin/stripe/overview"),
   setStripeMode: (mode) => req("/admin/stripe/mode", { method: "PUT", body: { mode } }),
   syncStripeCatalog: () => req("/admin/stripe/catalog", { method: "POST" }),
+  // Fleet monitoring
+  fleetOverview: () => req("/fleet/overview"),
+  restartService: (id) => req(`/services/${id}/restart`, { method: "POST" }),
 };
