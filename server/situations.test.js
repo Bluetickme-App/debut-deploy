@@ -146,3 +146,42 @@ test("listSituations({includeResolved:true}) includes the resolved test.recon ro
   assert.equal(all.length, 1);
   assert.equal(all[0].status, "resolved");
 });
+
+// ── applyRemediation ──────────────────────────────────────────────────────────
+
+const { applyRemediation } = await import("./situations.js");
+
+test("applyRemediation: restart-service calls control(target, 'restart') and writes remediation_log", async () => {
+  // Insert a unique open situation with restart-service remediation
+  const r = reconcileSituations([{ type: "test.apply", target: "uuid-apply-001", severity: "warn", detail: "unhealthy", suggested_remediation: "restart-service" }], "2026-01-10T00:00:00.000Z");
+  const situationId = r.opened[0].id;
+
+  let called = null;
+  const result = await applyRemediation(situationId, "tester", {
+    control: async (uuid, action) => { called = { uuid, action }; return { ok: true }; },
+  });
+
+  assert.ok(result.ok, "applyRemediation should return ok:true");
+  assert.deepEqual(called, { uuid: "uuid-apply-001", action: "restart" }, "control called with situation.target + 'restart'");
+
+  const logRow = db.prepare("SELECT * FROM remediation_log WHERE situation_id = ? AND actor = 'tester'").get(situationId);
+  assert.ok(logRow, "remediation_log row must exist");
+  assert.equal(logRow.actor, "tester");
+  assert.equal(logRow.ok, 1);
+  assert.equal(logRow.action, "restart-service");
+});
+
+test("applyRemediation: null suggested_remediation → ok:false, no control call, no log row", async () => {
+  const r = reconcileSituations([{ type: "test.apply", target: "uuid-apply-002", severity: "warn", detail: "mem pressure", suggested_remediation: null }], "2026-01-11T00:00:00.000Z");
+  const situationId = r.opened[0].id;
+
+  let controlCalled = false;
+  const result = await applyRemediation(situationId, "tester2", {
+    control: async () => { controlCalled = true; },
+  });
+
+  assert.equal(result.ok, false, "should return ok:false");
+  assert.equal(controlCalled, false, "control must NOT be called");
+  const logRow = db.prepare("SELECT * FROM remediation_log WHERE situation_id = ?").get(situationId);
+  assert.equal(logRow, undefined, "no remediation_log row must be written");
+});

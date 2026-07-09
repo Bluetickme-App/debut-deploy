@@ -108,7 +108,7 @@ import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
 import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory, fleetOverview } from "./metrics.js";
-import { evaluateSituations, reconcileSituations, collectSituationInputs } from "./situations.js";
+import { evaluateSituations, reconcileSituations, collectSituationInputs, listSituations, applyRemediation } from "./situations.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
@@ -536,6 +536,28 @@ app.get(
     const byId = Object.fromEntries(svcs.map((s) => [s.uuid, s]));
     o.sites = o.sites.map((s) => ({ ...s, name: byId[s.uuid]?.name || s.uuid, status: byId[s.uuid]?.status, health: byId[s.uuid]?.health }));
     return o;
+  })
+);
+
+// Situations: active fleet alerts with suggested remediations. Admin.
+app.get(
+  "/api/situations",
+  requireAuth,
+  requireAdmin,
+  h(async (req) => {
+    if (demoMode) return { situations: [{ id: 1, type: "host.disk", target: "host", severity: "warn", detail: "root disk at 86%", suggested_remediation: "prune-docker", status: "open", opened_at: new Date().toISOString() }] };
+    return { situations: listSituations({ includeResolved: req.query.all === "1" }) };
+  })
+);
+
+// Apply a situation's suggested remediation. Admin.
+app.post(
+  "/api/situations/:id/remediate",
+  requireAuth,
+  requireAdmin,
+  h(async (req) => {
+    if (demoMode) return { ok: true, demo: true };
+    return applyRemediation(Number(req.params.id), req.user?.email || "admin");
   })
 );
 

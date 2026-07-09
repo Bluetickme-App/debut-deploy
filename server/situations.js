@@ -1,7 +1,8 @@
-// ponytail: pure evaluator + DB lifecycle; Task 3 added reconcile/list below
+// ponytail: pure evaluator + DB lifecycle; Task 3 added reconcile/list below; Task 5 added applyRemediation
 import { db } from "./db.js";
 import { fleetOverview as _fleetOverview } from "./metrics.js";
 import { runOnHost } from "./hostexec.js";
+import { controlService as _controlService } from "./coolify.js";
 const DOWN_STATUSES = new Set(["exited", "stopped", "dead", "not_running", "paused"]);
 
 const DEPLOY_QUERY =
@@ -148,4 +149,45 @@ export function reconcileSituations(desired, nowIso) {
  */
 export function listSituations({ includeResolved = false } = {}) {
   return (includeResolved ? stmtListAll : stmtListOpen).all();
+}
+
+const stmtGetSituation = db.prepare("SELECT * FROM situations WHERE id = ?");
+const stmtLogRemediation = db.prepare(
+  "INSERT INTO remediation_log (situation_id, action, actor, command, ok, result, at) VALUES (?,?,?,?,?,?,?)"
+);
+
+/**
+ * Execute the registered remediation for a situation and log the result.
+ * Security: REGISTRY commands are fixed strings — situation data NEVER reaches the shell.
+ *
+ * @param {number} situationId
+ * @param {string} actor  — email or label for audit trail
+ * @param {{ control?: Function, runOnHostFn?: Function, nowIso?: string }} [opts]  — injectable for tests
+ * @returns {Promise<{ ok: boolean, result?: string, error?: string }>}
+ */
+export async function applyRemediation(situationId, actor, { control = _controlService, runOnHostFn = runOnHost, nowIso } = {}) {
+  const situation = stmtGetSituation.get(situationId);
+  if (!situation) return { ok: false, error: "situation not found" };
+
+  const reg = situation.suggested_remediation ? REGISTRY[situation.suggested_remediation] : null;
+  if (!reg) return { ok: false, error: "no remediation" };
+
+  const at = nowIso ?? new Date().toISOString();
+  let ok = false;
+  let result = "";
+  try {
+    if (reg.command === "coolify-restart") {
+      // ponytail: routes through controlService — situation.target is the app uuid, never shell-interpolated
+      await control(situation.target, "restart");
+      result = `restarted ${situation.target}`;
+    } else {
+      // ponytail: REGISTRY command is a fixed string — situation data never interpolated into it
+      result = String(await runOnHostFn(reg.command) ?? "");
+    }
+    ok = true;
+  } catch (e) {
+    result = e.message ?? String(e);
+  }
+  stmtLogRemediation.run(situationId, situation.suggested_remediation, actor, reg.command, ok ? 1 : 0, result.slice(0, 1000), at);
+  return ok ? { ok: true, result } : { ok: false, error: result };
 }

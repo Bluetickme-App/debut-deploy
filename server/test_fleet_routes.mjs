@@ -27,4 +27,12 @@ assert.equal(body.host.diskVolume.pct, 37, "diskVolume.pct === 37");
 assert.ok(Array.isArray(body.sites) && body.sites.length >= 1, "sites.length >= 1");
 
 console.log("PASS — HTTP /api/fleet/overview: status 200, auth+admin gate passed, demo payload correct");
+
+// --- GET /api/situations (demo) ---
+const sitRes = await fetch(`${BASE}/api/situations`);
+assert.ok(sitRes.ok, `Expected 200 from /api/situations, got ${sitRes.status}`);
+const sitBody = await sitRes.json();
+assert.ok(Array.isArray(sitBody.situations), "body.situations must be an array");
+
+console.log("PASS — HTTP /api/situations: status 200, body.situations is an array");
 process.exit(0);

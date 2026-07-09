@@ -201,5 +201,23 @@ server.registerTool(
   tool(({ id }) => api(`/api/services/${id}/metrics`))
 );
 
+server.registerTool(
+  "list_situations",
+  {
+    description: "List active fleet situations (disk pressure, unhealthy services, zombie deploys). Pass all=true to include resolved. Admin.",
+    inputSchema: { all: z.boolean().optional().describe("Include resolved situations (default: open only)") },
+  },
+  tool(({ all }) => api(`/api/situations${all ? "?all=1" : ""}`))
+);
+
+server.registerTool(
+  "run_remediation",
+  {
+    description: "Execute the suggested remediation for a situation by its numeric id. Admin.",
+    inputSchema: { id: z.number().int().describe("Situation id from list_situations") },
+  },
+  tool(({ id }) => api(`/api/situations/${id}/remediate`, { method: "POST" }))
+);
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
