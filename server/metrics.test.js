@@ -140,6 +140,33 @@ test("fleetOverview: latest host + per-site rows shaped for the dashboard", () =
   assert.equal(s.mem_pct, 5);
 });
 
+test("parseSampleHosts: empty/undefined → []", () => {
+  assert.deepEqual(M.parseSampleHosts(""), []);
+  assert.deepEqual(M.parseSampleHosts(undefined), []);
+});
+
+test("parseSampleHosts: one valid pair → [{host, hostKeySha256}]", () => {
+  const r = M.parseSampleHosts("157.90.244.221|f6e8aef9bd99c75436341fe33dac83511e92068f975b99bdbe78acb45b0e1236");
+  assert.equal(r.length, 1);
+  assert.equal(r[0].host, "157.90.244.221");
+  assert.equal(r[0].hostKeySha256, "f6e8aef9bd99c75436341fe33dac83511e92068f975b99bdbe78acb45b0e1236");
+});
+
+test("parseSampleHosts: malformed entries (no pipe, non-hex sha) are skipped", () => {
+  assert.deepEqual(M.parseSampleHosts("nopipe"), []);
+  assert.deepEqual(M.parseSampleHosts("host|not-a-hex!"), []);
+  assert.deepEqual(M.parseSampleHosts(",,,"), []);
+});
+
+test("parseSampleHosts: two valid pairs → length 2", () => {
+  const r = M.parseSampleHosts(
+    "157.90.244.221|f6e8aef9bd99c75436341fe33dac83511e92068f975b99bdbe78acb45b0e1236," +
+    "10.0.0.5|abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+  );
+  assert.equal(r.length, 2);
+  assert.equal(r[1].host, "10.0.0.5");
+});
+
 test("fleetOverview: disk_bytes reads latest NON-NULL when newest row is null (disk sampled every 10th tick)", () => {
   const svc = "fleet-disknull-svc";
   // earlier row carries disk; the newer row (a non-disk tick) has disk_bytes NULL
