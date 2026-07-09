@@ -1,6 +1,36 @@
 // ponytail: pure evaluator + DB lifecycle; Task 3 added reconcile/list below
 import { db } from "./db.js";
+import { fleetOverview as _fleetOverview } from "./metrics.js";
+import { runOnHost } from "./hostexec.js";
 const DOWN_STATUSES = new Set(["exited", "stopped", "dead", "not_running", "paused"]);
+
+const DEPLOY_QUERY =
+  "SELECT deployment_uuid, application_name, status, EXTRACT(EPOCH FROM (now()-created_at))::int" +
+  " FROM application_deployment_queues WHERE status IN ('in_progress','queued')";
+
+/**
+ * Gather host metrics + live deploy-queue state.
+ * @param {{ fleetOverview?: () => Promise<object> }} [opts]  — injectable for tests
+ * @returns {Promise<{ host: object, sites: object[], deploys: object[] }>}
+ */
+export async function collectSituationInputs({ fleetOverview = _fleetOverview } = {}) {
+  let host = { diskRoot: { pct: 0 }, diskVolume: null, mem: { pct: 0 } };
+  let sites = [];
+  let deploys = [];
+  try {
+    const fo = await fleetOverview();
+    host = fo.host ?? host;
+    sites = fo.sites ?? [];
+  } catch { /* best-effort */ }
+  try {
+    const raw = await runOnHost(`docker exec coolify-db psql -U coolify -d coolify -tAF'|' -c "${DEPLOY_QUERY}"`);
+    deploys = raw.split("\n").filter(Boolean).map((line) => {
+      const [uuid, application_name, status, ageSec] = line.split("|");
+      return { uuid, application_name, status, ageSec: Number(ageSec) };
+    });
+  } catch { /* best-effort: SSH down or no deploys table */ }
+  return { host, sites, deploys };
+}
 
 export const DISK_WARN = 85;
 export const DISK_CRIT = 92;

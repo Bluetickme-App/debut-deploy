@@ -108,6 +108,7 @@ import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
 import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory, fleetOverview } from "./metrics.js";
+import { evaluateSituations, reconcileSituations, collectSituationInputs } from "./situations.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
@@ -2632,6 +2633,16 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
       } catch (mErr) {
         console.error("metrics sampling:", mErr.message);
       }
+
+      // --- situation evaluation (best-effort; must never crash the monitor) ---
+      try {
+        const desired = evaluateSituations(await collectSituationInputs());
+        const { opened } = reconcileSituations(desired, new Date().toISOString());
+        for (const s of opened) {
+          recordSystem("situation.opened", { resourceType: s.target === "host" ? "host" : "application", resourceUuid: s.target, metadata: { type: s.type, severity: s.severity } });
+          if (s.target !== "host") notifyOwner(s.target, { type: "situation", message: `${s.type} (${s.severity})` });
+        }
+      } catch (e) { console.error("situations:", e.message); }
     } catch (err) {
       console.error("health monitor:", err.message);
     } finally {

@@ -79,6 +79,33 @@ test("evaluateSituations: status 'stopped' + health 'healthy' → service.unheal
   assert.equal(s.suggested_remediation, "restart-service");
 });
 
+// ── collectSituationInputs ────────────────────────────────────────────────────
+
+const { collectSituationInputs } = await import("./situations.js");
+
+const FAKE_HOST = { diskRoot: { pct: 40 }, diskVolume: null, mem: { pct: 50 } };
+const FAKE_SITE = { uuid: "csi-test-uuid", status: "running", health: "healthy" };
+
+test("collectSituationInputs: populates host+sites from injected fleetOverview; deploys=[] (no SSH)", async () => {
+  const result = await collectSituationInputs({
+    fleetOverview: () => Promise.resolve({ host: FAKE_HOST, sites: [FAKE_SITE] }),
+  });
+  assert.deepEqual(result.host, FAKE_HOST);
+  assert.equal(result.sites.length, 1);
+  assert.equal(result.sites[0].uuid, FAKE_SITE.uuid);
+  assert.ok(Array.isArray(result.deploys), "deploys must be an array");
+  // runOnHost unavailable in test → best-effort path → []
+  assert.equal(result.deploys.length, 0);
+});
+
+test("collectSituationInputs: does not throw when fleetOverview rejects", async () => {
+  const result = await collectSituationInputs({
+    fleetOverview: () => Promise.reject(new Error("network down")),
+  });
+  assert.ok(Array.isArray(result.sites));
+  assert.ok(Array.isArray(result.deploys));
+});
+
 // ── reconcileSituations + listSituations ─────────────────────────────────────
 // Unique type/target so these tests are isolated from all other rows in the shared :memory: db.
 
