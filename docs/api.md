@@ -331,6 +331,25 @@ curl -X POST https://app.debutdepoly.com/api/situations/7/remediate \
 
 MCP tools: `list_situations` (optional `all: true`), `run_remediation` (`id: number`).
 
+**Configuration — `AUTO_REMEDIATE` (server env var)**
+
+Default: **off** (unset or any value other than `"true"`). In the default mode situations are detect-and-suggest only: the panel surfaces them with a suggested fix and a human clicks "Apply fix".
+
+Set `AUTO_REMEDIATE=true` in `server/.env` (requires server restart) to enable bounded autonomous remediation for **high-confidence situations only**:
+
+| Remediation | Trigger | Notes |
+|---|---|---|
+| `prune-docker` | disk usage critical (≥ 90 %) | Runs `docker system prune -f` to reclaim dangling layers/volumes. |
+| `clear-deploy-queue` | zombie deploy stuck in queue | Cancels queued deployments blocking the pipeline. |
+
+`restart-service` is **never** auto-applied — customer apps are only restarted by a human.
+
+Guardrails:
+
+- Each situation auto-remediates **at most once** (`auto_applied_at` is set on first run and blocks re-entry).
+- A per-remediation **cooldown** (6 h lookback in `remediation_log`) prevents thrash if the root cause persists.
+- Every auto-action is written to `remediation_log` with `actor='auto'` and triggers the owner notification path — the same audit trail as a human-initiated fix.
+
 ### Billing, shared vars, customers, admin — Admin
 
 | Method | Path | Purpose | Body | Admin |
