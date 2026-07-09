@@ -172,6 +172,29 @@ export async function sampleAndStore(sampledAt, { withDisk = false } = {}) {
   return n;
 }
 
+// Latest host capacity + each service's most-recent sample, shaped for the Fleet dashboard.
+// Reads only the newest row per uuid (cheap; no bucketing). Pure DB read, no side effects.
+export function fleetOverview() {
+  const pct = (u, t) => (t > 0 ? Math.round((1000 * u) / t) / 10 : 0);
+  const host = db.prepare("SELECT * FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get();
+  const sites = db.prepare(`
+    SELECT m.coolify_uuid AS uuid, m.cpu_pct, m.mem_bytes, m.mem_pct, m.disk_bytes
+    FROM metrics_samples m
+    JOIN (SELECT coolify_uuid, MAX(sampled_at) AS mx FROM metrics_samples GROUP BY coolify_uuid) l
+      ON l.coolify_uuid = m.coolify_uuid AND l.mx = m.sampled_at
+  `).all();
+  const h = host || {};
+  return {
+    host: {
+      cpu: h.cpu_pct ?? null,
+      mem: { used: h.mem_used_bytes ?? null, total: h.mem_total_bytes ?? null, pct: pct(h.mem_used_bytes, h.mem_total_bytes) },
+      diskRoot: { used: h.disk_used_bytes ?? null, total: h.disk_total_bytes ?? null, pct: pct(h.disk_used_bytes, h.disk_total_bytes) },
+      diskVolume: h.vol_total_bytes ? { used: h.vol_used_bytes, total: h.vol_total_bytes, pct: pct(h.vol_used_bytes, h.vol_total_bytes) } : null,
+    },
+    sites,
+  };
+}
+
 // Retention: drop samples older than the cutoff (health-tick sweep passes now-24h).
 export function sweepMetrics(cutoffIso) {
   const a = db.prepare("DELETE FROM metrics_samples WHERE sampled_at < ?").run(cutoffIso).changes;
