@@ -120,7 +120,10 @@ export function parseHostCapacity(out) {
   const cores = num(/CORES=(\d+)/) || 1;
   const load1 = num(/LOAD1=([\d.]+)/);
   const cpu_pct = load1 != null ? Math.round((load1 / cores) * 1000) / 10 : null;
-  return { cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes };
+  const vol_total_bytes = num(/VOL_TOTAL=(\d+)/);
+  const vol_used_bytes = num(/VOL_USED=(\d+)/);
+  const volT = vol_total_bytes || null;
+  return { cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_total_bytes: volT, vol_used_bytes: volT ? vol_used_bytes : null };
 }
 
 export async function sampleHostCapacity() {
@@ -128,7 +131,9 @@ export async function sampleHostCapacity() {
   const out = await runOnHost(
     "echo MEM_TOTAL=$(free -b | awk '/^Mem:/{print $2}'); echo MEM_USED=$(free -b | awk '/^Mem:/{print $3}'); " +
     "echo DISK_TOTAL=$(df -B1 --output=size / | tail -1); echo DISK_USED=$(df -B1 --output=used / | tail -1); " +
-    "echo CORES=$(nproc); echo LOAD1=$(awk '{print $1}' /proc/loadavg)"
+    "echo CORES=$(nproc); echo LOAD1=$(awk '{print $1}' /proc/loadavg); " +
+    "echo VOL_TOTAL=$(df -B1 --output=size /mnt/dockerdata 2>/dev/null | tail -1 || echo 0); " +
+    "echo VOL_USED=$(df -B1 --output=used /mnt/dockerdata 2>/dev/null | tail -1 || echo 0)"
   );
   return parseHostCapacity(out);
 }
@@ -136,8 +141,8 @@ export async function sampleHostCapacity() {
 export function insertHostSample(sample, sampledAt) {
   if (!sample) return 0;
   db.prepare(
-    "INSERT INTO host_samples (sampled_at, cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes) VALUES (?,?,?,?,?,?)"
-  ).run(sampledAt, sample.cpu_pct, sample.mem_used_bytes, sample.mem_total_bytes, sample.disk_used_bytes, sample.disk_total_bytes);
+    "INSERT INTO host_samples (sampled_at, cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_used_bytes, vol_total_bytes) VALUES (?,?,?,?,?,?,?,?)"
+  ).run(sampledAt, sample.cpu_pct, sample.mem_used_bytes, sample.mem_total_bytes, sample.disk_used_bytes, sample.disk_total_bytes, sample.vol_used_bytes ?? null, sample.vol_total_bytes ?? null);
   return 1;
 }
 
@@ -249,7 +254,7 @@ export function hostHistory(window, nowMs = Date.now()) {
     GROUP BY CAST(strftime('%s', sampled_at) / ? AS INT) ORDER BY t
   `).all(from, cfg.bucket);
   if (!buckets.length) return { window: windowKey(window), series: { cpu: [], mem: [], disk: [] }, stats: null };
-  const cur = db.prepare("SELECT cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get() || {};
+  const cur = db.prepare("SELECT cpu_pct, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, vol_used_bytes, vol_total_bytes FROM host_samples ORDER BY sampled_at DESC LIMIT 1").get() || {};
   const pct = (u, t) => (t > 0 ? round((100 * u) / t, 1) : 0);
   return {
     window: windowKey(window),
@@ -262,6 +267,7 @@ export function hostHistory(window, nowMs = Date.now()) {
       cpu: { current: round(cur.cpu_pct, 1) },
       mem: { current: pct(cur.mem_used_bytes, cur.mem_total_bytes), bytes: cur.mem_used_bytes, total: cur.mem_total_bytes },
       disk: { current: pct(cur.disk_used_bytes, cur.disk_total_bytes), bytes: cur.disk_used_bytes, total: cur.disk_total_bytes },
+      volume: cur.vol_total_bytes ? { current: pct(cur.vol_used_bytes, cur.vol_total_bytes), bytes: cur.vol_used_bytes, total: cur.vol_total_bytes } : null,
     },
   };
 }

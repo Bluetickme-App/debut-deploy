@@ -88,6 +88,21 @@ test("demoHistory: shaped like real payload", () => {
   assert.equal(typeof h.stats.net.current, "number");
 });
 
+test("parseHostCapacity: includes docker volume when present", () => {
+  const out = "MEM_TOTAL=8000000000\nMEM_USED=3000000000\nDISK_TOTAL=80000000000\nDISK_USED=40000000000\n" +
+              "CORES=4\nLOAD1=2.0\nVOL_TOTAL=200000000000\nVOL_USED=73000000000";
+  const h = M.parseHostCapacity(out);
+  assert.equal(h.vol_total_bytes, 200_000_000_000);
+  assert.equal(h.vol_used_bytes, 73_000_000_000);
+});
+
+test("parseHostCapacity: volume absent → null volume fields", () => {
+  const out = "MEM_TOTAL=8000000000\nMEM_USED=3000000000\nDISK_TOTAL=80000000000\nDISK_USED=40000000000\nCORES=4\nLOAD1=1.0";
+  const h = M.parseHostCapacity(out);
+  assert.equal(h.vol_total_bytes, null);
+  assert.equal(h.vol_used_bytes, null);
+});
+
 test("parseDiskLine: 'SizeRW (virtual SizeRootFs)' → total footprint bytes", () => {
   // docker ps -s Size cell: "<writable> (virtual <total>)"
   const s = M.parseDiskLine("app-uuid123-x|12.3MB (virtual 1.2GB)");
