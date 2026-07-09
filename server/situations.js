@@ -1,4 +1,6 @@
 // ponytail: pure evaluator — no DB/SSH; Task 3 will add DB helpers to this file
+const DOWN_STATUSES = new Set(["exited", "stopped", "dead", "not_running", "paused"]);
+
 export const DISK_WARN = 85;
 export const DISK_CRIT = 92;
 export const MEM_WARN = 90;
@@ -50,7 +52,7 @@ export function evaluateSituations({ host, sites, deploys }) {
     out.push({ type: "host.mem", target: "host", severity: "warn", detail: `mem at ${host.mem.pct}%`, suggested_remediation: null });
 
   for (const site of sites) {
-    if (site.status === "exited" || site.health === "unhealthy")
+    if (DOWN_STATUSES.has(site.status) || site.health === "unhealthy")
       out.push({ type: "service.unhealthy", target: site.uuid, severity: "warn", detail: `${site.name ?? site.uuid} is ${site.status}/${site.health}`, suggested_remediation: "restart-service" });
   }
 

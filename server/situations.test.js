@@ -63,3 +63,18 @@ test("REGISTRY: every command is a fixed string, none auto in phase 2", () => {
     assert.notEqual(r.auto, true);
   }
 });
+
+test("evaluateSituations: diskRoot.pct === 92 is exactly DISK_CRIT → host.disk crit", () => {
+  const out = evaluateSituations({ host: { diskRoot: { pct: 92 }, diskVolume: null, mem: { pct: 10 } }, sites: [], deploys: [] });
+  const s = out.find((x) => x.type === "host.disk");
+  assert.ok(s, "expected a host.disk situation at pct=92");
+  assert.equal(s.severity, "crit");
+});
+
+test("evaluateSituations: status 'stopped' + health 'healthy' → service.unhealthy warn", () => {
+  const out = evaluateSituations({ host: { diskRoot: { pct: 5 }, diskVolume: null, mem: { pct: 10 } }, sites: [{ uuid: "s2", name: "svc", status: "stopped", health: "healthy" }], deploys: [] });
+  const s = out.find((x) => x.type === "service.unhealthy");
+  assert.ok(s, "expected service.unhealthy for stopped container");
+  assert.equal(s.severity, "warn");
+  assert.equal(s.suggested_remediation, "restart-service");
+});
