@@ -68,12 +68,18 @@ export function parseDiskLine(line) {
 // Returns [{ host, hostKeySha256, name }]. name defaults to host. Pure.
 export function parseSampleHosts(raw) {
   if (!raw) return [];
+  // "primary" is reserved for the default host; drop it and any duplicate name so
+  // fleetOverview's per-label join can't return two rows under one card.
+  const seen = new Set(["primary"]);
   return raw.split(",").flatMap((entry) => {
     const [host, sha, name] = entry.trim().split("|");
     if (!host || !sha) return [];
     // must be a non-empty hex string
     if (!/^[0-9a-f]+$/i.test(sha.trim())) return [];
-    return [{ host: host.trim(), hostKeySha256: sha.trim(), name: (name?.trim() || host.trim()) }];
+    const label = name?.trim() || host.trim();
+    if (seen.has(label)) return [];
+    seen.add(label);
+    return [{ host: host.trim(), hostKeySha256: sha.trim(), name: label }];
   });
 }
 
