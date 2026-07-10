@@ -178,26 +178,37 @@ test("parseSampleHosts: 3-field entry → name set; 2-field → name defaults to
   assert.equal(r2[0].name, "157.90.1.2"); // defaults to host
 });
 
+test("parseSampleHosts: reserved 'primary' and duplicate names are dropped", () => {
+  const sha = "f6e8aef9bd99c75436341fe33dac83511e92068f975b99bdbe78acb45b0e1236";
+  // "primary" is reserved for the default host
+  assert.equal(M.parseSampleHosts(`157.90.1.1|${sha}|primary`).length, 0);
+  // second entry reusing "mailbox" is dropped; first wins
+  const r = M.parseSampleHosts(`157.90.1.1|${sha}|mailbox,157.90.1.2|${sha}|mailbox`);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].host, "157.90.1.1");
+});
+
 test("fleetOverview: hosts[] contains one entry per host label; host key = primary", () => {
-  // ponytail: far-future timestamps with unique prefix to avoid collision with other tests
-  const atPrimary = "2099-06-01T00:00:00.000Z";
-  const atMailbox = "2099-06-01T00:01:00.000Z";
+  // ponytail: far-future timestamp with unique prefix to avoid collision with other tests.
+  // Both hosts share ONE timestamp — production writes every host with the same sampledAt,
+  // so this exercises the per-label join's tie behavior (one card per label, no cross-match).
+  const at = "2099-06-01T00:00:00.000Z";
   const sample = (cpu, mem, disk) => ({
     cpu_pct: cpu, mem_used_bytes: mem, mem_total_bytes: 8e9,
     disk_used_bytes: disk, disk_total_bytes: 100e9, vol_used_bytes: null, vol_total_bytes: null,
   });
-  M.insertHostSample(sample(10, 2e9, 20e9), atPrimary, "primary");
-  M.insertHostSample(sample(50, 4e9, 40e9), atMailbox, "mailbox");
+  M.insertHostSample(sample(10, 2e9, 20e9), at, "primary");
+  M.insertHostSample(sample(50, 4e9, 40e9), at, "mailbox");
 
   const o = M.fleetOverview();
   assert.ok(Array.isArray(o.hosts), "hosts is array");
-  const hp = o.hosts.find((x) => x.name === "primary");
-  const hm = o.hosts.find((x) => x.name === "mailbox");
-  assert.ok(hp, "primary in hosts[]");
-  assert.ok(hm, "mailbox in hosts[]");
-  assert.equal(hp.cpu, 10);
-  assert.equal(hm.cpu, 50);
-  assert.equal(hm.mem.pct, Math.round((4e9 / 8e9) * 1000) / 10); // 50.0
+  const hp = o.hosts.filter((x) => x.name === "primary");
+  const hm = o.hosts.filter((x) => x.name === "mailbox");
+  assert.equal(hp.length, 1, "exactly one primary card");
+  assert.equal(hm.length, 1, "exactly one mailbox card");
+  assert.equal(hp[0].cpu, 10);
+  assert.equal(hm[0].cpu, 50);
+  assert.equal(hm[0].mem.pct, Math.round((4e9 / 8e9) * 1000) / 10); // 50.0
   // backward-compat: o.host still returns the primary
   assert.equal(o.host.cpu, 10);
 });
