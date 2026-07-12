@@ -310,13 +310,18 @@ const DB_SERVER = process.env.COOLIFY_SERVER_UUID || "odtl07eovoo6f40gqwztsyhq";
 // migrated PG≤18 source restores into an equal-or-newer target — the supported
 // direction, no downgrade. Coolify's create-postgres API accepts an `image` field;
 // omitting it defaults to postgres:16-alpine (too old for modern Render sources).
-export async function provisionDatabase({ name, superUser = "dd_super", image = process.env.PG_TARGET_IMAGE || "postgres:18-alpine" }) {
+// serverUuid targets a specific host (default: the primary). Because WE set the
+// password, the returned URL is credential-complete WITHOUT a host-side reveal — so
+// this works on ANY host, unlike getDatabaseCredentials (SSH docker-inspect) which
+// only reaches the primary. That makes it the way to stand up a dedicated DB on a
+// secondary host and still get a usable connection string back.
+export async function provisionDatabase({ name, superUser = "dd_super", image = process.env.PG_TARGET_IMAGE || "postgres:18-alpine", serverUuid = DB_SERVER }) {
   if (isDemo()) return { uuid: `demo-db-${name}`, url: `postgresql://${superUser}:demo@demo-db-${name}:5432/postgres` };
   const password = randomBytes(18).toString("base64url");
   const r = await cf(`/databases/postgresql`, {
     method: "POST",
     body: {
-      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: DB_SERVER, image,
+      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: serverUuid, image,
       postgres_user: superUser, postgres_password: password, postgres_db: "postgres", instant_deploy: true,
     },
   });
@@ -327,13 +332,13 @@ export async function provisionDatabase({ name, superUser = "dd_super", image = 
 // Render's "Key Value" is Redis-compatible, so redis:7-alpine is a drop-in target.
 // Like provisionDatabase, WE set the password → the returned URL is credential-complete
 // (unlike an existing DB, whose password Coolify won't hand back).
-export async function provisionRedis({ name, image = process.env.REDIS_TARGET_IMAGE || "redis:7-alpine" }) {
+export async function provisionRedis({ name, image = process.env.REDIS_TARGET_IMAGE || "redis:7-alpine", serverUuid = DB_SERVER }) {
   if (isDemo()) return { uuid: `demo-redis-${name}`, url: `redis://default:demo@demo-redis-${name}:6379` };
   const password = randomBytes(18).toString("base64url");
   const r = await cf(`/databases/redis`, {
     method: "POST",
     body: {
-      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: DB_SERVER, image,
+      name, project_uuid: DB_PROJECT, environment_name: "production", server_uuid: serverUuid, image,
       redis_password: password, instant_deploy: true,
     },
   });

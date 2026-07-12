@@ -890,6 +890,35 @@ app.post(
   })
 );
 
+// Provision a fresh dedicated Postgres/Redis on a CHOSEN server and return a
+// credential-complete connection URL. Unlike POST /api/databases (which discards the
+// password and relies on the host-1-only SSH reveal to get it back), this uses the
+// self-set-password path, so it yields a usable URL on ANY host — the way to stand up
+// a dedicated DB on a secondary host and wire an app to it. Admin-only (real infra).
+app.post(
+  "/api/databases/provision",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
+  h(async (req) => {
+    const { type = "postgresql", name, serverUuid, image, plan_id } = req.body || {};
+    if (!name || !String(name).trim()) throw Object.assign(new Error("name is required"), { status: 400 });
+    if (!["postgresql", "redis"].includes(type)) throw Object.assign(new Error("type must be postgresql or redis"), { status: 400 });
+    const opts = { name: String(name).trim(), ...(serverUuid ? { serverUuid } : {}), ...(image ? { image } : {}) };
+    const { uuid, url } = type === "redis" ? await coolify.provisionRedis(opts) : await coolify.provisionDatabase(opts);
+    assign(uuid, "database", req.user.id);
+    const planId = plan_id ? String(plan_id) : null;
+    if (planId && planPriceUsd(planId) > 0) {
+      db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?").run(planId, "database", uuid);
+    }
+    // audit records the uuid/server only — NEVER the returned URL (it carries the password)
+    record(req, "db.provision", { resourceType: "database", resourceUuid: uuid, metadata: { type, serverUuid: serverUuid || null } });
+    return { uuid, url };
+  })
+);
+
 app.post(
   "/api/databases/:id/:action(start|stop)",
   requireAuth,
