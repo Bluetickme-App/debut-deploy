@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,7 +105,7 @@ import { computePlans, dbPlans, mailPlans } from "./plans.js";
 import { repoKey, verifyWebhookSig } from "./webhook.js";
 import * as domainconnect from "./domainconnect.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
-import { getContainerStats } from "./hostexec.js";
+import { getContainerStats, getServiceLogs, runOnHost } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
 import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory, fleetOverview } from "./metrics.js";
 import { evaluateSituations, reconcileSituations, collectSituationInputs, listSituations, applyRemediation, AUTO_REMEDIATE_ENABLED, selectAutoRemediations, markAutoApplied, recentRemediationLog } from "./situations.js";
@@ -587,12 +587,79 @@ app.patch(
   requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    const cpus = req.body?.cpus, memory = req.body?.memory;
-    if (cpus === undefined && memory === undefined) {
-      throw Object.assign(new Error("cpus or memory is required"), { status: 400 });
+    const cpus = req.body?.cpus, memory = req.body?.memory, memorySwap = req.body?.memorySwap;
+    if (cpus === undefined && memory === undefined && memorySwap === undefined) {
+      throw Object.assign(new Error("cpus, memory, or memorySwap is required"), { status: 400 });
     }
-    record(req, "service.resources", { resourceType: "application", resourceUuid: req.params.id, metadata: { cpus, memory } });
-    return coolify.updateServiceResources(req.params.id, { cpus, memory });
+    record(req, "service.resources", { resourceType: "application", resourceUuid: req.params.id, metadata: { cpus, memory, memorySwap } });
+    return coolify.updateServiceResources(req.params.id, { cpus, memory, memorySwap });
+  })
+);
+
+// --- build pipeline: read config, flip build-pack, unwedge the queue ---
+// These exist so the pipeline can be inspected/fixed WITHOUT SSH (the gap that made
+// every "reach the box" need block on an admin). Owner-scoped like the other routes.
+app.get(
+  "/api/services/:id/build-config",
+  requireAuth,
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return coolify.getBuildConfig(req.params.id);
+  })
+);
+
+app.patch(
+  "/api/services/:id/build-pack",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const { buildPack, baseDirectory, dockerfileLocation, portsExposes } = req.body || {};
+    record(req, "service.build_pack", { resourceType: "application", resourceUuid: req.params.id, metadata: { buildPack, baseDirectory, dockerfileLocation } });
+    return coolify.setBuildPack(req.params.id, { buildPack, baseDirectory, dockerfileLocation, portsExposes });
+  })
+);
+
+app.post(
+  "/api/services/:id/clear-queue",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const r = await coolifydb.clearDeployQueue(req.params.id);
+    record(req, "service.clear_queue", { resourceType: "application", resourceUuid: req.params.id, metadata: r });
+    return { ok: true, ...r };
+  })
+);
+
+// --- password-gated host command (admin escape hatch) ---
+// Deliberate raw-shell tool for box ops the bounded tools don't cover. Guarded THREE
+// ways: (1) admin-only, (2) a shared password (SSH_EXEC_PASSWORD) — the "human gate":
+// the caller cannot run it without the password an operator hands over per use, and
+// (3) every call (and denial) is audited. Disabled entirely if SSH_EXEC_PASSWORD unset.
+app.post(
+  "/api/admin/ssh-exec",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const secret = process.env.SSH_EXEC_PASSWORD || "";
+    if (!secret) throw Object.assign(new Error("ssh-exec is disabled (set SSH_EXEC_PASSWORD to enable)"), { status: 403 });
+    const { command, password } = req.body || {};
+    if (!command || typeof command !== "string") throw Object.assign(new Error("command (string) is required"), { status: 400 });
+    const a = Buffer.from(String(password ?? "")), b = Buffer.from(secret);
+    const ok = a.length === b.length && timingSafeEqual(a, b); // constant-time
+    if (!ok) {
+      record(req, "ssh_exec.denied", { metadata: { command: command.slice(0, 200) } });
+      throw Object.assign(new Error("invalid ssh-exec password"), { status: 401 });
+    }
+    record(req, "ssh_exec", { metadata: { command: command.slice(0, 500) } });
+    const out = await runOnHost(command);
+    return { ok: true, output: typeof out === "string" ? out : String(out ?? "") };
   })
 );
 

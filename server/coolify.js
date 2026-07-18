@@ -404,13 +404,54 @@ export async function patchApp(uuid, fields) {
 }
 // Update a service's Docker resource limits. Coolify accepts limits_cpus (e.g. "0"|"1"|"0.5")
 // and limits_memory (e.g. "0"|"512M"|"1G"). "0" = unlimited. Applied on next deploy.
-export async function updateServiceResources(uuid, { cpus, memory }) {
+export async function updateServiceResources(uuid, { cpus, memory, memorySwap }) {
   if (isDemo()) return { ok: true, resources: { cpus: String(cpus ?? "0"), memory: String(memory ?? "0") } };
   const body = {};
   if (cpus !== undefined) body.limits_cpus = String(cpus);
   if (memory !== undefined) body.limits_memory = String(memory);
+  // limits_memory_swap: Docker rejects a container when swap is set but memory isn't
+  // (the "flaky deploy" class). Callers should set both, or leave both "0".
+  if (memorySwap !== undefined) body.limits_memory_swap = String(memorySwap);
   await cf(`/applications/${uuid}`, { method: "PATCH", body });
-  return { ok: true, resources: { cpus: String(cpus ?? "0"), memory: String(memory ?? "0") } };
+  return { ok: true, resources: { cpus: String(cpus ?? "0"), memory: String(memory ?? "0"), memorySwap: memorySwap !== undefined ? String(memorySwap) : undefined } };
+}
+
+// Read the build configuration (build-pack, subdir, dockerfile path, git, limits) —
+// so callers can SEE the pipeline config, not just guess. Raw Coolify app fields.
+export async function getBuildConfig(uuid) {
+  if (isDemo()) return { uuid, build_pack: "nixpacks", base_directory: "/", dockerfile_location: null };
+  const a = await cf(`/applications/${uuid}`);
+  return {
+    uuid: a.uuid,
+    name: a.name,
+    build_pack: a.build_pack,               // nixpacks | dockerfile | static | dockercompose
+    base_directory: a.base_directory,
+    dockerfile_location: a.dockerfile_location,
+    ports_exposes: a.ports_exposes,
+    git_branch: a.git_branch,
+    git_commit_sha: a.git_commit_sha,       // pinned SHA ("HEAD" = tracks branch tip)
+    limits_cpus: a.limits_cpus,
+    limits_memory: a.limits_memory,
+    limits_memory_swap: a.limits_memory_swap,
+  };
+}
+
+// Flip the build-pack (e.g. dockerfile ↔ nixpacks) + optional subdir/dockerfile/port.
+// Applied on next deploy. This was the thing nobody could change without SSH.
+const BUILD_PACKS = new Set(["nixpacks", "dockerfile", "static", "dockercompose"]);
+export async function setBuildPack(uuid, { buildPack, baseDirectory, dockerfileLocation, portsExposes }) {
+  if (buildPack !== undefined && !BUILD_PACKS.has(buildPack)) {
+    throw Object.assign(new Error(`buildPack must be one of: ${[...BUILD_PACKS].join(", ")}`), { status: 400 });
+  }
+  if (isDemo()) return { ok: true, uuid, buildPack };
+  const body = {};
+  if (buildPack !== undefined) body.build_pack = buildPack;
+  if (baseDirectory !== undefined) body.base_directory = baseDirectory;
+  if (dockerfileLocation !== undefined) body.dockerfile_location = dockerfileLocation;
+  if (portsExposes !== undefined) body.ports_exposes = String(portsExposes);
+  if (!Object.keys(body).length) throw Object.assign(new Error("nothing to update"), { status: 400 });
+  await cf(`/applications/${uuid}`, { method: "PATCH", body });
+  return { ok: true, uuid, ...body };
 }
 
 export async function renameDatabase(uuid, name) {

@@ -126,14 +126,72 @@ server.registerTool(
 server.registerTool(
   "update_service_resources",
   {
-    description: "Set a service's CPU and/or memory limits. Values: cpus '0'|'0.5'|'1'|'2', memory '0'|'256M'|'512M'|'1G'|'2G' ('0' = no limit). Applied on next deploy.",
+    description:
+      "Set a service's CPU / memory / memory-swap limits. cpus '0'|'0.5'|'1'|'2'; memory & memorySwap '0'|'512M'|'1G'|'2G'|'4G' ('0' = no limit). " +
+      "IMPORTANT: never set memorySwap without also setting memory — Docker refuses to start the container (the 'flaky deploy' bug). Set both together (swap >= memory), or leave both '0'. Applied on next deploy.",
     inputSchema: {
       id,
       cpus: z.string().optional().describe("CPU limit, e.g. '1' or '0' for no limit"),
       memory: z.string().optional().describe("Memory limit, e.g. '512M' or '0' for no limit"),
+      memorySwap: z.string().optional().describe("Memory+swap limit; must be >= memory (or '0'). Do not set alone."),
     },
   },
-  tool(({ id, cpus, memory }) => api(`/api/services/${id}/resources`, { method: "PATCH", body: { cpus, memory } }))
+  tool(({ id, cpus, memory, memorySwap }) => api(`/api/services/${id}/resources`, { method: "PATCH", body: { cpus, memory, memorySwap } }))
+);
+
+server.registerTool(
+  "get_build_config",
+  {
+    description: "Read a service's build pipeline config: build_pack (nixpacks|dockerfile|static|dockercompose), base_directory, dockerfile_location, ports_exposes, git branch/commit, and CPU/memory/swap limits. Use this to SEE the config before changing it.",
+    inputSchema: { id },
+  },
+  tool(({ id }) => api(`/api/services/${id}/build-config`))
+);
+
+server.registerTool(
+  "set_build_pack",
+  {
+    description: "Change a service's build pack (e.g. flip dockerfile <-> nixpacks) and optionally its base directory / dockerfile path / exposed port. Applied on next deploy. Use get_build_config first to see current values.",
+    inputSchema: {
+      id,
+      buildPack: z.enum(["nixpacks", "dockerfile", "static", "dockercompose"]).optional().describe("Build pack to switch to"),
+      baseDirectory: z.string().optional().describe("Subdir to build from, e.g. '/' or '/ad-service'"),
+      dockerfileLocation: z.string().optional().describe("Dockerfile path relative to base dir, e.g. '/Dockerfile' (dockerfile pack)"),
+      portsExposes: z.string().optional().describe("Exposed container port, e.g. '10000'"),
+    },
+  },
+  tool(({ id, ...body }) => api(`/api/services/${id}/build-pack`, { method: "PATCH", body }))
+);
+
+server.registerTool(
+  "clear_deploy_queue",
+  {
+    description: "Unwedge a service's deploy queue: fails all ITS stuck in_progress/queued deploys, removes their (possibly hung) build-helper containers, and restarts the queue worker so the NEXT deploy dispatches cleanly. Use when deploys stick queued and never run. Only affects this service.",
+    inputSchema: { id },
+  },
+  tool(({ id }) => api(`/api/services/${id}/clear-queue`, { method: "POST" }))
+);
+
+server.registerTool(
+  "deploy_commit",
+  {
+    description: "Build + deploy a SPECIFIC commit SHA (not just the branch HEAD). Pins the service to that SHA and force-rebuilds. Use to deploy a known-good SHA when a bare HEAD deploy is undesirable. (Same as rollback_service.)",
+    inputSchema: { id, commit: z.string().describe("Full or short commit SHA to build + deploy") },
+  },
+  tool(({ id, commit }) => api(`/api/services/${id}/rollback`, { method: "POST", body: { commit } }))
+);
+
+server.registerTool(
+  "ssh_exec",
+  {
+    description:
+      "Run a shell command on the host box (escape hatch for ops the other tools don't cover). ADMIN-ONLY and PASSWORD-GATED: you must pass the shared ssh-exec password an operator gives you per use — without it this fails. Every call is audited. Prefer the specific tools (clear_deploy_queue, set_build_pack, etc.) when they fit.",
+    inputSchema: {
+      command: z.string().describe("Shell command to run on the host"),
+      password: z.string().describe("The ssh-exec password (SSH_EXEC_PASSWORD) — provided by a human per use"),
+    },
+  },
+  tool(({ command, password }) => api(`/api/admin/ssh-exec`, { method: "POST", body: { command, password } }))
 );
 
 server.registerTool(

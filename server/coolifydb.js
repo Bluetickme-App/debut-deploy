@@ -73,6 +73,30 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   });
 }
 
+// Unwedge a service's deploy queue: fail all ITS in_progress/queued rows, remove the
+// (possibly hung) build-helper containers for exactly those deploys, and nudge the
+// queue worker so the NEXT deploy dispatches. This is the "orphaned queue" fix that
+// otherwise needed manual SSH. Only touches THIS app's deploys/helpers (never others').
+export async function clearDeployQueue(appUuid) {
+  if (DEMO) return { cleared: 0 };
+  const u = String(appUuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) throw Object.assign(new Error("bad service id"), { status: 400 });
+  const raw = await runSql(
+    `SELECT deployment_uuid FROM application_deployment_queues ` +
+    `WHERE application_id=(SELECT id::text FROM applications WHERE uuid='${u}') AND status IN ('in_progress','queued')`
+  );
+  const uuids = String(raw || "").trim().split("\n").map((s) => s.replace(/[^a-z0-9]/gi, "")).filter(Boolean);
+  if (!uuids.length) return { cleared: 0 };
+  const inList = uuids.map((x) => `'${x}'`).join(",");
+  await runSql(`UPDATE application_deployment_queues SET status='failed' WHERE deployment_uuid IN (${inList})`);
+  // rm ONLY this app's helper containers (named = deployment_uuid) + nudge the worker.
+  // Best-effort: the DB rows are already failed, so a host hiccup here isn't fatal.
+  await runOnHost(
+    `docker rm -f ${uuids.join(" ")} 2>/dev/null; docker exec coolify php artisan queue:restart >/dev/null 2>&1; true`
+  ).catch(() => {});
+  return { cleared: uuids.length };
+}
+
 // Move a resource (app or postgres) into another Coolify project by repointing its
 // environment_id — Coolify has no REST endpoint for this. Structured as UPDATE …
 // FROM (subquery): if the target project has no environment the subquery is empty
