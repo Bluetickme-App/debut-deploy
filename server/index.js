@@ -702,6 +702,21 @@ app.get(
   })
 );
 
+// Fleet-wide deployment LOG: recent deploys across all apps (finished/failed/active),
+// durable history for the Deployments page. In-flight rows carry a progress estimate
+// like the active queue. Non-admins see only their own apps. Empty on SSH failure.
+app.get(
+  "/api/deployments",
+  requireAuth,
+  h(async (req) => {
+    const rows = await coolifydb.listRecentDeployments({ limit: 80 }).catch(() => []);
+    const medians = await coolifydb.getBuildDurationMedians().catch(() => ({}));
+    const now = Date.now();
+    const enriched = rows.map((d) => ({ ...d, progress: buildProgress(d, medians, now) }));
+    return filterByOwnership(enriched, req.user, "application");
+  })
+);
+
 // Cancel a running/queued build. Ownership resolved from the deployment's app
 // (looked up server-side — never trust a client-supplied id); admins bypass in
 // assertOwns. Coolify returns 500 "cannot be cancelled" if it already finished —

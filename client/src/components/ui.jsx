@@ -8,6 +8,7 @@ const STATUS_MAP = {
   building:    { pill: "pill-warn",  pulse: true,  label: "Building" },
   deploying:   { pill: "pill-warn",  pulse: true,  label: "Deploying" },
   in_progress: { pill: "pill-warn",  pulse: true,  label: "Building" },
+  queued:      { pill: "pill-warn",  pulse: false, label: "Queued" },
   degraded:    { pill: "pill-warn",  pulse: false, label: "Degraded" },
   stopped:     { pill: "pill-muted", pulse: false, label: "Stopped" },
   exited:      { pill: "pill-err",   pulse: false, label: "Exited" },

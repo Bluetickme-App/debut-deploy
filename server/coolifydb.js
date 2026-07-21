@@ -76,6 +76,33 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   });
 }
 
+// Fleet-wide recent deployments across ALL apps (durable history — the REST
+// /deployments endpoint lists only active ones). Joins to applications for the app
+// uuid + name so the log can link each row to its service. Newest first.
+export async function listRecentDeployments({ limit = 80 } = {}) {
+  if (DEMO) return [];
+  const n = Math.min(200, Math.max(1, Number(limit) || 80));
+  const raw = await runSql(
+    `SELECT q.deployment_uuid||'|'||a.uuid||'|'||replace(replace(a.name,'|','/'),chr(10),' ')||'|'||q.status||'|'||coalesce(q.commit,'')||'|'||replace(split_part(coalesce(q.commit_message,''),chr(10),1),'|','/')||'|'||coalesce(q.is_webhook::text,'f')||'|'||q.created_at::text||'|'||coalesce(q.updated_at::text,'')||'|'||coalesce(a.git_branch,'') ` +
+    `FROM application_deployment_queues q JOIN applications a ON a.id::text=q.application_id ` +
+    `ORDER BY q.id DESC LIMIT ${n}`
+  );
+  return String(raw || "").trim().split("\n").filter(Boolean).map((line) => {
+    const [deploymentUuid, uuid, app, status, commit, message, webhook, created, updated, branch] = line.split("|");
+    const dur = created && updated ? Math.max(0, Math.round((Date.parse(updated) - Date.parse(created)) / 1000)) : null;
+    return {
+      deploymentUuid, uuid, app,
+      status,
+      commit: (commit || "").slice(0, 7),
+      message: message || "",
+      branch: branch || "",
+      startedAt: created || null,
+      durationSec: dur,
+      trigger: (webhook === "t" || webhook === "true") ? "git push" : "manual",
+    };
+  });
+}
+
 // Median wall-clock duration of each app's last 10 SUCCESSFUL builds, keyed by app
 // uuid. Feeds the Build Queue's progress estimate (Coolify reports no percentage).
 //

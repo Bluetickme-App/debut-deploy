@@ -2,7 +2,7 @@ import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-d
 import {
   Layers, Database, SquarePlus, Activity as ActivityIcon, Bell,
   ServerCog, Braces, DownloadCloud, ChevronsUpDown, Check, Plus,
-  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge, Landmark, Settings as SettingsIcon, Monitor,
+  Sun, Moon, LogOut, ChevronDown, FolderOpen, Users, Mail, Menu, GitBranch, CreditCard, Wallet, Gauge, Landmark, Settings as SettingsIcon, Monitor, Rocket,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api.js";
@@ -13,6 +13,7 @@ import DatabaseDetail from "./pages/DatabaseDetail.jsx";
 import NewService from "./pages/NewService.jsx";
 import NewDatabase from "./pages/NewDatabase.jsx";
 import Activity from "./pages/Activity.jsx";
+import Deployments from "./pages/Deployments.jsx";
 import NotificationSettings from "./pages/NotificationSettings.jsx";
 import SharedVars from "./pages/SharedVars.jsx";
 import Servers from "./pages/Servers.jsx";
@@ -203,6 +204,7 @@ function Sidebar({ drawerOpen, onClose }) {
       <nav style={{ flex: 1, overflowY: "auto", padding: "6px 12px", display: "flex", flexDirection: "column", gap: 2 }}>
         <HoverNavLink to="/projects"><FolderOpen size={18} /><span>Projects</span></HoverNavLink>
         <HoverNavLink to="/" end><Layers size={18} /><span>Services</span></HoverNavLink>
+        <HoverNavLink to="/deployments"><Rocket size={18} /><span>Deployments</span></HoverNavLink>
         <HoverNavLink to="/databases"><Database size={18} /><span>Infrastructure</span></HoverNavLink>
         <HoverNavLink to="/new"><SquarePlus size={18} /><span>New Service</span></HoverNavLink>
         <HoverNavLink to="/new-database"><Database size={18} /><span>New Database</span></HoverNavLink>
@@ -265,6 +267,7 @@ function Sidebar({ drawerOpen, onClose }) {
 
 const CRUMB_MAP = {
   "/": "Services",
+  "/deployments": "Deployments",
   "/projects": "Projects",
   "/databases": "Infrastructure",
   "/new": "New Service",
@@ -522,6 +525,7 @@ function AppShell() {
             <Route path="/new" element={<NewService />} />
             <Route path="/new-database" element={<NewDatabase />} />
             <Route path="/activity" element={<Activity />} />
+            <Route path="/deployments" element={<Deployments />} />
             <Route path="/notifications" element={<NotificationSettings />} />
             <Route path="/shared-vars" element={<SharedVars />} />
             <Route path="/servers" element={<Servers />} />

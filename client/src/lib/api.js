@@ -55,6 +55,7 @@ export const api = {
   control: (id, action) => req(`/services/${id}/${action}`, { method: "POST" }),
   deployments: (id) => req(`/services/${id}/deployments`),
   activeDeployments: () => req(`/deployments/active`), // fleet build queue (active + queued)
+  deploymentLog: () => req(`/deployments`), // fleet-wide recent deployment history
   cancelDeployment: (uuid) => req(`/deployments/${uuid}/cancel`, { method: "POST" }),
   concurrentBuilds: (serverUuid) => req(`/servers/${serverUuid}/concurrent-builds`), // admin: current lane count
   setConcurrentBuilds: (serverUuid, n) => req(`/servers/${serverUuid}/concurrent-builds`, { method: "PATCH", body: { concurrentBuilds: n } }),
