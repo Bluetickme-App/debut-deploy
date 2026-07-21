@@ -268,19 +268,15 @@ body {
 }
 
 /* ── Responsive grids ── */
+/* Fluid: fit as many equal-width cards as the row allows, down to ~340px each,
+   then stretch them to fill (no wasted right-hand gutter). Replaces fixed
+   min-width breakpoints, which capped columns wrong under browser zoom / HiDPI.
+   min(100%, 340px) keeps a lone card from overflowing a narrow viewport. */
 .services-grid,
 .projects-grid {
   display: grid;
   gap: 15px;
-  grid-template-columns: 1fr;
-}
-@media (min-width: 641px) {
-  .services-grid,
-  .projects-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (min-width: 1025px) {
-  .services-grid,
-  .projects-grid { grid-template-columns: repeat(3, 1fr); }
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
 }
 
 /* ── Tab bar (ServiceDetail) ── */

@@ -10,6 +10,8 @@ const STATUS_MAP = {
   in_progress: { pill: "pill-warn",  pulse: true,  label: "Building" },
   degraded:    { pill: "pill-warn",  pulse: false, label: "Degraded" },
   stopped:     { pill: "pill-muted", pulse: false, label: "Stopped" },
+  exited:      { pill: "pill-err",   pulse: false, label: "Exited" },
+  unhealthy:   { pill: "pill-err",   pulse: false, label: "Unhealthy" },
   unknown:     { pill: "pill-muted", pulse: false, label: "Unknown" },
   failed:      { pill: "pill-err",   pulse: false, label: "Failed" },
   error:       { pill: "pill-err",   pulse: false, label: "Error" },

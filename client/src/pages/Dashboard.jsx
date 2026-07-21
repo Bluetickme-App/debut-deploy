@@ -9,10 +9,15 @@ import {
 } from "../components/ui.jsx";
 import BuildQueue from "../components/BuildQueue.jsx";
 
-// Runtime dot colors per design spec
-const RT_COLOR = {
-  Node: "#4f9d4f", Go: "#00acd7", Python: "#ffd43b", Static: "#94a3b8",
-};
+// Health light for the runtime cell: green up / amber mid / red down / grey unknown.
+// (Was a language-colour dot keyed to Node/Go/Python — those never matched the real
+//  runtime values nixpacks/dockerfile/static, so every dot rendered grey anyway.)
+function statusLight(status) {
+  if (["running", "healthy", "success"].includes(status)) return "var(--ok)";
+  if (["building", "deploying", "in_progress", "degraded"].includes(status)) return "var(--warn)";
+  if (["exited", "failed", "error", "unhealthy", "stopped"].includes(status)) return "var(--err)";
+  return "var(--text-muted)";
+}
 
 // Turn a git remote (git@github.com:owner/repo.git or https://github.com/owner/repo)
 // into a browsable GitHub URL, or null if it isn't recognisably a repo.
@@ -44,17 +49,17 @@ function RepoText({ repo, name, isPrivate }) {
   );
 }
 
-function RuntimeChip({ runtime }) {
-  const color = RT_COLOR[runtime] || "var(--text-muted)";
+function RuntimeChip({ runtime, status }) {
   return (
     <span
+      title={`Status: ${status || "unknown"}`}
       style={{
         display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px",
         borderRadius: 6, background: "var(--surface-2)", border: "1px solid var(--border)",
         fontSize: 11.5, fontWeight: 500, color: "var(--text)",
       }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusLight(status), flexShrink: 0 }} />
       {runtime || "Unknown"}
     </span>
   );
@@ -164,7 +169,7 @@ function GridCard({ s, onClick }) {
           <span style={{ color: "var(--text)" }}>{s.branch || "main"}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <RuntimeChip runtime={s.runtime} />
+          <RuntimeChip runtime={s.runtime} status={s.status} />
           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
             {s.lastDeployedAt ? timeAgo(s.lastDeployedAt) : "—"}
           </span>
@@ -244,10 +249,10 @@ function ListRow({ s, onClick }) {
       }}>
         {s.domain || "—"}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12.5, color: "var(--text)" }}>
+      <div title={`Status: ${s.status || "unknown"}`} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12.5, color: "var(--text)" }}>
         <span style={{
           width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-          background: RT_COLOR[s.runtime] || "var(--text-muted)",
+          background: statusLight(s.status),
         }} />
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.runtime || "—"}</span>
       </div>
@@ -299,14 +304,13 @@ function EmptyDashed() {
   );
 }
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All statuses" },
-  { value: "running", label: "Running" },
-  { value: "healthy", label: "Healthy" },
-  { value: "building", label: "Building" },
-  { value: "stopped", label: "Stopped" },
-  { value: "failed", label: "Failed" },
-];
+// Nice labels for known statuses; anything else is Title-cased from its raw value.
+const STATUS_LABELS = {
+  running: "Running", healthy: "Healthy", building: "Building", deploying: "Deploying",
+  stopped: "Stopped", exited: "Exited", unhealthy: "Unhealthy", failed: "Failed",
+  error: "Error", unknown: "Unknown",
+};
+const labelFor = (v) => STATUS_LABELS[v] || (v ? v[0].toUpperCase() + v.slice(1) : v);
 
 export default function Dashboard() {
   const [services, setServices] = useState(null); // null = loading
@@ -332,6 +336,13 @@ export default function Dashboard() {
       return matchQ && matchStatus;
     });
   }, [services, query, statusFilter]);
+
+  // Filter options DERIVED from the data, so every real status (exited, unknown, …)
+  // is always selectable — a hardcoded list silently dropped whatever it forgot.
+  const statusOptions = useMemo(() => {
+    const present = [...new Set((services || []).map((s) => s.status).filter(Boolean))].sort();
+    return [{ value: "", label: "All statuses" }, ...present.map((v) => ({ value: v, label: labelFor(v) }))];
+  }, [services]);
 
   const subtitle = useMemo(() => {
     if (!services) return "";
@@ -395,7 +406,7 @@ export default function Dashboard() {
               onChange={(e) => setStatusFilter(e.target.value)}
               style={{ appearance: "none", WebkitAppearance: "none", paddingRight: 30 }}
             >
-              {STATUS_OPTIONS.map((o) => (
+              {statusOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>

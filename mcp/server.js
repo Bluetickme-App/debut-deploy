@@ -181,6 +181,32 @@ server.registerTool(
   tool(({ id, commit }) => api(`/api/services/${id}/rollback`, { method: "POST", body: { commit } }))
 );
 
+const serverUuid = z.string().describe("Coolify UUID of the server/host (from list_servers)");
+
+server.registerTool(
+  "list_servers",
+  { description: "List the fleet's hosts (Coolify servers) with their UUIDs, IPs and capacity. Use to get a server UUID for get_/set_concurrent_builds. Admin.", inputSchema: {} },
+  tool(() => api("/api/servers"))
+);
+
+server.registerTool(
+  "get_concurrent_builds",
+  {
+    description: "Read how many builds a host runs at once (concurrent build lanes). Coolify serialises deploys per-server at this width (default 1) — a single stuck build then blocks the whole host's queue. Admin.",
+    inputSchema: { serverUuid },
+  },
+  tool(({ serverUuid }) => api(`/api/servers/${serverUuid}/concurrent-builds`))
+);
+
+server.registerTool(
+  "set_concurrent_builds",
+  {
+    description: "Set a host's concurrent build lanes (1..6). Higher = deploys build in parallel instead of queueing; too high OOMs a small box mid-build. Restarts the queue worker so it takes effect. Admin. Use get_concurrent_builds / host_metrics first to size it against the host's free RAM.",
+    inputSchema: { serverUuid, concurrentBuilds: z.number().int().min(1).max(6).describe("Number of build lanes, 1..6") },
+  },
+  tool(({ serverUuid, concurrentBuilds }) => api(`/api/servers/${serverUuid}/concurrent-builds`, { method: "PATCH", body: { concurrentBuilds } }))
+);
+
 server.registerTool(
   "ssh_exec",
   {
