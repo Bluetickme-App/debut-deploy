@@ -55,22 +55,57 @@ export async function getDeploymentHistory(appUuid, { limit = 20 } = {}) {
   if (!u) return [];
   const n = Math.min(50, Math.max(1, Number(limit) || 20));
   const raw = await runSql(
-    `SELECT deployment_uuid||'|'||status||'|'||coalesce(commit,'')||'|'||replace(split_part(coalesce(commit_message,''),chr(10),1),'|','/')||'|'||coalesce(is_webhook::text,'f')||'|'||created_at::text||'|'||coalesce(updated_at::text,'') ` +
-    `FROM application_deployment_queues WHERE application_id=(SELECT id::text FROM applications WHERE uuid='${u}') ORDER BY id DESC LIMIT ${n}`
+    `SELECT q.deployment_uuid||'|'||q.status||'|'||coalesce(q.commit,'')||'|'||replace(split_part(coalesce(q.commit_message,''),chr(10),1),'|','/')||'|'||coalesce(q.is_webhook::text,'f')||'|'||q.created_at::text||'|'||coalesce(q.updated_at::text,'')||'|'||coalesce(a.git_branch,'') ` +
+    `FROM application_deployment_queues q JOIN applications a ON a.id::text=q.application_id ` +
+    `WHERE a.uuid='${u}' ORDER BY q.id DESC LIMIT ${n}`
   );
   return String(raw || "").trim().split("\n").filter(Boolean).map((line) => {
-    const [uuid, status, commit, message, webhook, created, updated] = line.split("|");
+    const [uuid, status, commit, message, webhook, created, updated, branch] = line.split("|");
     const dur = created && updated ? Math.max(0, Math.round((Date.parse(updated) - Date.parse(created)) / 1000)) : null;
     return {
       uuid, status,
       commit: (commit || "").slice(0, 7),
       message: message || "",
-      branch: "main",
+      // Was hardcoded "main" — which silently mislabelled every app on another
+      // branch (The Reasoner builds `master`). Real value now comes from the join.
+      branch: branch || "",
       startedAt: created || null,
       durationSec: dur,
       trigger: (webhook === "t" || webhook === "true") ? "git push" : "manual",
     };
   });
+}
+
+// Median wall-clock duration of each app's last 10 SUCCESSFUL builds, keyed by app
+// uuid. Feeds the Build Queue's progress estimate (Coolify reports no percentage).
+//
+// MEDIAN, not mean: builds that wedge and are only later marked "finished" run to
+// hours (88026s observed live on this fleet) — an average would put every ETA in
+// fantasy land, while the median shrugs those off.
+//
+// ponytail: 5-minute module cache. This is an SSH+psql round-trip and the queue
+// panel polls every 4s; move to a shared cache if the API ever runs multi-process.
+let medianCache = { at: 0, val: {} };
+export async function getBuildDurationMedians({ maxAgeMs = 300_000, now = Date.now } = {}) {
+  if (DEMO) return {};
+  const t = now();
+  if (medianCache.at && t - medianCache.at < maxAgeMs) return medianCache.val;
+  const raw = await runSql(
+    `SELECT a.uuid||'|'||percentile_cont(0.5) WITHIN GROUP (ORDER BY d.dur)::int ` +
+    `FROM (SELECT application_id, EXTRACT(EPOCH FROM (updated_at-created_at))::int AS dur, ` +
+    `row_number() OVER (PARTITION BY application_id ORDER BY id DESC) AS rn ` +
+    `FROM application_deployment_queues WHERE status='finished' AND updated_at IS NOT NULL) d ` +
+    `JOIN applications a ON a.id::text=d.application_id ` +
+    `WHERE d.rn<=10 AND d.dur>0 GROUP BY a.uuid`
+  );
+  const val = {};
+  for (const line of String(raw || "").trim().split("\n").filter(Boolean)) {
+    const [uuid, sec] = line.split("|");
+    const n = Number(sec);
+    if (uuid && n > 0) val[uuid] = n;
+  }
+  medianCache = { at: t, val };
+  return val;
 }
 
 // Unwedge a service's deploy queue: fail all ITS in_progress/queued rows, remove the
@@ -95,6 +130,40 @@ export async function clearDeployQueue(appUuid) {
     `docker rm -f ${uuids.join(" ")} 2>/dev/null; docker exec coolify php artisan queue:restart >/dev/null 2>&1; true`
   ).catch(() => {});
   return { cleared: uuids.length };
+}
+
+// Concurrent build lanes for a server. Coolify serialises deploys per-server at a
+// width set by server_settings.concurrent_builds (default 1) — the number the REST
+// API never exposes. Read/write it directly, same host+psql channel as the queue fix.
+export async function getConcurrentBuilds(serverUuid) {
+  if (DEMO) return 1;
+  const u = String(serverUuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) throw Object.assign(new Error("bad server id"), { status: 400 });
+  const raw = await runSql(
+    `SELECT concurrent_builds FROM server_settings WHERE server_id=(SELECT id FROM servers WHERE uuid='${u}')`
+  );
+  const n = Number(String(raw || "").trim());
+  return n > 0 ? n : 1;
+}
+
+// Set the lane count. Clamped 1..6 — beyond that a single 8GB box OOMs mid-build
+// (a build peaks 1-2GB and contends on the Docker-layer disk), turning parallelism
+// into failed builds. queue:restart so the Horizon worker picks up the new width.
+export async function setConcurrentBuilds(serverUuid, n) {
+  if (DEMO) return { concurrentBuilds: Number(n) || 1 };
+  const u = String(serverUuid).replace(/[^a-z0-9]/gi, "");
+  if (!u) throw Object.assign(new Error("bad server id"), { status: 400 });
+  const lanes = Math.min(6, Math.max(1, Math.round(Number(n))));
+  if (!Number.isFinite(lanes)) throw Object.assign(new Error("lanes must be a number"), { status: 400 });
+  const out = await runSql(
+    `UPDATE server_settings SET concurrent_builds=${lanes} ` +
+    `WHERE server_id=(SELECT id FROM servers WHERE uuid='${u}') RETURNING concurrent_builds`
+  );
+  if (!String(out || "").trim()) {
+    throw Object.assign(new Error("No such server (no server_settings row updated)"), { status: 404 });
+  }
+  await runOnHost(`docker exec coolify php artisan queue:restart >/dev/null 2>&1; true`).catch(() => {});
+  return { concurrentBuilds: lanes };
 }
 
 // Move a resource (app or postgres) into another Coolify project by repointing its

@@ -56,6 +56,8 @@ export const api = {
   deployments: (id) => req(`/services/${id}/deployments`),
   activeDeployments: () => req(`/deployments/active`), // fleet build queue (active + queued)
   cancelDeployment: (uuid) => req(`/deployments/${uuid}/cancel`, { method: "POST" }),
+  concurrentBuilds: (serverUuid) => req(`/servers/${serverUuid}/concurrent-builds`), // admin: current lane count
+  setConcurrentBuilds: (serverUuid, n) => req(`/servers/${serverUuid}/concurrent-builds`, { method: "PATCH", body: { concurrentBuilds: n } }),
   // Returns the array of {time, level, message} lines; falls back if the shape is older (raw array/string).
   logs: (id) => req(`/services/${id}/logs`).then((d) => (Array.isArray(d?.lines) ? d.lines : Array.isArray(d) ? d : [])),
   metrics: (id) => req(`/services/${id}/metrics`),

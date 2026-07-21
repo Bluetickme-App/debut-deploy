@@ -91,6 +91,7 @@ import * as resources from "./resources.js";
 import * as volumes from "./volumes.js";
 import * as envstore from "./envstore.js";
 import * as coolifydb from "./coolifydb.js";
+import { buildProgress } from "./buildeta.js";
 import * as sharedvars from "./sharedvars.js";
 import * as backups from "./backups.js";
 import * as hetzner from "./hetzner.js";
@@ -622,6 +623,27 @@ app.patch(
   })
 );
 
+// Concurrent build lanes per server (host-wide → admin-only). GET reads current
+// width; PATCH sets it. See coolifydb.get/setConcurrentBuilds for the clamp + why.
+app.get(
+  "/api/servers/:uuid/concurrent-builds",
+  requireAuth,
+  requireAdmin,
+  h(async (req) => ({ concurrentBuilds: await coolifydb.getConcurrentBuilds(req.params.uuid) }))
+);
+
+app.patch(
+  "/api/servers/:uuid/concurrent-builds",
+  requireAuth,
+  requireAdmin,
+  mutateGuard,
+  h(async (req) => {
+    const r = await coolifydb.setConcurrentBuilds(req.params.uuid, req.body?.concurrentBuilds);
+    record(req, "server.concurrent_builds", { resourceType: "server", resourceUuid: req.params.uuid, metadata: r });
+    return { ok: true, ...r };
+  })
+);
+
 app.post(
   "/api/services/:id/clear-queue",
   requireAuth,
@@ -671,7 +693,12 @@ app.get(
   requireAuth,
   h(async (req) => {
     const active = await coolify.listActiveDeployments();
-    return filterByOwnership(active, req.user, "application");
+    // Progress is decorative: a failed SSH/psql hop must never take down the queue
+    // panel itself, so fall back to no-estimate (plain elapsed timer) on error.
+    const medians = await coolifydb.getBuildDurationMedians().catch(() => ({}));
+    const now = Date.now();
+    const rows = active.map((d) => ({ ...d, progress: buildProgress(d, medians, now) }));
+    return filterByOwnership(rows, req.user, "application");
   })
 );
 

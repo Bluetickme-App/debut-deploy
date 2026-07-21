@@ -94,14 +94,23 @@ function QueueRow({ r, position, onCancel, cancelling }) {
       </span>
       <span className="ml-auto flex items-center gap-1 shrink-0" style={{ color: "var(--text-muted)" }}>
         {building
-          ? <><Clock size={12} /> {timeAgo(r.startedAt)}</>
+          ? <><Clock size={12} /> {timeAgo(r.startedAt)}{r.progress ? ` · ~${fmtEta(r.progress.etaSec)} left` : ""}</>
           : <>#{position} in line</>}
       </span>
       {r.uuid && <ChevronRight size={14} style={{ color: "var(--text-muted)" }} />}
     </div>
   );
+  // Estimated, not reported — see buildProgress() in server/coolify.js. Absent for a
+  // first-ever build (no history to estimate from), which is why this is conditional.
+  const bar = r.progress ? (
+    <div style={{ height: 2, background: "var(--border)" }}>
+      <div style={{ height: "100%", width: `${r.progress.pct}%`, background: "var(--accent, #6366f1)", transition: "width 1s linear" }} />
+    </div>
+  ) : null;
+
   return (
-    <div className="flex items-center" style={{ borderTop: "1px solid var(--border)" }}>
+    <div style={{ borderTop: "1px solid var(--border)" }}>
+    <div className="flex items-center">
       {r.uuid
         ? <Link to={`/services/${r.uuid}`} className="min-w-0 flex-1" style={{ color: "inherit", textDecoration: "none" }}>{body}</Link>
         : <div className="min-w-0 flex-1">{body}</div>}
@@ -115,7 +124,14 @@ function QueueRow({ r, position, onCancel, cancelling }) {
         {cancelling ? <Spinner /> : <X size={12} />} Cancel
       </button>
     </div>
+    {bar}
+    </div>
   );
+}
+
+// "4m" / "45s" — a build ETA never needs more precision than this.
+function fmtEta(sec) {
+  return sec >= 60 ? `${Math.round(sec / 60)}m` : `${Math.max(1, sec)}s`;
 }
 
 function StatusChip({ building }) {
