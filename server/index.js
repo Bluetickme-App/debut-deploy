@@ -1077,7 +1077,10 @@ app.get(
   requireAuth,
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    return dns.verifyDomain(req.query.fqdn);
+    // Verify against the IP of the host THIS service runs on (multi-host fleet),
+    // falling back to the global platform IP if the service can't be read.
+    const svc = await coolify.getService(req.params.id).catch(() => null);
+    return dns.verifyDomain(req.query.fqdn, svc?.serverIp || undefined);
   })
 );
 

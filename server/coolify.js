@@ -7,6 +7,7 @@ import * as fx from "./fixtures.js";
 import { randomBytes } from "node:crypto";
 import { rememberEnv, storedEnvs } from "./envstore.js";
 import * as coolifydb from "./coolifydb.js";
+import { serverIpFromFqdn } from "./dns.js";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
@@ -54,6 +55,10 @@ function mapApp(a, region = "") {
     branch: a.git_branch || "main",
     repo: a.git_repository || "",
     domain: a.fqdn ? a.fqdn.replace(/^https?:\/\//, "").split(",")[0] : null,
+    // Host IP this app actually runs on, read from its auto {uuid}.<IP>.sslip.io URL.
+    // Single source of truth for the per-service custom-domain A record — on a
+    // multi-host fleet each service must point at its own box, not a global default.
+    serverIp: serverIpFromFqdn(a.fqdn),
     lastDeployedAt: a.updated_at || null,
     health: a.status?.split(":")[1] || "healthy",
     // Real Docker resource limits ("0" = unlimited/shared). Editable via updateServiceResources.

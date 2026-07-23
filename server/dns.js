@@ -4,11 +4,23 @@ import { MAIL_HOSTNAME as MAIL_HOST } from "./mail.js";
 const BASE = (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, "");
 export const expectedIp = BASE ? new URL(BASE).hostname : "";
 
-export async function verifyDomain(fqdn) {
+// The host IP an app runs on, parsed from its auto {uuid}.<IP>.sslip.io URL in the
+// comma-separated fqdn list. Coolify carries no per-app server-IP field, so the sslip
+// URL is the reliable source. This is the per-service A-record target on a multi-host
+// fleet (vs the global `expectedIp` default). Returns null when there's no sslip URL.
+export function serverIpFromFqdn(fqdn) {
+  return (String(fqdn || "").match(/(\d{1,3}(?:\.\d{1,3}){3})\.sslip\.io/) || [])[1] || null;
+}
+
+// `ip` is the host the domain must A-record to. Defaults to the global platform IP
+// (COOLIFY_BASE_URL) but callers with a service in hand pass that service's own
+// serverIp so multi-host fleets verify against the box the app actually runs on.
+export async function verifyDomain(fqdn, ip = expectedIp) {
   if (!fqdn || typeof fqdn !== "string" || !/^[a-zA-Z0-9._-]+\.[a-zA-Z]{2,}$/.test(fqdn.trim())) {
     throw Object.assign(new Error("fqdn is required and must be a valid domain"), { status: 400 });
   }
-  const instructions = `Create a DNS A record: ${fqdn} -> ${expectedIp}`;
+  const target = ip || expectedIp;
+  const instructions = `Create a DNS A record: ${fqdn} -> ${target}`;
   let resolvedIps = [];
   try {
     resolvedIps = await resolve4(fqdn.trim());
@@ -16,7 +28,7 @@ export async function verifyDomain(fqdn) {
     const ignorable = new Set(["ENOTFOUND", "ENODATA", "ESERVFAIL", "ECONNREFUSED", "ETIMEOUT"]);
     if (!ignorable.has(err.code)) throw err;
   }
-  return { fqdn, expectedIp, resolvedIps, pointsToServer: resolvedIps.includes(expectedIp), instructions };
+  return { fqdn, expectedIp: target, resolvedIps, pointsToServer: resolvedIps.includes(target), instructions };
 }
 
 // Canonical hosting record set for a custom app domain. `expectedIp` is a bare IP

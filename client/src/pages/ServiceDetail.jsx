@@ -1312,7 +1312,9 @@ const NAV = [
 function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const platformIp = user?.platformIp;
+  // Prefer the IP of the host THIS service runs on; fall back to the global platform
+  // IP. On a multi-host fleet the A record must point at the service's own box.
+  const platformIp = svc?.serverIp || user?.platformIp;
 
   // build & deploy (wired to /build; backend may 404 until added)
   const [branch, setBranch] = useState(svc.branch || "main");
