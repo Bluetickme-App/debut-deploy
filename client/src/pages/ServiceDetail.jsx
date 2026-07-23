@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Rocket, Play, Square, RotateCw, ExternalLink,
   Trash2, Check, X, Eye, EyeOff, Copy, Lock, Plus, RefreshCw,
-  ChevronDown, KeyRound, FileText, Database, HardDrive, AlertTriangle,
+  ChevronDown, KeyRound, FileText, Database, HardDrive, AlertTriangle, Download,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../auth.jsx";
@@ -848,6 +848,7 @@ function EnvironmentTab({ serviceId, onDeploy }) {
   const [databases, setDatabases] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null);   // { ok, text }
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -979,6 +980,44 @@ function EnvironmentTab({ serviceId, onDeploy }) {
     }
   }
 
+  // Serialize env rows to .env text. Quote values with whitespace/special chars (and
+  // escape the quote/backslash/$/backtick inside) so the file re-imports cleanly.
+  function serializeEnv(rows) {
+    return rows
+      .filter((r) => r.key.trim())
+      .map((r) => {
+        const v = r.value ?? "";
+        const needsQuote = v === "" ? false : /[\s#'"$`\\]/.test(v);
+        return `${r.key.trim()}=${needsQuote ? `"${v.replace(/(["\\$`])/g, "\\$1")}"` : v}`;
+      })
+      .join("\n") + "\n";
+  }
+
+  // Export the full env (secrets included) as a .env — copy to clipboard or download.
+  // Secret values are blank in the list until revealed, so fetch each from the store
+  // first; falls back gracefully on any that can't be revealed.
+  async function exportEnv(mode) {
+    setExportOpen(false);
+    const rows = envs || [];
+    const need = rows.filter((r) => r.is_secret && (r.value ?? "") === "" && r.revealable && !String(r.uuid).startsWith("new-"));
+    const fetched = {};
+    await Promise.all(need.map((r) =>
+      api.revealEnv(serviceId, r.key).then((x) => { if (x?.value != null) fetched[r.uuid] = x.value; }).catch(() => {})
+    ));
+    const text = serializeEnv(rows.map((r) => ({ ...r, value: fetched[r.uuid] != null ? fetched[r.uuid] : (r.value ?? "") })));
+    if (mode === "copy") {
+      try { await navigator.clipboard.writeText(text); setSaveMsg({ ok: true, text: "Copied .env to clipboard" }); }
+      catch { setSaveMsg({ ok: false, text: "Clipboard blocked — use Download instead" }); }
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = ".env";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      setSaveMsg({ ok: true, text: "Downloaded .env" });
+    }
+  }
+
   const inputCell = "mono w-full rounded-md border border-transparent bg-transparent px-2.5 py-[7px] text-[12px] outline-none transition-colors focus:border-[var(--accent)]";
 
   return (
@@ -1040,6 +1079,25 @@ function EnvironmentTab({ serviceId, onDeploy }) {
               </Button>
             );
           })()}
+
+          {/* Export .env — copy or download (secrets revealed on the fly) */}
+          <div className="relative">
+            <Button variant="secondary" onClick={() => setExportOpen((o) => !o)} disabled={!envs || envs.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                <div
+                  className="absolute right-0 z-20 mt-1.5 w-[200px] overflow-hidden rounded-lg border py-1 text-[13px]"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow)" }}
+                >
+                  <MenuItem icon={Copy} label="Copy to clipboard" onClick={() => exportEnv("copy")} />
+                  <MenuItem icon={FileText} label="Download .env" onClick={() => exportEnv("download")} />
+                </div>
+              </>
+            )}
+          </div>
 
           {/* + Add variable dropdown (Render-style) */}
           <div className="relative">

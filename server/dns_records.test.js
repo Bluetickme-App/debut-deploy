@@ -14,6 +14,15 @@ test("appRecords returns apex A -> expectedIp and www CNAME -> apex", () => {
   assert.equal(cname.value, "acme.com");
 });
 
+test("appRecords does NOT double the www when the domain is already a www subdomain", () => {
+  const recs = appRecords("www.u079.me");
+  // Only the primary record — no www.www.u079.me CNAME.
+  assert.equal(recs.length, 1);
+  assert.equal(recs[0].name, "www.u079.me");
+  assert.equal(recs[0].value, expectedIp);
+  assert.ok(!recs.some((r) => r.name === "www.www.u079.me"), "must not emit www.www.<domain>");
+});
+
 test("verifyMail reports pointsToMail true when MX resolves to the mail host", async () => {
   const resolveMx = async () => [{ exchange: "mail.debutdepoly.com", priority: 10 }];
   const r = await verifyMail("acme.com", { resolveMx });

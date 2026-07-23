@@ -35,12 +35,14 @@ export async function verifyDomain(fqdn, ip = expectedIp) {
 // in this deployment; if it ever becomes a hostname, emit a CNAME apex instead.
 export function appRecords(domain) {
   const apexIsIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(expectedIp);
-  return [
-    apexIsIp
-      ? { type: "A", name: domain, value: expectedIp, note: "Point your domain at the platform" }
-      : { type: "CNAME", name: domain, value: expectedIp, note: "Point your domain at the platform" },
-    { type: "CNAME", name: `www.${domain}`, value: domain, note: "www → apex" },
-  ];
+  const primary = apexIsIp
+    ? { type: "A", name: domain, value: expectedIp, note: "Point your domain at the platform" }
+    : { type: "CNAME", name: domain, value: expectedIp, note: "Point your domain at the platform" };
+  // The "www → apex" convenience CNAME only makes sense for an apex domain. If the
+  // domain is ALREADY a www subdomain, prepending www again yields www.www.<domain>
+  // (the reported bug). In that case the primary record alone points www at the platform.
+  if (domain.startsWith("www.")) return [primary];
+  return [primary, { type: "CNAME", name: `www.${domain}`, value: domain, note: "www → apex" }];
 }
 
 export async function verifyMail(domain, { resolveMx = _resolveMx } = {}) {

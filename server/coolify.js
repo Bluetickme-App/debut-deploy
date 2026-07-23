@@ -41,6 +41,18 @@ async function cf(path, { method = "GET", body } = {}) {
 
 // --- normalisers: map Coolify's raw objects onto the UI shape ----------------
 
+// Pick the domain to show as the service's primary: prefer a real custom domain over
+// the auto {uuid}.<ip>.sslip.io URL Coolify always assigns. Coolify's fqdn is a
+// comma-separated list (each entry may carry an https:// prefix); the sslip.io one is
+// usually first, so a naive [0] showed the ugly auto-domain instead of the custom one.
+function primaryDomain(fqdn) {
+  const list = String(fqdn || "")
+    .split(",")
+    .map((s) => s.replace(/^https?:\/\//, "").replace(/\/+$/, "").trim())
+    .filter(Boolean);
+  return list.find((d) => !d.endsWith(".sslip.io")) || list[0] || null;
+}
+
 function mapApp(a, region = "") {
   return {
     uuid: a.uuid,
@@ -54,7 +66,7 @@ function mapApp(a, region = "") {
     region, // datacenter of the host it runs on (Coolify has no region; resolved from Hetzner)
     branch: a.git_branch || "main",
     repo: a.git_repository || "",
-    domain: a.fqdn ? a.fqdn.replace(/^https?:\/\//, "").split(",")[0] : null,
+    domain: primaryDomain(a.fqdn),
     // Host IP this app actually runs on, read from its auto {uuid}.<IP>.sslip.io URL.
     // Single source of truth for the per-service custom-domain A record — on a
     // multi-host fleet each service must point at its own box, not a global default.
