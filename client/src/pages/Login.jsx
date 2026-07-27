@@ -239,15 +239,19 @@ export default function Login() {
           <div style={{ width: 372, maxWidth: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
 
             {/* D mark + wordmark */}
-            <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 26 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 26 }}>
+              {/* 76px: the pulse rings only expand to 1.34x and fade, so the
+                  animation is invisible at small sizes. The negative margin
+                  absorbs the mark's ~20% viewBox padding so the hexagon still
+                  sits tight against the wordmark. */}
               <img
                 src="/icon.svg"
                 alt=""
-                width={46}
-                height={46}
-                style={{ display: "block", margin: -4, filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
+                width={76}
+                height={76}
+                style={{ display: "block", margin: -9, filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
               />
-              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "-0.01em", color: "var(--text)" }}>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: "-0.015em", color: "var(--text)" }}>
                 Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
               </span>
             </div>

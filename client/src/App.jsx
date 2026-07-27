@@ -190,11 +190,12 @@ function Sidebar({ drawerOpen, onClose }) {
       }}
     >
       {/* Brand */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 18px 14px" }}>
-        {/* 36 not 30: the brand mark's viewBox carries ~20% padding so the
-            pulse rings have room to expand into. */}
-        <img src="/icon.svg" alt="" width={36} height={36} style={{ display: "block", margin: -3 }} />
-        <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--text)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "16px 18px 12px" }}>
+        {/* 46px so the pulse rings are actually legible; the negative margin
+            absorbs the mark's ~20% viewBox padding that the rings expand into,
+            keeping the hexagon tight against the wordmark. */}
+        <img src="/icon.svg" alt="" width={46} height={46} style={{ display: "block", margin: -5 }} />
+        <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 19, letterSpacing: "-0.015em", color: "var(--text)" }}>
           Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
         </span>
       </div>
