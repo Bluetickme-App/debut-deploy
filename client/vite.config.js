@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon.svg"],
+      includeAssets: ["icon.svg", "favicon.svg", "favicon-32.png", "app-icon.svg", "app-icon-1024.png"],
       manifest: {
         name: "DebutDeploy",
         short_name: "DebutDeploy",
@@ -19,23 +19,27 @@ export default defineConfig({
         scope: "/",
         theme_color: "#0a0c11",
         background_color: "#0a0c11",
+        // app-icon, not icon.svg: the animated mark carries ~20% transparent
+        // padding for the pulse rings, which a maskable icon's safe-zone crop
+        // would eat into. app-icon is the full-bleed rounded tile. The PNG is
+        // listed for platforms that still refuse SVG app icons.
         icons: [
           {
-            src: "icon.svg",
-            sizes: "192x192",
+            src: "app-icon.svg",
+            sizes: "any",
             type: "image/svg+xml",
             purpose: "any",
           },
           {
-            src: "icon.svg",
-            sizes: "512x512",
-            type: "image/svg+xml",
+            src: "app-icon-1024.png",
+            sizes: "1024x1024",
+            type: "image/png",
             purpose: "any",
           },
           {
-            src: "icon.svg",
-            sizes: "512x512",
-            type: "image/svg+xml",
+            src: "app-icon-1024.png",
+            sizes: "1024x1024",
+            type: "image/png",
             purpose: "maskable",
           },
         ],
