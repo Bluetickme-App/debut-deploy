@@ -58,21 +58,24 @@ img { max-width: 100%; }
 }
 .shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
-/* Published product references for the homepage showcase. */
-#showcase [data-card]:nth-child(1) .shot,
-#showcase [data-card]:nth-child(2) .shot,
-#showcase [data-card]:nth-child(3) .shot {
-  color: transparent;
-  background-size: cover;
-  background-position: center top;
+.showcase-media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #f4f6fa;
 }
-#showcase [data-card]:nth-child(1) .shot { background-image: url('/assets/img/marketing-genius.png'); }
-#showcase [data-card]:nth-child(2) .shot { background-image: url('/assets/img/fully-informed.png'); }
-#showcase [data-card]:nth-child(3) .shot { background-image: url('/assets/img/aurora-assistant.png'); }
-#showcase [data-card]:nth-child(6) .shot { background-image: url('/assets/img/trusted-car-finance.png'); }
-#showcase [data-card]:nth-child(2) .shot,
-#showcase [data-card]:nth-child(3) .shot {
-  color: transparent;
+.showcase-media img,
+.showcase-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.showcase-media-dark { background: #060912; }
+.showcase-media-dark video {
+  object-fit: contain;
+  object-position: center;
 }
 
 /* Logo tiles fall back to a monogram until the real artwork is dropped in. */

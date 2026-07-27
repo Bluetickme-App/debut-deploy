@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="L&amp;C">
+  <title>L&amp;C</title>
+  <!--
+    L&C plate mark.
+    Graphite #17191B block, edge to edge, hard corners, no padding.
+    Ember #E8541C bar flush left, 7/64 = 10.9% of the icon width.
+    "LC" in bone #EFECE4 — genuine Anton (Google Fonts, v27) outlines extracted
+    with fontkit and baked to paths, so no webfont is required at render time.
+    Cap height 38/64; cap box optically centred (0.4 up, 0.5 right of the bar).
+  -->
+  <rect width="64" height="64" fill="#17191B"/>
+  <rect width="7" height="64" fill="#E8541C"/>
+  <g fill="#EFECE4">
+    <path d="M17.99 50.6L17.99 12.6L25.59 12.6L25.59 44.12L33.41 44.12L33.41 50.6Z"/>
+    <path d="M44.42 50.95Q40.3 50.95 37.78 48.38Q35.27 45.81 35.27 41.19L35.27 23.65Q35.27 18.13 37.46 15.19Q39.65 12.25 44.59 12.25Q47.29 12.25 49.4 13.25Q51.5 14.24 52.71 16.22Q53.92 18.19 53.92 21.19L53.92 27.76L46.36 27.76L46.36 22.14Q46.36 20.44 45.93 19.84Q45.5 19.25 44.59 19.25Q43.54 19.25 43.17 20.02Q42.8 20.78 42.8 22.06L42.8 41.08Q42.8 42.65 43.27 43.3Q43.73 43.95 44.59 43.95Q45.56 43.95 45.96 43.15Q46.36 42.35 46.36 41.08L46.36 34.23L54.01 34.23L54.01 41.42Q54.01 46.43 51.48 48.69Q48.95 50.95 44.42 50.95Z"/>
+  </g>
+</svg>
