@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://www.debutdepoly.com/</loc><priority>1.0</priority></url>
+  <url><loc>https://www.debutdepoly.com/render-alternative.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/railway-alternative.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/heroku-alternative.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/flyio-alternative.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/managed-postgres.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/nodejs-hosting.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/python-hosting.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/docker-hosting.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/european-paas.html</loc><priority>0.9</priority></url>
+  <url><loc>https://www.debutdepoly.com/faq.html</loc><priority>0.8</priority></url>
+  <url><loc>https://www.debutdepoly.com/about.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.debutdepoly.com/contact.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.debutdepoly.com/security.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.debutdepoly.com/legal.html</loc><priority>0.3</priority></url>
+  <url><loc>https://www.debutdepoly.com/terms.html</loc><priority>0.3</priority></url>
+  <url><loc>https://www.debutdepoly.com/privacy.html</loc><priority>0.3</priority></url>
+  <url><loc>https://www.debutdepoly.com/dpa.html</loc><priority>0.3</priority></url>
+  <url><loc>https://www.debutdepoly.com/acceptable-use.html</loc><priority>0.3</priority></url>
+  <url><loc>https://www.debutdepoly.com/sla.html</loc><priority>0.3</priority></url>
+</urlset>
