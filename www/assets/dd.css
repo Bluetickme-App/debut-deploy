@@ -68,9 +68,11 @@ img { max-width: 100%; }
 }
 #showcase [data-card]:nth-child(1) .shot { background-image: url('/assets/img/marketing-genius.png'); }
 #showcase [data-card]:nth-child(2) .shot { background-image: url('/assets/img/fully-informed.png'); }
+#showcase [data-card]:nth-child(3) .shot { background-image: url('/assets/img/aurora-assistant.png'); }
+#showcase [data-card]:nth-child(6) .shot { background-image: url('/assets/img/trusted-car-finance.png'); }
 #showcase [data-card]:nth-child(2) .shot,
 #showcase [data-card]:nth-child(3) .shot {
-  color: #9aa2ae;
+  color: transparent;
 }
 #showcase [data-card]:nth-child(1) > div:nth-child(2) img { display: none; }
 #showcase [data-card]:nth-child(1) > div:nth-child(2) span:first-child::after {
