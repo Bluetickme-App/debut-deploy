@@ -11,7 +11,7 @@ const MAIL = "mail.debutdepoly.com";
 function stubs(over = {}) {
   const cfg = {
     mx: [MAIL], spf: ["v=spf1 mx ~all"], dkim: ["v=DKIM1; k=rsa; p=xxx"],
-    dmarc: ["v=DMARC1; p=quarantine"], autoconfig: [MAIL], autodiscover: [MAIL], webmail: [MAIL], ...over,
+    dmarc: ["v=DMARC1; p=quarantine"], autoconfig: [MAIL], autodiscover: [MAIL], ...over,
   };
   return {
     resolveMx: async () => cfg.mx.map((exchange) => ({ exchange, priority: 10 })),
@@ -22,17 +22,24 @@ function stubs(over = {}) {
     resolveCname: async (name) => {
       if (name.startsWith("autoconfig.")) return cfg.autoconfig;
       if (name.startsWith("autodiscover.")) return cfg.autodiscover;
-      if (name.startsWith("webmail.")) return cfg.webmail;
       return [];
     },
   };
 }
 const byKey = (checks) => Object.fromEntries(checks.map((c) => [c.key, c]));
 
-test("returns a keyed check per record (7 rows: 4 required + 3 convenience CNAMEs)", async () => {
+test("returns a keyed check per record (6 rows: 4 required + 2 convenience CNAMEs)", async () => {
   const checks = await verifyMailDns("acme.com", stubs());
-  assert.deepEqual(checks.map((c) => c.key), ["mx", "spf", "dkim", "dmarc", "autoconfig", "autodiscover", "webmail"]);
+  assert.deepEqual(checks.map((c) => c.key), ["mx", "spf", "dkim", "dmarc", "autoconfig", "autodiscover"]);
   assert.equal(checks.filter((c) => c.required).length, 4);
+});
+
+// webmail.<domain> is deliberately NOT checked: it is no longer published, because a CNAME
+// to the mail host can never satisfy TLS for webmail.<customer-domain>. Guard against it
+// creeping back in — a permanent ✗ on the panel is worse than no row at all.
+test("no webmail check is produced", async () => {
+  const checks = await verifyMailDns("acme.com", stubs());
+  assert.ok(!checks.some((c) => c.key === "webmail"), "webmail must not be verified");
 });
 
 test("all records correct → every check ok", async () => {
@@ -41,10 +48,10 @@ test("all records correct → every check ok", async () => {
 });
 
 test("missing convenience CNAMEs don't fail the required set", async () => {
-  const m = byKey(await verifyMailDns("acme.com", stubs({ autoconfig: [], autodiscover: [], webmail: [] })));
+  const m = byKey(await verifyMailDns("acme.com", stubs({ autoconfig: [], autodiscover: [] })));
   assert.ok(["mx", "spf", "dkim", "dmarc"].every((k) => m[k].ok), "required all ok");
   assert.equal(m.autoconfig.ok, false);
-  assert.equal(m.webmail.detail, "not found");
+  assert.equal(m.autodiscover.detail, "not found");
 });
 
 test("missing MX fails its check", async () => {

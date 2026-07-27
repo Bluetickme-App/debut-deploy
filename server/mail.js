@@ -11,10 +11,21 @@
 // writes throw 503, and the (pure) DNS-record generator still works — so the panel
 // Email section renders regardless.
 
+import { randomInt } from "node:crypto";
+
 const URL = (process.env.MAILCOW_API_URL || "").replace(/\/$/, "");
 const KEY = process.env.MAILCOW_API_KEY || "";
 export const MAIL_HOSTNAME = process.env.MAIL_HOSTNAME || "mail.debutdepoly.com";
 export const MAIL_WEBMAIL = process.env.MAIL_WEBMAIL || "mail.debutdepoly.com";
+
+// The ONE webmail URL, derived from the mail host — SOGo is served there, on a path.
+// Deliberately NOT built from MAIL_WEBMAIL: that env var is a leftover of the dropped
+// Roundcube-on-a-webmail.<brand>-subdomain design, and in production it still names a
+// host that resolves to the app box and 503s. A `webmail.*` hostname would also need its
+// own certificate on the mail server, which is why the subdomain approach was abandoned.
+// ponytail: MAIL_WEBMAIL is kept only so an existing .env doesn't fail to parse; nothing
+// reads it. Drop the env var (and this line) once prod .env no longer sets it.
+export const webmailUrl = () => `https://${MAIL_HOSTNAME}/SOGo`;
 
 export const isConfigured = () => !!(URL && KEY);
 
@@ -92,6 +103,31 @@ export async function deleteMailbox(address) {
   assertOk(res, "delete mailbox");
 }
 
+// A readable-but-strong temporary password: 4 groups of 4 from an alphabet with the
+// look-alikes (0/O, 1/l/I) removed, so it survives being read down a phone line.
+// ~20.6 bits per group → ~82 bits total. randomInt is rejection-sampled (crypto), so
+// there's no modulo bias the way `% alphabet.length` on a raw byte would have.
+const PW_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+export function generatePassword() {
+  const pick = () => PW_ALPHABET[randomInt(PW_ALPHABET.length)];
+  return Array.from({ length: 4 }, () => Array.from({ length: 4 }, pick).join("")).join("-");
+}
+
+// Set a mailbox's password. mailcow stores only a hash, so there is NO way to read an
+// existing password back — a reset is the only recovery path, and the new value is
+// returned to the caller exactly once (never logged, never stored).
+export async function setMailboxPassword(address, password) {
+  if (!password || String(password).length < 8) {
+    throw Object.assign(new Error("Password must be at least 8 characters"), { status: 400 });
+  }
+  const res = await mc("POST", "edit/mailbox", {
+    items: [String(address)],
+    attr: { password: String(password), password2: String(password) },
+  });
+  assertOk(res, "reset mailbox password");
+  return { address, password };
+}
+
 // Count all mailboxes across a set of domains (for per-org billing). Best-effort:
 // a failed domain contributes 0 rather than throwing the whole count.
 export async function countMailboxes(domains) {
@@ -127,6 +163,11 @@ export function dnsRecords(domain) {
     { key: "dmarc", required: true,  type: "TXT", name: `_dmarc.${domain}`, value: `v=DMARC1; p=quarantine; rua=mailto:postmaster@${domain}`, note: "DMARC — start at quarantine" },
     { key: "autoconfig",   required: false, type: "CNAME", name: `autoconfig.${domain}`,   value: host, note: "Thunderbird autoconfig" },
     { key: "autodiscover", required: false, type: "CNAME", name: `autodiscover.${domain}`, value: host, note: "Outlook autodiscover" },
-    { key: "webmail",      required: false, type: "CNAME", name: `webmail.${domain}`,      value: host, note: "Webmail" },
+    // NO webmail.<domain> CNAME. It used to be published here, and it could never work:
+    // a CNAME sends the browser to the mail host but TLS still negotiates SNI
+    // webmail.<customer-domain>, which that host's certificate will never carry (it holds
+    // MAIL_HOSTNAME + specific autoconfig/autodiscover names). Every customer who created
+    // it got a cert warning. Webmail is `https://${MAIL_HOSTNAME}/SOGo` — one working URL
+    // for every domain, no per-customer DNS or certificate needed. See webmailUrl().
   ];
 }

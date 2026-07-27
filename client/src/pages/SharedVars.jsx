@@ -1,89 +1,32 @@
-// ponytail: pure client-side state — persistence/attachment not wired to any backend yet.
-// The Variable Groups model (named groups, scope, attach-to-services) differs from the old
-// flat shared-vars API; wire up when backend supports it.
+// Variable Groups — named, reusable env sets attached to services.
+// Backed by /api/var-groups: the group is stored panel-side (values encrypted at
+// rest) and its keys are pushed into each attached application's own env, so an
+// attach/detach/edit here is a real change on the service. Attached services pick
+// the new values up on their next deploy (Docker env is fixed at container start).
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Braces, Check, ChevronDown, ChevronRight,
-  Eye, EyeOff, Lock, Plus, Trash2, X,
+  Braces, Check, ChevronDown, ChevronRight, Loader2,
+  Eye, EyeOff, Lock, Pencil, Plus, Trash2, X,
 } from "lucide-react";
-import { Button, Field, Input, PageHeader } from "../components/ui.jsx";
-
-// ── seed data (from design handoff renderVals) ────────────────────────────────
-const ALL_SERVICES = [
-  "api-gateway", "web-storefront", "checkout-svc",
-  "image-proxy", "analytics-api", "worker-billing",
-  "notify-svc", "docs-site",
-];
-
-const SEED_GROUPS = [
-  {
-    id: "shared-prod",
-    scope: "Global",
-    vars: [
-      { key: "SENTRY_DSN",      value: "https://3f8a@o91.ingest.sentry.io/42", secret: false },
-      { key: "LOG_LEVEL",       value: "info",                                  secret: false },
-      { key: "OTEL_EXPORTER",   value: "http://otel.internal:4317",             secret: false },
-    ],
-  },
-  {
-    id: "stripe-keys",
-    scope: "Project: mflh",
-    vars: [
-      { key: "STRIPE_SECRET_KEY",      value: "sk_live_51Kj2aBxQp7Lm0Tz", secret: true },
-      { key: "STRIPE_WEBHOOK_SECRET",  value: "whsec_9f3e8c1a2b4d",       secret: true },
-    ],
-  },
-  {
-    id: "postgres-mflh",
-    scope: "Project: mflh",
-    vars: [
-      { key: "DATABASE_URL", value: "postgres://app:Xz9f2@db-mflh-pg.internal:5432/app", secret: true },
-      { key: "PGSSLMODE",    value: "require",                                             secret: false },
-    ],
-  },
-  {
-    id: "redis-shared",
-    scope: "Global",
-    vars: [
-      { key: "REDIS_URL", value: "redis://:a83Kd@cache-mflh.internal:6379", secret: true },
-    ],
-  },
-];
-
-const SEED_ASSIGNED = {
-  "shared-prod":  ["api-gateway", "web-storefront", "worker-billing"],
-  "stripe-keys":  ["api-gateway", "checkout-svc"],
-  "postgres-mflh": ["api-gateway", "worker-billing"],
-  "redis-shared": ["api-gateway", "web-storefront"],
-};
-
-const SCOPES = [
-  "Global — all projects",
-  "Project: mflh",
-  "Project: data-platform",
-  "Project: internal-tools",
-];
+import { PageHeader, Spinner } from "../components/ui.jsx";
+import { api } from "../lib/api.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function ScopePill({ scope }) {
-  const isGlobal = scope === "Global" || scope === "Global — all projects";
+  const isGlobal = !scope || scope === "Global" || scope.startsWith("Global");
   return (
-    <span
-      className={`pill ${isGlobal ? "pill-neutral" : "pill-accent"}`}
-      style={{ fontSize: 11 }}
-    >
-      {scope}
+    <span className={`pill ${isGlobal ? "pill-neutral" : "pill-accent"}`} style={{ fontSize: 11 }}>
+      {scope || "Global"}
     </span>
   );
 }
 
 function mask(val) {
-  return "•".repeat(Math.min(val.length, 24));
+  return "•".repeat(Math.min(String(val || "").length || 8, 24));
 }
 
-// ── create card ───────────────────────────────────────────────────────────────
-// Parse a pasted .env blob into {key,value,secret} rows. Skips blanks + # comments,
+// Parse a pasted .env blob into {key,value,is_secret} rows. Skips blanks + # comments,
 // splits on the first "=", strips surrounding quotes, and guesses secret from the
 // key name (KEY/TOKEN/SECRET/PASSWORD/DSN/PRIVATE) so pasted creds default hidden.
 function parseDotEnv(text) {
@@ -96,63 +39,97 @@ function parseDotEnv(text) {
     const eq = line.indexOf("=");
     if (eq < 1) continue;
     const key = line.slice(0, eq).trim();
-    let value = line.slice(eq + 1).trim().replace(/^(['"])(.*)\1$/, "$2");
+    const value = line.slice(eq + 1).trim().replace(/^(['"])(.*)\1$/, "$2");
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue; // not a valid env key
-    out.push({ key, value, secret: SECRETY.test(key) });
+    out.push({ key, value, is_secret: SECRETY.test(key) });
   }
   return out;
 }
 
-function CreateCard({ onCancel, onCreate }) {
+const dashedBtn = {
+  display: "inline-flex", alignItems: "center", gap: 6,
+  padding: "6px 10px", borderRadius: 6,
+  border: "1px dashed var(--border-strong)",
+  background: "transparent", color: "var(--text-muted)",
+  fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+};
+
+const iconBtn = {
+  width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
+  border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)",
+  borderRadius: 6, cursor: "pointer", padding: 0,
+};
+
+// ── paste-.env panel (shared by create + edit) ────────────────────────────────
+function PastePanel({ onCancel, onImport }) {
+  const [text, setText] = useState("");
+  const parsed = parseDotEnv(text);
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label className="label">Paste .env</label>
+      <textarea
+        className="input mono"
+        style={{ width: "100%", minHeight: 96, resize: "vertical" }}
+        placeholder={"KEY=value\nAPI_TOKEN=abc123\n# comments and blank lines are ignored"}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+        <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-secondary" onClick={() => onImport(parsed)} disabled={!parsed.length}>
+          Import {parsed.length || ""} variable{parsed.length === 1 ? "" : "s"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── create card ───────────────────────────────────────────────────────────────
+function CreateCard({ scopes, onCancel, onCreate }) {
   const [name, setName]   = useState("");
-  const [scope, setScope] = useState(SCOPES[0]);
+  const [scope, setScope] = useState(scopes[0]);
   const [rows, setRows]   = useState([
-    { key: "", value: "", secret: false },
-    { key: "", value: "", secret: false },
+    { key: "", value: "", is_secret: false },
+    { key: "", value: "", is_secret: false },
   ]);
   const [pasteOpen, setPasteOpen] = useState(false);
-  const [pasteText, setPasteText] = useState("");
+  const [saving, setSaving] = useState(false);
 
   function setRow(i, patch) {
-    setRows(r => r.map((row, idx) => idx === i ? { ...row, ...patch } : row));
-  }
-
-  function addRow() {
-    setRows(r => [...r, { key: "", value: "", secret: false }]);
+    setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   }
 
   // Merge parsed .env into the rows: drop the empty placeholder rows, then append
   // (dedup by key — a pasted key overwrites an existing same-named row).
-  function importEnv() {
-    const parsed = parseDotEnv(pasteText);
+  function importEnv(parsed) {
     if (!parsed.length) return;
-    setRows(prev => {
-      const byKey = new Map(prev.filter(r => r.key.trim()).map(r => [r.key, r]));
+    setRows((prev) => {
+      const byKey = new Map(prev.filter((r) => r.key.trim()).map((r) => [r.key, r]));
       for (const p of parsed) byKey.set(p.key, p);
       return [...byKey.values()];
     });
-    setPasteText("");
     setPasteOpen(false);
   }
 
-  function submit() {
-    if (!name.trim()) return;
-    const vars = rows.filter(r => r.key.trim());
-    onCreate({
-      id: name.trim(),
-      scope: scope.startsWith("Global") ? "Global" : scope,
-      vars: vars.length ? vars : [],
-    });
+  async function submit() {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      await onCreate({
+        name: name.trim(),
+        scope: scope.startsWith("Global") ? "Global" : scope,
+        vars: rows.filter((r) => r.key.trim()),
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div style={{
-      border: "1px solid var(--accent)",
-      borderRadius: 8,
-      background: "var(--surface)",
-      boxShadow: "var(--shadow)",
-      padding: "20px 22px",
-      marginBottom: 18,
+      border: "1px solid var(--accent)", borderRadius: 8,
+      background: "var(--surface)", boxShadow: "var(--shadow)",
+      padding: "20px 22px", marginBottom: 18,
     }}>
       <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
         New variable group
@@ -165,7 +142,7 @@ function CreateCard({ onCancel, onCreate }) {
             className="input mono"
             placeholder="e.g. payments-secrets"
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={(e) => setName(e.target.value)}
           />
         </div>
         <div>
@@ -175,16 +152,15 @@ function CreateCard({ onCancel, onCreate }) {
               className="input"
               style={{ appearance: "none", WebkitAppearance: "none", paddingRight: 30, cursor: "pointer" }}
               value={scope}
-              onChange={e => setScope(e.target.value)}
+              onChange={(e) => setScope(e.target.value)}
             >
-              {SCOPES.map(s => <option key={s}>{s}</option>)}
+              {scopes.map((s) => <option key={s}>{s}</option>)}
             </select>
             <ChevronDown
               size={14}
               style={{
                 position: "absolute", right: 11, top: "50%",
-                transform: "translateY(-50%)", pointerEvents: "none",
-                color: "var(--text-muted)",
+                transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-muted)",
               }}
             />
           </div>
@@ -199,21 +175,21 @@ function CreateCard({ onCancel, onCreate }) {
               className="input mono"
               placeholder="KEY"
               value={row.key}
-              onChange={e => setRow(i, { key: e.target.value })}
+              onChange={(e) => setRow(i, { key: e.target.value })}
             />
             <input
               className="input mono"
               placeholder="value"
               value={row.value}
-              onChange={e => setRow(i, { value: e.target.value })}
-              type={row.secret ? "password" : "text"}
+              onChange={(e) => setRow(i, { value: e.target.value })}
+              type={row.is_secret ? "password" : "text"}
             />
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 style={{ accentColor: "var(--accent)" }}
-                checked={row.secret}
-                onChange={e => setRow(i, { secret: e.target.checked })}
+                checked={row.is_secret}
+                onChange={(e) => setRow(i, { is_secret: e.target.checked })}
               />
               Secret
             </label>
@@ -221,86 +197,170 @@ function CreateCard({ onCancel, onCreate }) {
         ))}
       </div>
 
-      {pasteOpen && (
-        <div style={{ marginBottom: 12 }}>
-          <label className="label">Paste .env</label>
-          <textarea
-            className="input mono"
-            style={{ width: "100%", minHeight: 96, resize: "vertical" }}
-            placeholder={"KEY=value\nAPI_TOKEN=abc123\n# comments and blank lines are ignored"}
-            value={pasteText}
-            onChange={e => setPasteText(e.target.value)}
-          />
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-            <button className="btn btn-ghost" onClick={() => { setPasteOpen(false); setPasteText(""); }}>Cancel</button>
-            <button className="btn btn-secondary" onClick={importEnv} disabled={!pasteText.trim()}>
-              Import {parseDotEnv(pasteText).length || ""} variable{parseDotEnv(pasteText).length === 1 ? "" : "s"}
-            </button>
-          </div>
-        </div>
-      )}
+      {pasteOpen && <PastePanel onCancel={() => setPasteOpen(false)} onImport={importEnv} />}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={addRow}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "6px 10px", borderRadius: 6,
-              border: "1px dashed var(--border-strong)",
-              background: "transparent", color: "var(--text-muted)",
-              fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-            }}
-          >
+          <button onClick={() => setRows((r) => [...r, { key: "", value: "", is_secret: false }])} style={dashedBtn}>
             <Plus size={13} /> Add variable
           </button>
-          <button
-            onClick={() => setPasteOpen(o => !o)}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "6px 10px", borderRadius: 6,
-              border: "1px dashed var(--border-strong)",
-              background: "transparent", color: "var(--text-muted)",
-              fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-            }}
-          >
+          <button onClick={() => setPasteOpen((o) => !o)} style={dashedBtn}>
             <Braces size={13} /> Import .env
           </button>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-          <button className="btn btn-primary" onClick={submit}>Create group</button>
+          <button className="btn btn-primary" onClick={submit} disabled={!name.trim() || saving}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null} Create group
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── group card ────────────────────────────────────────────────────────────────
-function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onToggleAssign, onOpenAssign }) {
-  const expanded      = !!group.expanded;
-  const assignedSvcs  = assigned[group.id] || [];
-  const dropdownRef   = useRef(null);
+// ── one editable variable row ─────────────────────────────────────────────────
+function VarRow({ v, reveal, busy, onSave, onDelete, onNeedReveal }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(v);
 
-  // close dropdown on outside click
-  useEffect(() => {
-    if (!assignOpen) return;
-    function handleClick(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        onOpenAssign(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [assignOpen, onOpenAssign]);
+  function startEdit() {
+    // A hidden secret's value isn't in memory — editing it blind would blank it.
+    if (v.is_secret && !reveal) { onNeedReveal(); return; }
+    setDraft(v);
+    setEditing(true);
+  }
+
+  if (editing) {
+    return (
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr 1.5fr auto", gap: 10,
+        padding: "9px 14px", borderBottom: "1px solid var(--border)", alignItems: "center",
+      }}>
+        <input
+          className="input mono"
+          value={draft.key}
+          onChange={(e) => setDraft({ ...draft, key: e.target.value })}
+        />
+        <input
+          className="input mono"
+          value={draft.value}
+          placeholder="value"
+          onChange={(e) => setDraft({ ...draft, value: e.target.value })}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--text-muted)", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              style={{ accentColor: "var(--accent)" }}
+              checked={!!draft.is_secret}
+              onChange={(e) => setDraft({ ...draft, is_secret: e.target.checked })}
+            />
+            Secret
+          </label>
+          <button
+            className="btn btn-primary"
+            style={{ padding: "4px 10px", fontSize: 12 }}
+            disabled={busy || !draft.key.trim()}
+            onClick={async () => { await onSave(v.key, draft); setEditing(false); }}
+          >
+            Save
+          </button>
+          <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 12 }} onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
-      border: "1px solid var(--border)",
-      borderRadius: 8,
-      background: "var(--surface)",
-      boxShadow: "var(--shadow)",
-      overflow: "visible",
+      display: "grid", gridTemplateColumns: "1fr 1.5fr auto", gap: 12,
+      padding: "9px 14px", borderBottom: "1px solid var(--border)", alignItems: "center",
+    }}>
+      <span className="mono" style={{ fontSize: 12, fontWeight: 500, color: "var(--text)" }}>{v.key}</span>
+      <span className="mono" style={{
+        fontSize: 12, color: "var(--text-muted)",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {v.is_secret && !reveal ? mask(v.value || "••••••••") : v.value}
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+        {v.is_secret && (
+          <span style={{
+            fontSize: 10, fontWeight: 600, color: "var(--warn-text)",
+            background: "var(--warn-soft)", padding: "2px 7px", borderRadius: 999,
+          }}>
+            secret
+          </span>
+        )}
+        <button style={iconBtn} title="Edit" onClick={startEdit} disabled={busy}>
+          <Pencil size={12} />
+        </button>
+        <button
+          style={{ ...iconBtn, color: "var(--danger-text, #c0392b)" }}
+          title="Delete variable"
+          disabled={busy}
+          onClick={() => { if (confirm(`Delete ${v.key} from this group?`)) onDelete(v.key); }}
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── group card ────────────────────────────────────────────────────────────────
+function GroupCard({ group, services, reveal, expanded, onToggleExpand, onReveal, onError, onChanged }) {
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [busy, setBusy]       = useState(false);
+  const [adding, setAdding]   = useState(false);
+  const [newVar, setNewVar]   = useState({ key: "", value: "", is_secret: false });
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(group.name);
+  const dropdownRef = useRef(null);
+
+  const nameOf = (uuid) => services.find((s) => s.uuid === uuid)?.name || uuid;
+
+  // close assign dropdown on outside click
+  useEffect(() => {
+    if (!assignOpen) return;
+    function handleClick(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setAssignOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [assignOpen]);
+
+  // Every mutation goes through here: surfaces the error, reports partial Coolify
+  // push failures, and refetches so the card always shows server truth.
+  async function run(fn) {
+    setBusy(true);
+    onError(null);
+    try {
+      const res = await fn();
+      if (res?.failures?.length) onError(`Applied, but some services rejected the change: ${res.failures.join("; ")}`);
+      await onChanged();
+      return res;
+    } catch (e) {
+      onError(e.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const saveVar = (originalKey, draft) => run(async () => {
+    if (draft.key.trim() !== originalKey) await api.renameVarGroupVar(group.id, originalKey, draft.key.trim());
+    return api.setVarGroupVars(group.id, [{ key: draft.key.trim(), value: draft.value, is_secret: !!draft.is_secret }]);
+  });
+
+  return (
+    <div style={{
+      border: "1px solid var(--border)", borderRadius: 8,
+      background: "var(--surface)", boxShadow: "var(--shadow)", overflow: "visible",
     }}>
       {/* header row */}
       <div
@@ -315,25 +375,43 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
           <ChevronRight
             size={16}
             style={{
-              color: "var(--text-muted)",
-              transition: "transform .15s",
-              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
-              flexShrink: 0,
+              color: "var(--text-muted)", transition: "transform .15s",
+              transform: expanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0,
             }}
           />
-          {/* {} tile */}
           <span style={{
-            width: 30, height: 30, borderRadius: 6,
-            background: "var(--accent-soft)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
+            width: 30, height: 30, borderRadius: 6, background: "var(--accent-soft)",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}>
             <Braces size={16} style={{ color: "var(--accent-text)" }} />
           </span>
 
-          <span className="mono" style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
-            {group.id}
-          </span>
+          {renaming ? (
+            <input
+              className="input mono"
+              style={{ width: 220 }}
+              autoFocus
+              value={nameDraft}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === "Escape") { setRenaming(false); setNameDraft(group.name); }
+                if (e.key === "Enter" && nameDraft.trim()) {
+                  await run(() => api.updateVarGroup(group.id, { name: nameDraft.trim() }));
+                  setRenaming(false);
+                }
+              }}
+            />
+          ) : (
+            <span
+              className="mono"
+              style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}
+              title="Double-click to rename"
+              onDoubleClick={(e) => { e.stopPropagation(); setNameDraft(group.name); setRenaming(true); }}
+            >
+              {group.name}
+            </span>
+          )}
 
           <ScopePill scope={group.scope} />
 
@@ -341,15 +419,16 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
             {group.vars.length} variable{group.vars.length !== 1 ? "s" : ""}
           </span>
 
-          {group.vars.some(v => v.secret) && (
+          {group.vars.some((v) => v.is_secret) && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-muted)" }}>
               <Lock size={12} /> secrets
             </span>
           )}
         </div>
 
-        <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-          Attached to {assignedSvcs.length} service{assignedSvcs.length !== 1 ? "s" : ""}
+        <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 8 }}>
+          {busy && <Loader2 size={13} className="animate-spin" />}
+          Attached to {group.services.length} service{group.services.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -357,57 +436,102 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
       {expanded && (
         <div style={{ padding: "0 18px 18px" }}>
           {/* var table */}
-          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", marginBottom: 16 }}>
-          <div style={{
-            minWidth: 380,
-            border: "1px solid var(--border)", borderRadius: 6,
-            overflow: "hidden",
-          }}>
-            <div style={{
-              display: "grid", gridTemplateColumns: "1fr 1.5fr 80px", gap: 12,
-              padding: "8px 14px",
-              background: "var(--surface-2)", borderBottom: "1px solid var(--border)",
-              fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em",
-              textTransform: "uppercase", color: "var(--text-muted)",
-            }}>
-              <span>Key</span><span>Value</span><span />
-            </div>
-
-            {group.vars.map((v, i) => (
-              <div
-                key={v.key || i}
-                style={{
-                  display: "grid", gridTemplateColumns: "1fr 1.5fr 80px", gap: 12,
-                  padding: "9px 14px",
-                  borderBottom: i < group.vars.length - 1 ? "1px solid var(--border)" : "none",
-                  alignItems: "center",
-                }}
-              >
-                <span className="mono" style={{ fontSize: 12, fontWeight: 500, color: "var(--text)" }}>
-                  {v.key}
-                </span>
-                <span className="mono" style={{
-                  fontSize: 12, color: "var(--text-muted)",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  {v.secret && !reveal ? mask(v.value) : v.value}
-                </span>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  {v.secret && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 600,
-                      color: "var(--warn-text)",
-                      background: "var(--warn-soft)",
-                      padding: "2px 7px", borderRadius: 999,
-                    }}>
-                      secret
-                    </span>
-                  )}
-                </div>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", marginBottom: 12 }}>
+            <div style={{ minWidth: 420, border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 1.5fr auto", gap: 12,
+                padding: "8px 14px", background: "var(--surface-2)",
+                borderBottom: "1px solid var(--border)",
+                fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em",
+                textTransform: "uppercase", color: "var(--text-muted)",
+              }}>
+                <span>Key</span><span>Value</span><span />
               </div>
-            ))}
+
+              {group.vars.map((v) => (
+                <VarRow
+                  key={v.key}
+                  v={v}
+                  reveal={reveal}
+                  busy={busy}
+                  onNeedReveal={onReveal}
+                  onSave={saveVar}
+                  onDelete={(key) => run(() => api.deleteVarGroupVar(group.id, key))}
+                />
+              ))}
+
+              {adding && (
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1.5fr auto", gap: 10,
+                  padding: "9px 14px", alignItems: "center", background: "var(--surface-2)",
+                }}>
+                  <input
+                    className="input mono"
+                    placeholder="KEY"
+                    autoFocus
+                    value={newVar.key}
+                    onChange={(e) => setNewVar({ ...newVar, key: e.target.value })}
+                  />
+                  <input
+                    className="input mono"
+                    placeholder="value"
+                    value={newVar.value}
+                    onChange={(e) => setNewVar({ ...newVar, value: e.target.value })}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--text-muted)", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        style={{ accentColor: "var(--accent)" }}
+                        checked={newVar.is_secret}
+                        onChange={(e) => setNewVar({ ...newVar, is_secret: e.target.checked })}
+                      />
+                      Secret
+                    </label>
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                      disabled={busy || !newVar.key.trim()}
+                      onClick={async () => {
+                        const ok = await run(() => api.setVarGroupVars(group.id, [{ ...newVar, key: newVar.key.trim() }]));
+                        if (ok) { setNewVar({ key: "", value: "", is_secret: false }); setAdding(false); }
+                      }}
+                    >
+                      Add
+                    </button>
+                    <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 12 }} onClick={() => setAdding(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!group.vars.length && !adding && (
+                <div style={{ padding: "14px", fontSize: 12.5, color: "var(--text-muted)" }}>
+                  No variables yet — add one below.
+                </div>
+              )}
+            </div>
           </div>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <button style={dashedBtn} onClick={() => setAdding(true)} disabled={busy}>
+              <Plus size={13} /> Add variable
+            </button>
+            <button style={dashedBtn} onClick={() => setPasteOpen((o) => !o)} disabled={busy}>
+              <Braces size={13} /> Import .env
+            </button>
           </div>
+
+          {pasteOpen && (
+            <PastePanel
+              onCancel={() => setPasteOpen(false)}
+              onImport={async (parsed) => {
+                await run(() => api.setVarGroupVars(group.id, parsed));
+                setPasteOpen(false);
+              }}
+            />
+          )}
 
           {/* attached services */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
@@ -420,10 +544,9 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
               </div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 7, alignItems: "center", position: "relative" }}>
-                {/* service chips */}
-                {assignedSvcs.map(svc => (
+                {group.services.map((uuid) => (
                   <span
-                    key={svc}
+                    key={uuid}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 7,
                       padding: "4px 6px 4px 10px", borderRadius: 999,
@@ -432,10 +555,11 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
                     }}
                   >
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--ok)", flexShrink: 0 }} />
-                    {svc}
+                    {nameOf(uuid)}
                     <button
-                      onClick={e => { e.stopPropagation(); onToggleAssign(group.id, svc); }}
-                      title={`Remove ${svc}`}
+                      onClick={(e) => { e.stopPropagation(); run(() => api.detachVarGroup(group.id, uuid)); }}
+                      title={`Detach ${nameOf(uuid)} (removes these keys from the service)`}
+                      disabled={busy}
                       style={{
                         width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center",
                         border: "none", background: "transparent", color: "var(--text-muted)",
@@ -450,7 +574,8 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
                 {/* assign dropdown */}
                 <div style={{ position: "relative" }} ref={dropdownRef}>
                   <button
-                    onClick={e => { e.stopPropagation(); onOpenAssign(assignOpen ? null : group.id); }}
+                    onClick={(e) => { e.stopPropagation(); setAssignOpen((o) => !o); }}
+                    disabled={busy}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 6,
                       padding: "5px 11px", borderRadius: 999,
@@ -464,29 +589,39 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
 
                   {assignOpen && (
                     <div style={{
-                      position: "absolute", top: "100%", left: 0, marginTop: 6,
-                      width: 230,
+                      position: "absolute", top: "100%", left: 0, marginTop: 6, width: 250,
                       background: "var(--surface)", border: "1px solid var(--border)",
                       borderRadius: 8, boxShadow: "var(--shadow-lg)",
-                      padding: 6, zIndex: 30,
-                      maxHeight: 240, overflowY: "auto",
+                      padding: 6, zIndex: 30, maxHeight: 260, overflowY: "auto",
                     }}>
-                      {ALL_SERVICES.map(svc => {
-                        const checked = assignedSvcs.includes(svc);
+                      {!services.length && (
+                        <div style={{ padding: "8px 9px", fontSize: 12.5, color: "var(--text-muted)" }}>
+                          No services available.
+                        </div>
+                      )}
+                      {services.map((svc) => {
+                        const checked = group.services.includes(svc.uuid);
                         return (
                           <div
-                            key={svc}
+                            key={svc.uuid}
                             role="button"
-                            onClick={e => { e.stopPropagation(); onToggleAssign(group.id, svc); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              run(() => (checked
+                                ? api.detachVarGroup(group.id, svc.uuid)
+                                : api.attachVarGroup(group.id, svc.uuid)));
+                            }}
                             style={{
                               display: "flex", alignItems: "center", justifyContent: "space-between",
                               gap: 8, padding: "7px 9px", borderRadius: 6,
                               cursor: "pointer", fontSize: 12.5, color: "var(--text)",
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-2)"; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                           >
-                            <span className="mono">{svc}</span>
+                            <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {svc.name}
+                            </span>
                             {checked && <Check size={14} style={{ color: "var(--accent)", flexShrink: 0 }} />}
                           </div>
                         );
@@ -495,7 +630,26 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
                   )}
                 </div>
               </div>
+
+              <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 9 }}>
+                Attached services pick up changes on their next deploy.
+              </div>
             </div>
+
+            <button
+              className="btn btn-ghost"
+              style={{ color: "var(--danger-text, #c0392b)" }}
+              disabled={busy}
+              onClick={() => {
+                const n = group.services.length;
+                const warn = n
+                  ? `Delete "${group.name}"? Its ${group.vars.length} variable(s) will also be removed from ${n} attached service(s).`
+                  : `Delete "${group.name}"?`;
+                if (confirm(warn)) run(() => api.deleteVarGroup(group.id));
+              }}
+            >
+              <Trash2 size={14} /> Delete group
+            </button>
           </div>
         </div>
       )}
@@ -505,31 +659,63 @@ function GroupCard({ group, reveal, assigned, assignOpen, onToggleExpand, onTogg
 
 // ── page ──────────────────────────────────────────────────────────────────────
 export default function SharedVars() {
-  const [reveal,     setReveal]     = useState(false);
-  const [creating,   setCreating]   = useState(false);
-  const [groups,     setGroups]     = useState(SEED_GROUPS);
-  const [expanded,   setExpanded]   = useState({ "shared-prod": true });
-  const [assigned,   setAssigned]   = useState(SEED_ASSIGNED);
-  const [assignOpen, setAssignOpen] = useState(null); // group id or null
+  const [groups,   setGroups]   = useState([]);
+  const [services, setServices] = useState([]);
+  const [scopes,   setScopes]   = useState(["Global — all projects"]);
+  const [reveal,   setReveal]   = useState(false);
+  const [loading,  setLoading]  = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [expanded, setExpanded] = useState({});
+  const [error,    setError]    = useState(null);
 
-  function toggleAssign(gid, svc) {
-    setAssigned(prev => {
-      const cur  = prev[gid] || [];
-      const next = cur.includes(svc) ? cur.filter(x => x !== svc) : [...cur, svc];
-      return { ...prev, [gid]: next };
-    });
+  const load = useCallback(async (withValues) => {
+    const list = await api.varGroups(withValues);
+    setGroups(list);
+    return list;
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [list, svcs, projects] = await Promise.all([
+          api.varGroups(false),
+          api.services().catch(() => []),
+          api.projects().catch(() => []),
+        ]);
+        if (!alive) return;
+        setGroups(list);
+        setServices(svcs);
+        setScopes(["Global — all projects", ...projects.map((p) => `Project: ${p.name}`)]);
+      } catch (e) {
+        if (alive) setError(e.message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  async function toggleReveal() {
+    const next = !reveal;
+    try {
+      await load(next);
+      setReveal(next);
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
-  function toggleExpand(gid) {
-    setExpanded(prev => ({ ...prev, [gid]: !prev[gid] }));
-    setAssignOpen(null);
-  }
-
-  function handleCreate(newGroup) {
-    setGroups(prev => [...prev, newGroup]);
-    setExpanded(prev => ({ ...prev, [newGroup.id]: false }));
-    setAssigned(prev => ({ ...prev, [newGroup.id]: [] }));
-    setCreating(false);
+  async function handleCreate(body) {
+    try {
+      setError(null);
+      const created = await api.createVarGroup(body);
+      await load(reveal);
+      setExpanded((prev) => ({ ...prev, [created.id]: true }));
+      setCreating(false);
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   return (
@@ -539,44 +725,66 @@ export default function SharedVars() {
         subtitle="Reusable sets of environment variables you can attach to any service."
         actions={
           <>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setReveal(r => !r)}
-            >
+            <button className="btn btn-secondary" onClick={toggleReveal}>
               {reveal ? <EyeOff size={14} /> : <Eye size={14} />}
               {reveal ? "Hide values" : "Reveal values"}
             </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => setCreating(c => !c)}
-            >
+            <button className="btn btn-primary" onClick={() => setCreating((c) => !c)}>
               <Plus size={16} /> New Group
             </button>
           </>
         }
       />
 
-      {creating && (
-        <CreateCard
-          onCancel={() => setCreating(false)}
-          onCreate={handleCreate}
-        />
+      {error && (
+        <div style={{
+          border: "1px solid var(--danger, #e74c3c)", background: "var(--warn-soft)",
+          color: "var(--text)", borderRadius: 8, padding: "10px 14px",
+          marginBottom: 14, fontSize: 13, display: "flex", justifyContent: "space-between", gap: 12,
+        }}>
+          <span>{error}</span>
+          <button onClick={() => setError(null)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-muted)" }}>
+            <X size={14} />
+          </button>
+        </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        {groups.map(g => (
-          <GroupCard
-            key={g.id}
-            group={{ ...g, expanded: !!expanded[g.id] }}
-            reveal={reveal}
-            assigned={assigned}
-            assignOpen={assignOpen === g.id}
-            onToggleExpand={() => toggleExpand(g.id)}
-            onToggleAssign={toggleAssign}
-            onOpenAssign={setAssignOpen}
-          />
-        ))}
-      </div>
+      {creating && (
+        <CreateCard scopes={scopes} onCancel={() => setCreating(false)} onCreate={handleCreate} />
+      )}
+
+      {loading ? (
+        <Spinner />
+      ) : !groups.length && !creating ? (
+        <div style={{
+          border: "1px dashed var(--border-strong)", borderRadius: 8,
+          padding: "34px 20px", textAlign: "center", color: "var(--text-muted)",
+        }}>
+          <Braces size={22} style={{ marginBottom: 8 }} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
+            No variable groups yet
+          </div>
+          <div style={{ fontSize: 12.5 }}>
+            Create one to share a set of env vars (API keys, DB URLs) across services.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+          {groups.map((g) => (
+            <GroupCard
+              key={g.id}
+              group={g}
+              services={services}
+              reveal={reveal}
+              expanded={!!expanded[g.id]}
+              onToggleExpand={() => setExpanded((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+              onReveal={toggleReveal}
+              onError={setError}
+              onChanged={() => load(reveal)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

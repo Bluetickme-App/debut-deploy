@@ -45,7 +45,12 @@ export const api = {
   deleteEnvironment: (id) => req(`/environments/${id}`, { method: "DELETE" }),
   placeResource:   (type, id, environmentId) => req(`/resources/${type}/${id}/placement`, { method: "PATCH", body: { environmentId } }),
   transferProject: (id, email) => req(`/admin/projects/${id}/transfer`, { method: "POST", body: { email } }), // master-admin only
-  updateResources: (id, body) => req(`/services/${id}/resources`, { method: "PATCH", body }), // { cpus?, memory? }
+  updateResources: (id, body) => req(`/services/${id}/resources`, { method: "PATCH", body }), // { cpus?, memory? } — low-level; no pricing, no redeploy
+  // Instance-size change as one priced, confirmed operation. previewPlanChange returns the
+  // spec/price/proration/cycle the confirmation dialog shows; applyPlanChange then sets the
+  // limits, moves the billing, and redeploys so the new CPU/RAM actually takes effect.
+  previewPlanChange: (id, body) => req(`/services/${id}/plan-change/preview`, { method: "POST", body }), // { planId|null, cpus?, memory? }
+  applyPlanChange:   (id, body) => req(`/services/${id}/plan-change`, { method: "POST", body }),
   // custom domains (Render-style manager)
   listDomains:  (id) => req(`/services/${id}/domains`),
   addDomain:    (id, fqdn) => req(`/services/${id}/domain`, { method: "POST", body: { fqdn } }),
@@ -70,9 +75,11 @@ export const api = {
   revealEnv: (id, key) => req(`/services/${id}/envs/reveal?key=${encodeURIComponent(key)}`),
   saveEnv: (id, body) => req(`/services/${id}/envs`, { method: "POST", body }),
   deleteEnv: (id, envId) => req(`/services/${id}/envs/${envId}`, { method: "DELETE" }),
-  // Persistent disks (redeploys the service)
+  // Persistent disks — billed per GB and redeploys the service, so size and cost are
+  // previewed and confirmed before anything is created.
   serviceVolumes: (id) => req(`/services/${id}/volumes`),
-  addServiceVolume: (id, mountPath) => req(`/services/${id}/volumes`, { method: "POST", body: { mountPath } }),
+  previewServiceVolume: (id, body) => req(`/services/${id}/volumes/preview`, { method: "POST", body }), // { sizeGb, action? }
+  addServiceVolume: (id, mountPath, sizeGb) => req(`/services/${id}/volumes`, { method: "POST", body: { mountPath, sizeGb } }),
   deleteServiceVolume: (id, vid) => req(`/services/${id}/volumes/${vid}`, { method: "DELETE" }),
   databases: () => req("/databases"),
   database: (uuid) => req(`/databases/${uuid}`),
@@ -96,6 +103,16 @@ export const api = {
   sharedVars: () => req("/shared-vars"),
   createSharedVar: (body) => req("/shared-vars", { method: "POST", body }),
   deleteSharedVar: (id) => req(`/shared-vars/${id}`, { method: "DELETE" }),
+  // Variable groups (org-scoped, attachable to services)
+  varGroups:          (reveal) => req(`/var-groups${reveal ? "?reveal=1" : ""}`),
+  createVarGroup:     (body) => req("/var-groups", { method: "POST", body }),
+  updateVarGroup:     (id, body) => req(`/var-groups/${id}`, { method: "PATCH", body }),
+  deleteVarGroup:     (id) => req(`/var-groups/${id}`, { method: "DELETE" }),
+  setVarGroupVars:    (id, vars) => req(`/var-groups/${id}/vars`, { method: "POST", body: { vars } }),
+  renameVarGroupVar:  (id, key, next) => req(`/var-groups/${id}/vars/${encodeURIComponent(key)}`, { method: "PATCH", body: { key: next } }),
+  deleteVarGroupVar:  (id, key) => req(`/var-groups/${id}/vars/${encodeURIComponent(key)}`, { method: "DELETE" }),
+  attachVarGroup:     (id, uuid) => req(`/var-groups/${id}/services`, { method: "POST", body: { uuid } }),
+  detachVarGroup:     (id, uuid) => req(`/var-groups/${id}/services/${uuid}`, { method: "DELETE" }),
   // Hetzner provisioning (admin)
   hetznerServerTypes: () => req("/hetzner/server-types"),
   hetznerLocations:   () => req("/hetzner/locations"),
@@ -106,8 +123,21 @@ export const api = {
   mailDomains:     () => req("/mail/domains"),
   createMailDomain:(domain, orgId) => req("/mail/domains", { method: "POST", body: { domain, orgId } }),
   deleteMailDomain:(domain) => req(`/mail/domains/${encodeURIComponent(domain)}`, { method: "DELETE" }),
+  // Who pays for this domain's mailboxes. Cascades to the mailbox rows billing counts.
+  assignMailDomain:(domain, orgId) => req(`/mail/domains/${encodeURIComponent(domain)}`, { method: "PATCH", body: { orgId } }),
+  // Import what the mail server actually has into the panel's billing tables. Safe to re-run.
+  reconcileMail:  () => req("/mail/reconcile", { method: "POST" }),
   createMailbox:   (body) => req("/mail/mailboxes", { method: "POST", body }), // { address, password, quotaMb }
   deleteMailbox:   (address) => req(`/mail/mailboxes/${encodeURIComponent(address)}`, { method: "DELETE" }),
+  // Omit `password` for a generated temp one. The plaintext comes back ONCE — mailcow
+  // stores only a hash, so it can never be read again. Show it, don't persist it.
+  // Recovery address = the user's OTHER email; without one they cannot self-serve a reset.
+  setMailboxRecovery: (address, recoveryEmail) =>
+    req(`/mail/mailboxes/${encodeURIComponent(address)}/recovery`, { method: "POST", body: { recoveryEmail } }),
+  clearMailboxRecovery: (address) =>
+    req(`/mail/mailboxes/${encodeURIComponent(address)}/recovery`, { method: "DELETE" }),
+  resetMailboxPassword: (address, password) =>
+    req(`/mail/mailboxes/${encodeURIComponent(address)}/password`, { method: "POST", body: password ? { password } : {} }),
   verifyMailDns:   (domain) => req(`/mail/domains/${encodeURIComponent(domain)}/verify`), // { checks:[{key,label,ok,detail}] }
   // One-click DNS (Domain Connect)
   dnsDiscover: (domain, kind) => req(`/dns/discover?domain=${encodeURIComponent(domain)}&kind=${kind}`),

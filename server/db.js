@@ -453,6 +453,28 @@ const MIGRATIONS = [
   (d) => {
     try { d.exec("ALTER TABLE host_samples ADD COLUMN host TEXT"); } catch { /* exists */ }
   },
+  // -> user_version 32: persistent disks — the SIZE and the org a volume is billed to.
+  // Coolify's local_persistent_volumes row is the mount itself; it carries no size and
+  // no owner, so a disk could be attached and never charged. This is the billing record.
+  // Rows are soft-deleted (deleted_at) so a detached disk still bills for the hours it
+  // was attached and the ledger stays auditable.
+  (d) => {
+    d.exec(`
+      CREATE TABLE IF NOT EXISTS service_disks (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id       INTEGER REFERENCES organizations(id),
+        coolify_uuid TEXT NOT NULL,
+        volume_uuid  TEXT NOT NULL UNIQUE,
+        mount_path   TEXT NOT NULL,
+        size_gb      INTEGER NOT NULL,
+        created_at   TEXT NOT NULL,
+        created_by   INTEGER REFERENCES users(id),
+        deleted_at   TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_service_disks_app ON service_disks(coolify_uuid);
+      CREATE INDEX IF NOT EXISTS idx_service_disks_org ON service_disks(org_id);
+    `);
+  },
 ];
 
 function resolveDbFile() {

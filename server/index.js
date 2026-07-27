@@ -66,6 +66,7 @@ import {
   deleteMailDomainRow,
   addMailboxRow,
   deleteMailboxRow,
+  orgMailboxCount,
   getMailDnsChecks,
   setMailDnsChecks,
 } from "./db.js";
@@ -73,15 +74,15 @@ import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
 import {
   walletBalance, recentLedger, creditWallet, createTopupSession, handleWebhookEvent, stripeClient,
-  getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod, usdToPence,
-  stripeMode, setStripeMode, stripeWebhookSecret,
+  getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod, usdToPence, diskPencePerGb,
+  mailChargePence, stripeMode, setStripeMode, stripeWebhookSecret,
 } from "./billing.js";
 import * as stripeadmin from "./stripeadmin.js";
 import { ensureCatalog } from "./stripecatalog.js";
 import * as subscriptions from "./subscriptions.js";
 import { getComp, setComp } from "./comp.js";
 import { getAutoRecharge, setAutoRecharge, maybeAutoRecharge } from "./autorecharge.js";
-import { planPriceUsd, detectComputePlan } from "./plans.js";
+import { planPriceUsd, detectComputePlan, isResourcePlan, STORAGE_PLAN } from "./plans.js";
 import { renderInvoiceHtml } from "./invoice.js";
 import { listEvents, listEventsForResource } from "./events.js";
 import { getNotificationSettings, setNotificationSettings, notify, EVENT_TYPES } from "./notifications.js";
@@ -89,16 +90,20 @@ import { runHealthCheck } from "./monitor.js";
 import * as dns from "./dns.js";
 import * as resources from "./resources.js";
 import * as volumes from "./volumes.js";
+import * as disks from "./disks.js";
+import * as planchange from "./planchange.js";
 import * as envstore from "./envstore.js";
 import * as coolifydb from "./coolifydb.js";
 import { buildProgress } from "./buildeta.js";
 import * as sharedvars from "./sharedvars.js";
+import * as vargroups from "./vargroups.js";
 import * as backups from "./backups.js";
 import * as hetzner from "./hetzner.js";
 import { provisionServer } from "./provision.js";
 import { importFromRender, migratePostgres } from "./migrate.js";
 import { scanEnv } from "./envscan.js";
 import * as mail from "./mail.js";
+import * as mailbilling from "./mailbilling.js";
 import * as dbcreds from "./dbcreds.js";
 import * as render from "./render.js";
 import { generateDeployKeypair, registerDeployKey, createDeployKeyApp, setAppDomain, deployApp, ensureAccountKey, toSshUrl } from "./deploykey.js";
@@ -114,6 +119,9 @@ import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
 import { renderStatusHtml } from "./status.js";
+import * as mailreset from "./mailreset.js";
+import * as mailer from "./mailer.js";
+import { renderForgotPage, renderResetPage } from "./mailresetpage.js";
 
 const app = express();
 // Behind a TLS-terminating reverse proxy (the standard deploy): trust the first
@@ -343,6 +351,17 @@ async function serveStatus(res) {
 }
 
 app.get("/api/status", (_req, res) => serveStatus(res));
+
+// Public, unauthenticated mailbox-reset pages. Mounted here (not in the SPA) because the
+// people who need them are locked out and the SPA sits behind auth.
+app.get("/mail/forgot", (_req, res) => res.type("html").send(renderForgotPage()));
+app.get("/mail/reset", (req, res) => {
+  const token = String(req.query.token || "");
+  const row = mailreset.peekToken(token); // validated BEFORE the address is rendered
+  res.type("html").send(row
+    ? renderResetPage({ token, address: row.address })
+    : renderResetPage({ invalid: true }));
+});
 
 // Dedicated status subdomain: on status.debutdepoly.com every path is the status
 // page (self-contained HTML, so no static assets needed). Registered before all
@@ -578,8 +597,65 @@ app.patch(
   })
 );
 
+// Priced preview of an instance-size change: current vs new spec, price before/after,
+// the prorated settlement for the rest of this cycle, when the new rate starts, and
+// whether applying it redeploys. Nothing is written — this is what the confirmation
+// dialog renders. POST because the body carries the proposed plan/limits.
+app.post(
+  "/api/services/:id/plan-change/preview",
+  requireAuth,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return planchange.previewServicePlanChange({
+      orgId: req.org?.id,
+      uuid: req.params.id,
+      planId: req.body?.planId ?? req.body?.plan_id ?? null,
+      cpus: req.body?.cpus,
+      memory: req.body?.memory,
+    });
+  })
+);
+
+// Apply a confirmed instance-size change as ONE transaction: container limits →
+// billed plan → billing settlement (Stripe items or a prorated ledger entry) →
+// redeploy. The redeploy is the step that makes the new CPU/RAM real; every step's
+// outcome comes back so the UI can report exactly what happened.
+app.post(
+  "/api/services/:id/plan-change",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("manage"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    const planId = req.body?.planId ?? req.body?.plan_id ?? null;
+    const result = await planchange.applyServicePlanChange({
+      orgId: req.org?.id,
+      uuid: req.params.id,
+      planId,
+      cpus: req.body?.cpus,
+      memory: req.body?.memory,
+      userId: req.user.id,
+    });
+    record(req, "service.plan_change", {
+      resourceType: "application", resourceUuid: req.params.id,
+      metadata: {
+        from: result.preview.from.id || null, to: planId || null,
+        cpus: result.preview.to.cpus, memory: result.preview.to.memory,
+        deltaMinor: result.preview.deltaMinor, currency: result.preview.currency,
+        steps: result.steps.map((s) => `${s.step}:${s.ok ? "ok" : "failed"}`).join(","),
+      },
+    });
+    return result;
+  })
+);
+
 // Update a service's container resource limits (CPU / memory). Owner-scoped.
-// Applied on next deploy — Coolify recreates the container with the new cgroup limits.
+// LOW-LEVEL: writes limits into Coolify only — Docker applies them when the container
+// is next recreated, so the caller owns the redeploy. Prefer POST /plan-change, which
+// prices the change, settles billing and redeploys as one confirmed operation.
 app.patch(
   "/api/services/:id/resources",
   requireAuth,
@@ -1067,6 +1143,7 @@ app.delete(
     assertOwns(req.user, "application", req.params.id);
     await lifecycle.deleteApp(req.params.id);
     release("application", req.params.id);
+    vargroups.forgetService(req.params.id); // no dangling group attachments
     record(req, "app.delete", { resourceType: "application", resourceUuid: req.params.id });
     return { ok: true };
   })
@@ -1107,8 +1184,11 @@ function assertMailDomainOrg(req, domain) {
   if (getMailDomainOrg(domain) !== req.org?.id) throw Object.assign(new Error("Not found"), { status: 404 });
 }
 
+// `webmail` is the full, working URL (https://<host>/SOGo) — not a bare hostname. It used
+// to return MAIL_WEBMAIL, which in production names a dead `webmail.` subdomain; the UI
+// worked around it by rebuilding the URL itself. One source of truth now.
 app.get("/api/mail/status", requireAuth, h(async () => ({
-  configured: mail.isConfigured(), hostname: mail.MAIL_HOSTNAME, webmail: mail.MAIL_WEBMAIL,
+  configured: mail.isConfigured(), hostname: mail.MAIL_HOSTNAME, webmail: mail.webmailUrl(),
 })));
 
 app.get("/api/mail/domains", requireAuth, attachOrgContext, h(async (req) => {
@@ -1138,6 +1218,103 @@ app.post("/api/mail/domains", requireAuth, attachOrgContext, mutateGuard, h(asyn
   return { domain, records: mail.dnsRecords(domain) };
 }));
 
+// Assign a mail domain to an org — i.e. decide WHO PAYS for its mailboxes. Admin-only.
+// Cascades to the domain's mailbox rows, because mailChargePence() counts
+// mail_mailboxes.org_id, not the domain's: without the cascade the assignment would look
+// right in the UI and still bill nobody.
+app.patch("/api/mail/domains/:domain", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const domain = String(req.params.domain);
+  const orgId = req.body?.orgId ? Number(req.body.orgId) : null;
+  if (orgId != null && !db.prepare("SELECT 1 FROM organizations WHERE id = ?").get(orgId)) {
+    throw Object.assign(new Error("No such organization"), { status: 404 });
+  }
+  setMailDomainOrg(domain, orgId);
+  const mailboxesReassigned = db.prepare("UPDATE mail_mailboxes SET org_id = ? WHERE domain = ?").run(orgId, domain).changes;
+  record(req, "mail.domain.assign", { metadata: { domain, orgId, mailboxesReassigned } });
+  return { domain, orgId, mailboxesReassigned };
+}));
+
+// Import what the mail server ACTUALLY has into the panel's billing tables. Domains and
+// mailboxes created straight in mailcow have no row here, so mailChargePence() can't see
+// them and they are billed to nobody — this closes that gap and is safe to re-run.
+// Existing org assignments are preserved; mailbox rows are re-stamped from their domain's
+// org so an assignment made later flows through to billing.
+app.post("/api/mail/reconcile", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const summary = await mailbilling.reconcile();
+  record(req, "mail.reconcile", { metadata: summary });
+  return summary;
+}));
+
+// ── Mailbox self-service password reset ───────────────────────────────────────
+// A recovery address (the user's OTHER email) is what makes self-service possible: the
+// mailbox we host is exactly the one they can't read while locked out.
+
+app.post("/api/mail/mailboxes/:address/recovery", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
+  const address = String(req.params.address);
+  assertMailDomainOrg(req, address.slice(address.lastIndexOf("@") + 1));
+  const r = mailreset.setRecoveryEmail(address, req.body?.recoveryEmail);
+  record(req, "mail.recovery.set", { metadata: { address } }); // recovery address is PII — not logged
+  return r;
+}));
+
+app.delete("/api/mail/mailboxes/:address/recovery", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
+  const address = String(req.params.address);
+  assertMailDomainOrg(req, address.slice(address.lastIndexOf("@") + 1));
+  record(req, "mail.recovery.clear", { metadata: { address } });
+  return { cleared: mailreset.clearRecoveryEmail(address) };
+}));
+
+// Sending mail costs money and is a spam vector, so the PUBLIC request endpoint is
+// throttled per IP independently of the auth throttle above.
+const forgotHits = new Map(); // ip -> { count, resetAt }
+const FORGOT_MAX = 5;
+const FORGOT_WINDOW_MS = 15 * 60_000;
+function forgotThrottled(ip) {
+  const now = Date.now();
+  const rec = forgotHits.get(ip);
+  if (!rec || now > rec.resetAt) { forgotHits.set(ip, { count: 1, resetAt: now + FORGOT_WINDOW_MS }); return false; }
+  rec.count += 1;
+  return rec.count > FORGOT_MAX;
+}
+
+// PUBLIC. Deliberately returns the SAME response whether or not the mailbox exists, has a
+// recovery address, or the send succeeded — anything else turns this into an oracle for
+// enumerating which mailboxes we host.
+app.post("/api/mail/forgot", mutateGuard, h(async (req, res) => {
+  const generic = { ok: true, message: "If that mailbox exists and has a recovery address on file, a reset link is on its way." };
+  if (forgotThrottled(req.ip)) { res.status(429); return { error: "Too many attempts. Try again later." }; }
+
+  const address = String(req.body?.address || "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(address)) return generic;
+
+  mailreset.sweepTokens();
+  const minted = mailreset.createResetToken(address);
+  if (!minted) return generic; // no recovery address on file — say nothing
+
+  const url = `${publicBase()}/mail/reset?token=${encodeURIComponent(minted.token)}`;
+  const msg = mailreset.resetEmail({ address, url, expiresAt: minted.expiresAt });
+  try {
+    await mailer.send({ to: minted.recoveryEmail, ...msg });
+    recordSystem("mail.reset.sent", { metadata: { address } });
+  } catch (e) {
+    // Log it, still answer generically. A send failure must not distinguish this mailbox
+    // from a nonexistent one.
+    console.error("mail reset send failed:", e.message);
+    recordSystem("mail.reset.send_failed", { metadata: { address, error: e.message } });
+  }
+  return generic;
+}));
+
+// PUBLIC. Spends the token and sets the new password.
+app.post("/api/mail/reset", mutateGuard, h(async (req) => {
+  const password = String(req.body?.password || "");
+  if (password.length < 8) throw Object.assign(new Error("Password must be at least 8 characters"), { status: 400 });
+  const address = mailreset.consumeToken(String(req.body?.token || ""));
+  await mail.setMailboxPassword(address, password);
+  recordSystem("mail.reset.completed", { resourceType: null, metadata: { address } });
+  return { ok: true, address };
+}));
+
 app.delete("/api/mail/domains/:domain", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
   assertMailDomainOrg(req, req.params.domain);
   await mail.deleteDomain(req.params.domain);
@@ -1156,15 +1333,35 @@ app.get("/api/mail/domains/:domain/verify", requireAuth, attachOrgContext, h(asy
 }));
 
 app.post("/api/mail/mailboxes", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
-  const { address, password, quotaMb } = req.body || {};
+  const { address, quotaMb } = req.body || {};
   if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(address || ""))) throw Object.assign(new Error("A valid email address is required"), { status: 400 });
-  if (!password || String(password).length < 8) throw Object.assign(new Error("Password must be at least 8 characters"), { status: 400 });
+  // Omit `password` to have one generated (same generator as the reset route, so there's
+  // one definition of what a temp password looks like). A supplied one still has to pass
+  // the length floor. When generated, the plaintext is returned ONCE — see the reset route.
+  const generated = !req.body?.password;
+  const password = generated ? mail.generatePassword() : String(req.body.password);
+  if (password.length < 8) throw Object.assign(new Error("Password must be at least 8 characters"), { status: 400 });
   const domain = String(address).slice(String(address).lastIndexOf("@") + 1);
   assertMailDomainOrg(req, domain); // can only add mailboxes on a domain your org owns
   await mail.createMailbox({ address, password, quotaMb: Number(quotaMb) || undefined });
   addMailboxRow(address, domain, getMailDomainOrg(domain)); // bill to the domain's owning org
-  record(req, "mail.mailbox.create", { metadata: { address } }); // never log the password
-  return { ok: true, address };
+  record(req, "mail.mailbox.create", { metadata: { address, generated } }); // never log the password
+  return { ok: true, address, generated, ...(generated ? { password } : {}) };
+}));
+
+// Reset a mailbox password. There is no "reveal" and there never can be — mailcow stores
+// only a hash — so a reset is the sole recovery path. Omit `password` to get a generated
+// temporary one. The plaintext is in the RESPONSE ONLY: not persisted, and deliberately
+// absent from the audit metadata below (which records that a reset happened, not what to).
+app.post("/api/mail/mailboxes/:address/password", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
+  const address = String(req.params.address);
+  const domain = address.slice(address.lastIndexOf("@") + 1);
+  assertMailDomainOrg(req, domain);
+  const generated = !req.body?.password;
+  const password = generated ? mail.generatePassword() : String(req.body.password);
+  const result = await mail.setMailboxPassword(address, password);
+  record(req, "mail.mailbox.password_reset", { metadata: { address, generated } });
+  return { ...result, generated };
 }));
 
 app.delete("/api/mail/mailboxes/:address", requireAuth, attachOrgContext, mutateGuard, h(async (req) => {
@@ -1372,8 +1569,16 @@ app.get("/api/admin/orgs/:id/resources", requireAuth, requireAdmin, h((req) => {
     monthly_pence: r.plan_id ? usdToPence(planPriceUsd(r.plan_id)) : 0,  // £0 = free until assigned
     created_at: r.created_at,
   }));
-  const monthlyTotalPence = rows.reduce((s, r) => s + r.monthly_pence, 0);
-  return { resources: rows, monthly_total_pence: monthlyTotalPence };
+  // Attached persistent disks are billed per GB and own no resource row — surface them
+  // separately so the client total matches what is actually invoiced.
+  const diskGb = disks.orgDiskGb(orgId);
+  const diskPence = diskPencePerGb() * diskGb;
+  const monthlyTotalPence = rows.reduce((s, r) => s + r.monthly_pence, 0) + diskPence;
+  return {
+    resources: rows,
+    disks: { total_gb: diskGb, monthly_pence: diskPence, items: disks.listDisksForOrg(orgId) },
+    monthly_total_pence: monthlyTotalPence,
+  };
 }));
 
 // Per-service plan view for the billing panel: each owned app with its LIVE Docker limits and
@@ -1420,6 +1625,31 @@ app.patch("/api/admin/orgs/:id/billing-info", requireAuth, requireAdmin, mutateG
   return getOrgBillingInfo(orgId);
 }));
 
+// The fixed monthly charges on an invoice: one line per priced resource, plus one
+// storage line for attached persistent disks (a per-GB add-on, so it has no
+// resource_ownership row of its own). Matches the neighbouring lines' convention of
+// list price — comp/discount is applied when the money actually moves, not here.
+function fixedChargeLines(orgId) {
+  const lines = listOrgResources(orgId)
+    .filter((r) => r.plan_id)
+    .map((r) => ({
+      label: `${r.type === "application" ? "service" : r.type} ${String(r.uuid).slice(0, 12)} · ${r.plan_id}`,
+      amount_pence: usdToPence(planPriceUsd(r.plan_id)),
+    }));
+  const gb = disks.orgDiskGb(orgId);
+  if (gb > 0) {
+    lines.push({
+      label: `persistent disk · ${gb} GB`,
+      amount_pence: diskPencePerGb() * gb, // per-GB rate rounds once — matches the Stripe unit price
+    });
+  }
+  const seats = orgMailboxCount(orgId);
+  if (seats > 0) {
+    lines.push({ label: `business email · ${seats} mailbox${seats === 1 ? "" : "es"}`, amount_pence: mailChargePence(orgId) });
+  }
+  return lines;
+}
+
 // Master-Admin: a downloadable/printable invoice for one client + period (HTML → Save as PDF).
 // Not h()-wrapped: returns HTML, not JSON. Same-origin navigation carries the admin session.
 app.get("/api/admin/orgs/:id/invoice", requireAuth, requireAdmin, (req, res, next) => {
@@ -1428,19 +1658,13 @@ app.get("/api/admin/orgs/:id/invoice", requireAuth, requireAdmin, (req, res, nex
     const detail = getOrgDetail(orgId);
     if (!detail) return res.status(404).json({ error: "Organization not found" });
     const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
-    const planLines = listOrgResources(orgId)
-      .filter((r) => r.plan_id)
-      .map((r) => ({
-        label: `${r.type === "application" ? "service" : r.type} ${String(r.uuid).slice(0, 12)} · ${r.plan_id}`,
-        amount_pence: usdToPence(planPriceUsd(r.plan_id)),
-      }));
+    const planLines = fixedChargeLines(orgId);
     const planTotalPence = planLines.reduce((s, l) => s + l.amount_pence, 0);
     const summary = usageSummary(orgId, period, detail.org.name);
     const usageLines = (summary.lines || []).map((l) => ({
       label: l.type,
       detail:
         l.type === "compute" ? `${(l.computeHours ?? 0).toFixed(1)} hr`
-        : l.type === "disk" ? `${l.allocatedGb ?? 0} GB × ${(l.hours ?? 0).toFixed(0)} hr`
         : `${l.usedGb ?? 0} / ${l.allowanceGb ?? 0} GB`,
       pence: l.pence,
     }));
@@ -2087,6 +2311,27 @@ app.get(
   })
 );
 
+// Priced preview for attaching (or detaching) a disk — size, monthly rate, the
+// prorated amount for the rest of this cycle, and when the new rate starts. The Add
+// Disk dialog shows exactly this before anything is created.
+app.post(
+  "/api/services/:id/volumes/preview",
+  requireAuth,
+  attachOrgContext,
+  requireCapability("manage"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.id);
+    return planchange.previewDiskChange({
+      orgId: req.org?.id,
+      uuid: req.params.id,
+      sizeGb: req.body?.sizeGb,
+      action: req.body?.action === "remove" ? "remove" : "add",
+    });
+  })
+);
+
+// Attach a disk: size is REQUIRED (it is the quantity the customer is billed for),
+// then mount → bill → redeploy so Docker actually mounts it.
 app.post(
   "/api/services/:id/volumes",
   requireAuth,
@@ -2095,10 +2340,29 @@ app.post(
   requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    const result = await volumes.addVolume(req.params.id, req.body || {});
-    await coolify.deployService(req.params.id); // redeploy so Coolify mounts the volume
-    record(req, "volume.add", { resourceType: "application", resourceUuid: req.params.id, metadata: { mountPath: req.body?.mountPath } });
-    return { ...result, redeployed: true };
+    if (req.body?.sizeGb === undefined || req.body?.sizeGb === null) {
+      throw Object.assign(new Error("sizeGb is required — confirm the disk size and its cost first"), { status: 400 });
+    }
+    const orgId = req.org?.id ?? null;
+    const preview = await planchange.previewDiskChange({
+      orgId, uuid: req.params.id, sizeGb: req.body.sizeGb, action: "add",
+    });
+    const result = await volumes.addVolume(req.params.id, {
+      mountPath: req.body?.mountPath, sizeGb: req.body.sizeGb, orgId, createdBy: req.user.id,
+    });
+    const billing = await planchange.settleBillingChange({
+      orgId, cycle: preview.cycle, prorationMinor: preview.prorationMinor,
+      notes: `Disk ${result.mountPath} (${result.sizeGb} GB) added to ${preview.service.name}`,
+      userId: req.user.id,
+    });
+    let deployment = null, deployError = null;
+    try { deployment = await coolify.deployService(req.params.id); } // mount the volume
+    catch (e) { deployError = e.message; }
+    record(req, "volume.add", {
+      resourceType: "application", resourceUuid: req.params.id,
+      metadata: { mountPath: result.mountPath, sizeGb: result.sizeGb, deltaMinor: preview.deltaMinor, currency: preview.currency },
+    });
+    return { ...result, preview, billing, redeployed: !!deployment, deployment, deployError };
   })
 );
 
@@ -2110,10 +2374,30 @@ app.delete(
   requireCapability("manage"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
+    const orgId = req.org?.id ?? null;
+    const existing = disks.getDisk(req.params.vid);
     const result = await volumes.deleteVolume(req.params.id, req.params.vid);
-    await coolify.deployService(req.params.id); // redeploy so Coolify detaches the volume
-    record(req, "volume.delete", { resourceType: "application", resourceUuid: req.params.id, metadata: { volumeUuid: req.params.vid } });
-    return { ...result, redeployed: true };
+    // Stop billing for the removed GB from now (credited pro-rata for the rest of the cycle).
+    let billing = { ok: true, mode: "none", skipped: "no_billing_record" };
+    if (existing && !existing.deleted_at) {
+      const cycle = await planchange.billingCycle(orgId);
+      const preview = await planchange.previewDiskChange({
+        orgId, uuid: req.params.id, sizeGb: existing.size_gb, action: "remove",
+      }).catch(() => null);
+      billing = await planchange.settleBillingChange({
+        orgId, cycle, prorationMinor: preview?.prorationMinor ?? 0,
+        notes: `Disk ${existing.mount_path} (${existing.size_gb} GB) removed`,
+        userId: req.user.id,
+      });
+    }
+    let deployment = null, deployError = null;
+    try { deployment = await coolify.deployService(req.params.id); } // detach the volume
+    catch (e) { deployError = e.message; }
+    record(req, "volume.delete", {
+      resourceType: "application", resourceUuid: req.params.id,
+      metadata: { volumeUuid: req.params.vid, sizeGb: existing?.size_gb ?? null },
+    });
+    return { ...result, billing, redeployed: !!deployment, deployment, deployError };
   })
 );
 
@@ -2145,6 +2429,131 @@ app.delete(
   h(async (req) => {
     const result = await sharedvars.deleteSharedVar(req.params.id);
     record(req, "sharedvar.delete", { metadata: { uuid: req.params.id } });
+    return result;
+  })
+);
+
+// --- variable groups (org-scoped; reusable env sets attached to services) ---
+// Reads are open to any member; writes need `deploy` (same bar as editing a
+// service's own env, which is exactly what an attached group writes into).
+app.get(
+  "/api/var-groups",
+  requireAuth,
+  attachOrgContext,
+  h(async (req) => {
+    const reveal = req.query.reveal === "1" || req.query.reveal === "true";
+    if (reveal) record(req, "vargroup.reveal", {});
+    return vargroups.listGroups(orgOf(req.user), { reveal });
+  })
+);
+
+app.post(
+  "/api/var-groups",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    const result = await vargroups.createGroup(orgOf(req.user), req.body || {});
+    record(req, "vargroup.create", { metadata: { name: result.name, vars: (req.body?.vars || []).length } });
+    return result;
+  })
+);
+
+app.patch(
+  "/api/var-groups/:id",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    const result = await vargroups.updateGroup(orgOf(req.user), req.params.id, req.body || {});
+    record(req, "vargroup.update", { metadata: { id: req.params.id, name: result.name } });
+    return result;
+  })
+);
+
+app.delete(
+  "/api/var-groups/:id",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    const result = await vargroups.deleteGroup(orgOf(req.user), req.params.id);
+    record(req, "vargroup.delete", { metadata: { id: req.params.id } });
+    return result;
+  })
+);
+
+// Upsert one var ({key,value,is_secret}) or many (an array — the .env paste path).
+app.post(
+  "/api/var-groups/:id/vars",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    const body = Array.isArray(req.body) ? req.body : req.body?.vars || req.body;
+    const result = await vargroups.setVars(orgOf(req.user), req.params.id, body);
+    record(req, "vargroup.set_vars", { metadata: { id: req.params.id, count: result.count } });
+    return result;
+  })
+);
+
+app.patch(
+  "/api/var-groups/:id/vars/:key",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    const result = await vargroups.renameVar(orgOf(req.user), req.params.id, req.params.key, req.body?.key);
+    record(req, "vargroup.rename_var", { metadata: { id: req.params.id, from: req.params.key, to: req.body?.key } });
+    return result;
+  })
+);
+
+app.delete(
+  "/api/var-groups/:id/vars/:key",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    const result = await vargroups.deleteVar(orgOf(req.user), req.params.id, req.params.key);
+    record(req, "vargroup.delete_var", { metadata: { id: req.params.id, key: req.params.key } });
+    return result;
+  })
+);
+
+// Attaching writes the group's keys into the target app's env — so the caller
+// must own that app, not just the group.
+app.post(
+  "/api/var-groups/:id/services",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    const uuid = String(req.body?.uuid || "").trim();
+    assertOwns(req.user, "application", uuid);
+    const result = await vargroups.attachService(orgOf(req.user), req.params.id, uuid);
+    record(req, "vargroup.attach", { resourceType: "application", resourceUuid: uuid, metadata: { id: req.params.id } });
+    return result;
+  })
+);
+
+app.delete(
+  "/api/var-groups/:id/services/:uuid",
+  requireAuth,
+  mutateGuard,
+  attachOrgContext,
+  requireCapability("deploy"),
+  h(async (req) => {
+    assertOwns(req.user, "application", req.params.uuid);
+    const result = await vargroups.detachService(orgOf(req.user), req.params.id, req.params.uuid);
+    record(req, "vargroup.detach", { resourceType: "application", resourceUuid: req.params.uuid, metadata: { id: req.params.id } });
     return result;
   })
 );
@@ -2582,16 +2991,12 @@ app.get("/api/org/invoice", requireAuth, attachOrgContext, requireCapability("re
     const orgId = req.org.id;
     const detail = getOrgDetail(orgId);
     const period = /^\d{4}-\d{2}$/.test(req.query.period) ? req.query.period : currentPeriod();
-    const planLines = listOrgResources(orgId).filter((r) => r.plan_id).map((r) => ({
-      label: `${r.type === "application" ? "service" : r.type} ${String(r.uuid).slice(0, 12)} · ${r.plan_id}`,
-      amount_pence: usdToPence(planPriceUsd(r.plan_id)),
-    }));
+    const planLines = fixedChargeLines(orgId);
     const planTotalPence = planLines.reduce((s, l) => s + l.amount_pence, 0);
     const summary = usageSummary(orgId, period, detail.org.name);
     const usageLines = (summary.lines || []).map((l) => ({
       label: l.type,
       detail: l.type === "compute" ? `${(l.computeHours ?? 0).toFixed(1)} hr`
-        : l.type === "disk" ? `${l.allocatedGb ?? 0} GB × ${(l.hours ?? 0).toFixed(0)} hr`
         : `${l.usedGb ?? 0} / ${l.allowanceGb ?? 0} GB`,
       pence: l.pence,
     }));
@@ -2676,7 +3081,9 @@ function setResourcePlan(req, type) {
   // Accept either key: the client sends camelCase `planId`, older callers snake_case `plan_id`.
   const raw = req.body?.plan_id !== undefined ? req.body.plan_id : req.body?.planId;
   const planId = raw === null ? null : String(raw || "");
-  if (planId && planPriceUsd(planId) === 0) {
+  // isResourcePlan, not planPriceUsd: the latter also knows the per-GB `disk-gb`
+  // add-on price, which is never a resource tier.
+  if (planId && !isResourcePlan(planId)) {
     throw Object.assign(new Error("Unknown plan_id"), { status: 400 });
   }
   const changes = db.prepare("UPDATE resource_ownership SET plan_id = ? WHERE type = ? AND coolify_uuid = ?")

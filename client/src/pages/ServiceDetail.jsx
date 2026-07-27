@@ -14,6 +14,9 @@ import ConfirmDelete from "../components/ConfirmDelete.jsx";
 import MoveToProject from "../components/MoveToProject.jsx";
 import AddDomainModal from "../components/AddDomainModal.jsx";
 import BillingGateModal from "../components/BillingGateModal.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import ResourceChangeModal from "../components/ResourceChangeModal.jsx";
+import AddDiskModal from "../components/AddDiskModal.jsx";
 import DnsSetup from "../components/DnsSetup.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
@@ -207,7 +210,7 @@ export default function ServiceDetail() {
       {tab === "Metrics" && <MetricsTab serviceId={id} />}
       {tab === "Environment" && <EnvironmentTab serviceId={id} onDeploy={() => action("deploy")} />}
       {tab === "Events" && <EventsTab serviceId={id} />}
-      {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} onRename={(name) => setSvc((s) => ({ ...s, name }))} />}
+      {tab === "Settings" && <SettingsTab svc={svc} serviceId={id} region={region} onDeploy={() => action("deploy")} deployBusy={busy} onRename={(name) => setSvc((s) => ({ ...s, name }))} onResourcesChanged={(resources) => setSvc((s) => ({ ...s, resources }))} />}
 
       {gate && (
         <BillingGateModal
@@ -840,7 +843,9 @@ function MigrationCheck({ serviceId }) {
 function EnvironmentTab({ serviceId, onDeploy }) {
   const [envs, setEnvs] = useState(null);
   const [baseline, setBaseline] = useState({});   // uuid → serialized "key\0value" at last load/save
-  const [groups, setGroups] = useState(null);
+  const [groups, setGroups] = useState(null);     // every org variable group (each with .services)
+  const [groupBusy, setGroupBusy] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
   const [shown, setShown] = useState({});         // uuid → true when its secret value is revealed
   const [menu, setMenu] = useState(null);         // null | "root" | "datastore"
   const [paste, setPaste] = useState(false);
@@ -850,6 +855,19 @@ function EnvironmentTab({ serviceId, onDeploy }) {
   const [saveMsg, setSaveMsg] = useState(null);   // { ok, text }
   const [exportOpen, setExportOpen] = useState(false);
 
+  // Reload both lists: attaching a group writes its keys straight into the
+  // service's env, so the variable table below must be refetched with it.
+  async function reloadEnvs() {
+    const d = await api.envs(serviceId);
+    const rows = (d || []).map((e) => ({ ...e }));
+    setEnvs(rows);
+    setBaseline(snapshot(rows));
+  }
+  // Every group in the org (each carries its .services list) — one call powers
+  // both the attached chips and the "attach" menu. 403s for a member with no org.
+  const reloadGroups = () =>
+    api.varGroups().then((d) => setGroups(Array.isArray(d) ? d : [])).catch(() => setGroups([]));
+
   useEffect(() => {
     let cancelled = false;
     api.envs(serviceId).then((d) => {
@@ -858,10 +876,24 @@ function EnvironmentTab({ serviceId, onDeploy }) {
       setEnvs(rows);
       setBaseline(snapshot(rows));
     });
-    // sharedVars is admin-only; ignore failures and render the card empty.
-    api.sharedVars().then((d) => { if (!cancelled) setGroups(Array.isArray(d) ? d : []); }).catch(() => { if (!cancelled) setGroups([]); });
+    api.varGroups().then((d) => { if (!cancelled) setGroups(Array.isArray(d) ? d : []); }).catch(() => { if (!cancelled) setGroups([]); });
     return () => { cancelled = true; };
   }, [serviceId]);
+
+  async function toggleGroup(group, attach) {
+    setGroupBusy(true);
+    try {
+      if (attach) await api.attachVarGroup(group.id, serviceId);
+      else await api.detachVarGroup(group.id, serviceId);
+      await Promise.all([reloadGroups(), reloadEnvs()]);
+      setSaveMsg({ ok: true, text: `${group.name} ${attach ? "attached" : "detached"} — redeploy to apply.` });
+    } catch (e) {
+      setSaveMsg({ ok: false, text: e.message });
+    } finally {
+      setGroupBusy(false);
+      setAttachOpen(false);
+    }
+  }
 
   // build a key\0value map keyed by uuid for dirty comparison
   function snapshot(rows) {
@@ -1031,30 +1063,70 @@ function EnvironmentTab({ serviceId, onDeploy }) {
           <div>
             <h4 className="text-[13.5px] font-semibold" style={{ color: "var(--text)" }}>Attached variable groups</h4>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Shared variables merged in at deploy. Manage them under Variable Groups.
+              A group's keys are written into this service's variables below. Manage the groups themselves under Variable Groups.
             </p>
           </div>
-          <Button variant="secondary" title="Group attachment isn't persisted yet (display only)">
-            <Plus className="h-3.5 w-3.5" /> Attach group
-          </Button>
+          <div className="relative">
+            <Button
+              variant="secondary"
+              disabled={groupBusy || !groups}
+              onClick={() => setAttachOpen((o) => !o)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Attach group
+            </Button>
+            {attachOpen && (
+              <div
+                className="absolute right-0 z-30 mt-1.5 w-60 rounded-lg border p-1.5"
+                style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
+              >
+                {(groups || []).filter((g) => !g.services.includes(serviceId)).length === 0 ? (
+                  <p className="px-2 py-1.5 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+                    No other groups available.
+                  </p>
+                ) : (
+                  (groups || [])
+                    .filter((g) => !g.services.includes(serviceId))
+                    .map((g) => (
+                      <button
+                        key={g.id}
+                        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] hover:bg-[var(--surface-2)]"
+                        style={{ color: "var(--text)" }}
+                        onClick={() => toggleGroup(g, true)}
+                      >
+                        <span className="mono truncate">{g.name}</span>
+                        <span style={{ color: "var(--text-muted)" }}>{g.vars.length}</span>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
         {!groups && <p className="text-xs" style={{ color: "var(--text-muted)" }}><Spinner className="mr-2 inline" /> Loading groups…</p>}
-        {groups && groups.length === 0 && (
+        {groups && !groups.some((g) => g.services.includes(serviceId)) && (
           <p className="text-[12.5px]" style={{ color: "var(--text-muted)" }}>No variable groups attached.</p>
         )}
-        {groups && groups.length > 0 && (
+        {groups && groups.some((g) => g.services.includes(serviceId)) && (
           <div className="flex flex-wrap gap-2">
-            {groups.map((g) => (
+            {groups.filter((g) => g.services.includes(serviceId)).map((g) => (
               <span
-                key={g.id ?? g.uuid ?? g.key ?? g.name}
+                key={g.id}
                 className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[12.5px]"
                 style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text)" }}
               >
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-md" style={{ background: "var(--accent-soft)" }}>
                   <Lock className="h-3 w-3" style={{ color: "var(--accent-text)" }} />
                 </span>
-                <span className="mono font-semibold">{g.key || g.name || g.group || "group"}</span>
-                <span style={{ color: "var(--text-muted)" }}>{g.is_secret ? "· secret" : "· shared"}</span>
+                <span className="mono font-semibold">{g.name}</span>
+                <span style={{ color: "var(--text-muted)" }}>· {g.vars.length} var{g.vars.length === 1 ? "" : "s"}</span>
+                <button
+                  title={`Detach ${g.name} (removes its keys from this service)`}
+                  disabled={groupBusy}
+                  onClick={() => toggleGroup(g, false)}
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </span>
             ))}
           </div>
@@ -1367,7 +1439,7 @@ const NAV = [
   { id: "danger", label: "Delete or suspend" },
 ];
 
-function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename }) {
+function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename, onResourcesChanged }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   // Prefer the IP of the host THIS service runs on; fall back to the global platform
@@ -1508,8 +1580,8 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
           <SettingsRow label="Project" desc="Group this service under a project & environment.">
             <MoveToProject kind="service" resourceId={serviceId} />
           </SettingsRow>
-          <SettingsRow label="Instance type" desc="Container CPU & memory limits. Applied on next deploy.">
-            <InstanceType serviceId={serviceId} resources={svc.resources} />
+          <SettingsRow label="Instance type" desc="Container CPU & memory. Changing it is priced and confirmed first, then applied by a redeploy.">
+            <InstanceType serviceId={serviceId} resources={svc.resources} onChanged={onResourcesChanged} />
           </SettingsRow>
         </SettingsSection>
 
@@ -1728,8 +1800,9 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename })
 function DiskSection({ serviceId }) {
   const [disks, setDisks] = useState(null);   // null = loading
   const [err, setErr] = useState(null);
-  const [path, setPath] = useState("");
-  const [busy, setBusy] = useState(false);    // true while adding/removing (redeploying)
+  const [adding, setAdding] = useState(false); // the priced Add Disk dialog
+  const [pendingRemove, setPendingRemove] = useState(null); // disk awaiting confirmation
+  const [busy, setBusy] = useState(false);    // true while removing (redeploying)
 
   function load() {
     setErr(null);
@@ -1739,25 +1812,16 @@ function DiskSection({ serviceId }) {
   }
   useEffect(load, [serviceId]);
 
-  const valid = path.trim().startsWith("/");
+  const monthlyPenceEach = 10; // £0.10/GB/mo — mirrored from STORAGE_PLAN for the summary line
+  const totalGb = (disks || []).reduce((s, d) => s + (d.sizeGb || 0), 0);
 
-  async function add() {
-    if (!valid || busy) return;
+  async function remove() {
+    const d = pendingRemove;
+    if (!d || busy) return;
     setBusy(true); setErr(null);
     try {
-      await api.addServiceVolume(serviceId, path.trim());
-      setPath("");
-      load();
-    } catch (e) {
-      setErr(e.message || "Failed to add disk");
-    } finally { setBusy(false); }
-  }
-
-  async function remove(vid) {
-    if (busy) return;
-    setBusy(true); setErr(null);
-    try {
-      await api.deleteServiceVolume(serviceId, vid);
+      await api.deleteServiceVolume(serviceId, d.uuid);
+      setPendingRemove(null);
       load();
     } catch (e) {
       setErr(e.message || "Failed to remove disk");
@@ -1766,10 +1830,10 @@ function DiskSection({ serviceId }) {
 
   return (
     <SettingsSection id="disk" title="Disk">
-      <SettingsRow label="Persistent disks" desc="Attach a persistent disk to keep filesystem data across deploys.">
+      <SettingsRow label="Persistent disks" desc="Attach a persistent disk to keep filesystem data across deploys. Billed £0.10 per GB per month.">
         <div className="flex flex-col gap-3">
           <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>
-            Adding or removing a disk redeploys the service.
+            Adding or removing a disk redeploys the service. You confirm the size and cost before anything is created.
           </p>
 
           {busy && (
@@ -1801,30 +1865,48 @@ function DiskSection({ serviceId }) {
                     <Mono>{d.mountPath}</Mono>
                     {d.name && <span className="ml-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>{d.name}</span>}
                   </div>
-                  <Button variant="secondary" onClick={() => remove(d.uuid)} disabled={busy}>
+                  <span className="shrink-0 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                    {d.sizeGb != null
+                      ? `${d.sizeGb} GB · £${((d.sizeGb * monthlyPenceEach) / 100).toFixed(2)}/mo`
+                      : "size not recorded"}
+                  </span>
+                  <Button variant="secondary" onClick={() => setPendingRemove(d)} disabled={busy}>
                     <Trash2 className="h-3.5 w-3.5" /> Remove
                   </Button>
                 </div>
               ))}
+              <p className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+                {totalGb} GB attached to this service — £{((totalGb * monthlyPenceEach) / 100).toFixed(2)}/mo.
+              </p>
             </div>
           )}
 
-          {/* add disk form */}
-          <div className="flex items-center gap-2">
-            <TextInput
-              mono
-              value={path}
-              onChange={setPath}
-              placeholder="/data"
-            />
-            <Button variant="primary" onClick={add} disabled={!valid || busy}>
-              {busy ? <Spinner /> : <Plus className="h-3.5 w-3.5" />} Add Disk
+          <div>
+            <Button variant="primary" onClick={() => setAdding(true)} disabled={busy}>
+              <Plus className="h-3.5 w-3.5" /> Add Disk
             </Button>
           </div>
 
           {err && <p className="text-xs" style={{ color: "var(--err-text)" }}>{err}</p>}
         </div>
       </SettingsRow>
+
+      {adding && (
+        <AddDiskModal serviceId={serviceId} onClose={() => setAdding(false)} onAdded={load} />
+      )}
+
+      <ConfirmDialog
+        open={!!pendingRemove}
+        danger
+        busy={busy}
+        title="Remove this disk?"
+        message={pendingRemove
+          ? `${pendingRemove.mountPath} (${pendingRemove.sizeGb ?? "?"} GB) will be detached and its data permanently deleted. The service redeploys, and billing for these GB stops — you are credited pro rata for the rest of this cycle.`
+          : ""}
+        confirmLabel="Remove disk"
+        onConfirm={remove}
+        onCancel={() => setPendingRemove(null)}
+      />
     </SettingsSection>
   );
 }
@@ -1906,13 +1988,13 @@ const fmtMem = (v) => (v === "0" || v == null ? "No limit" : String(v).replace(/
 const ramToDocker = (gb) => (gb < 1 ? `${Math.round(gb * 1024)}M` : `${gb}G`);
 const planMatches = (p, cpus, memory) => String(p.vcpuCount) === String(cpus) && ramToDocker(p.ramGb) === String(memory);
 
-function InstanceType({ serviceId, resources }) {
+function InstanceType({ serviceId, resources, onChanged }) {
   const cur = { cpus: String(resources?.cpus ?? "0"), memory: String(resources?.memory ?? "0") };
   const [plans, setPlans] = useState(null);   // null=loading; [] on failure
   const [sel, setSel] = useState("custom");   // plan id | "custom"
   const [cpus, setCpus] = useState(cur.cpus); // custom-mode raw limits
   const [memory, setMemory] = useState(cur.memory);
-  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false); // the priced confirmation dialog
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
@@ -1935,18 +2017,19 @@ function InstanceType({ serviceId, resources }) {
   const cpuOpts = CPU_OPTS.some((o) => o.v === cpus) ? CPU_OPTS : [{ v: cpus, label: fmtCpu(cpus) }, ...CPU_OPTS];
   const memOpts = MEM_OPTS.some((o) => o.v === memory) ? MEM_OPTS : [{ v: memory, label: fmtMem(memory) }, ...MEM_OPTS];
 
-  async function save() {
-    setBusy(true); setMsg(null);
-    try {
-      await api.updateResources(serviceId, { cpus: effCpus, memory: effMem });
-      // A plan choice also sets the billing plan; keep it best-effort so a billing
-      // hiccup never blocks the resource change.
-      if (plan) { try { await api.setServicePlan(serviceId, plan.id); } catch { /* best-effort */ } }
-      cur.cpus = effCpus; cur.memory = effMem;
-      setMsg({ ok: true, text: "Saved — redeploy to apply the new limits." });
-    } catch (e) {
-      setMsg({ ok: false, text: e.message || "Update failed" });
-    } finally { setBusy(false); }
+  // Saving opens the confirmation dialog rather than writing straight through: a resize
+  // costs money and restarts the container, so the customer confirms the new spec, the
+  // new price, the pro-rata amount and the redeploy first. The dialog owns the apply.
+  function applied(r) {
+    const deploy = r.steps.find((s) => s.step === "redeploy");
+    setMsg({
+      ok: true,
+      text: deploy?.ok
+        ? `Applied — ${r.preview.service.name} is redeploying with the new limits.`
+        : "Applied. Redeploy the service to bring the new limits into effect.",
+    });
+    // Lift the new limits so the page (and this control's "dirty" check) reflect reality.
+    onChanged?.({ cpus: r.preview.to.cpus, memory: r.preview.to.memory });
   }
 
   if (plans == null) {
@@ -1982,8 +2065,19 @@ function InstanceType({ serviceId, resources }) {
             </label>
           </>
         )}
-        <Button variant="secondary" onClick={save} disabled={!dirty || busy}>{busy ? "Saving…" : "Save"}</Button>
+        <Button variant="secondary" onClick={() => setConfirming(true)} disabled={!dirty}>Save</Button>
       </div>
+
+      {confirming && (
+        <ResourceChangeModal
+          serviceId={serviceId}
+          planId={plan ? plan.id : null}
+          cpus={effCpus}
+          memory={effMem}
+          onClose={() => setConfirming(false)}
+          onApplied={applied}
+        />
+      )}
       {/* Price populates the moment a plan is chosen (Render-style). */}
       {plan ? (
         <p className="text-[12.5px]" style={{ color: "var(--text)" }}>
