@@ -74,14 +74,6 @@ img { max-width: 100%; }
 #showcase [data-card]:nth-child(3) .shot {
   color: transparent;
 }
-#showcase [data-card]:nth-child(1) > div:nth-child(2) img { display: none; }
-#showcase [data-card]:nth-child(1) > div:nth-child(2) span:first-child::after {
-  content: 'MG';
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  color: #2563eb;
-}
 
 /* Logo tiles fall back to a monogram until the real artwork is dropped in. */
 .logo-fallback {
