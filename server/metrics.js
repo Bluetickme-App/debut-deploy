@@ -230,8 +230,14 @@ export function fleetOverview() {
       ON COALESCE(h.host,'primary') = l.label AND h.sampled_at = l.mx
     ORDER BY CASE WHEN COALESCE(h.host,'primary') = 'primary' THEN 0 ELSE 1 END, h.host
   `).all();
+  // label → public IP, so admin host actions (reboot) have something to act on.
+  // 'primary' has no SAMPLE_HOSTS entry; its address is the migration SSH host.
+  const ipByLabel = Object.fromEntries(
+    sampleTargets().map((t) => [t.name, t.host || process.env.MIGRATION_SSH_HOST || null])
+  );
   const shapeHost = (h, label) => ({
     name: label,
+    ip: ipByLabel[label] ?? null,
     cpu: h.cpu_pct ?? null,
     mem: { used: h.mem_used_bytes ?? null, total: h.mem_total_bytes ?? null, pct: pct(h.mem_used_bytes, h.mem_total_bytes) },
     diskRoot: { used: h.disk_used_bytes ?? null, total: h.disk_total_bytes ?? null, pct: pct(h.disk_used_bytes, h.disk_total_bytes) },

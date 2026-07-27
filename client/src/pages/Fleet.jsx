@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Cpu, MemoryStick, HardDrive, RefreshCw, ExternalLink, Database, ChevronRight } from "lucide-react";
+import { Cpu, MemoryStick, HardDrive, RefreshCw, ExternalLink, Database, ChevronRight, Power, Eraser } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Button, Card, PageHeader, Spinner, StatusPill } from "../components/ui.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -45,6 +45,11 @@ export default function Fleet() {
   const [dialog, setDialog] = useState(null); // { situation } | null
   const [remBusy, setRemBusy] = useState(false);
   const [remErr, setRemErr] = useState("");
+  const [note, setNote] = useState("");
+  const [portals, setPortals] = useState([]);
+  const [reboot, setReboot] = useState(null);       // { ip, name } awaiting confirmation
+  const [rebootText, setRebootText] = useState(""); // must equal the host IP to arm the button
+  const [rebootBusy, setRebootBusy] = useState(false);
 
   const load = () => {
     api.fleetOverview().then((d) => { setErr(""); setData(d); }).catch((e) => setErr(e.message || "Failed to load"));
@@ -52,12 +57,41 @@ export default function Fleet() {
     api.situations().then((d) => setSituations(d.situations || [])).catch(() => setSituations([]));
   };
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
+  // Portals are static per deploy — fetched once, and their absence is not an error.
+  useEffect(() => { api.adminPortals().then((d) => setPortals(d.portals || [])).catch(() => setPortals([])); }, []);
 
   async function restart(uuid) {
     setBusy(uuid);
     try { await api.restartService(uuid); setTimeout(load, 2000); }
     catch (e) { setErr(e.message || "Restart failed"); }
     finally { setBusy(""); }
+  }
+
+  // Manual version of the clear-deploy-queue remediation, for when a deploy is wedged
+  // but no situation has opened yet (the detector only fires after a stall threshold).
+  async function clearQueue(uuid) {
+    setBusy(uuid);
+    setErr("");
+    try {
+      const r = await api.clearDeployQueue(uuid);
+      setNote(r.cleared ? `Cleared ${r.cleared} stuck deploy${r.cleared === 1 ? "" : "s"}.` : "No stuck deploys on that service.");
+      setTimeout(load, 1500);
+    } catch (e) { setErr(e.message || "Clear queue failed"); }
+    finally { setBusy(""); }
+  }
+
+  async function rebootHost() {
+    if (!reboot) return;
+    setRebootBusy(true);
+    setErr("");
+    try {
+      const r = await api.rebootHost(reboot.ip);
+      setNote(`Reboot sent to ${r.name || r.ip}. It will be unreachable for a minute or two.`);
+      setReboot(null);
+      setRebootText("");
+      setTimeout(load, 5000);
+    } catch (e) { setErr(e.message || "Reboot failed"); }
+    finally { setRebootBusy(false); }
   }
 
   async function remediate() {
@@ -80,8 +114,21 @@ export default function Fleet() {
   const hostLabel = (name) => name === "primary" ? "Primary host" : name;
   return (
     <div className="page space-y-6">
-      <PageHeader title="Fleet" subtitle="Host capacity and per-site usage" />
+      <PageHeader
+        title="Fleet"
+        subtitle="Host capacity and per-site usage"
+        actions={portals.length ? (
+          <div className="flex flex-wrap gap-2">
+            {portals.map((p) => (
+              <a key={p.key} href={p.url} target="_blank" rel="noreferrer" title={p.note}>
+                <Button variant="ghost"><ExternalLink className="h-3.5 w-3.5" /> {p.label}</Button>
+              </a>
+            ))}
+          </div>
+        ) : null}
+      />
       {err && <p className="text-sm" style={{ color: "var(--err)" }}>{err}</p>}
+      {note && <p className="text-sm" style={{ color: "var(--ok)" }}>{note}</p>}
 
       {situations.length > 0 && (
         <Card>
@@ -139,7 +186,14 @@ export default function Fleet() {
 
           {hosts.map((h) => (
             <div key={h.name}>
-              <div className="mb-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{hostLabel(h.name)}</div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{hostLabel(h.name)}</span>
+                {h.ip && (
+                  <Button variant="ghost" onClick={() => { setErr(""); setNote(""); setReboot({ ip: h.ip, name: hostLabel(h.name) }); }}>
+                    <Power className="h-3.5 w-3.5" /> Reboot host
+                  </Button>
+                )}
+              </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <Gauge icon={Cpu} label="CPU" pct={h.cpu} />
                 <Gauge icon={MemoryStick} label="RAM" pct={h.mem?.pct} sub={h.mem ? `${gb(h.mem.used)} / ${gb(h.mem.total)}` : null} />
@@ -209,10 +263,20 @@ export default function Fleet() {
                         <span style={{ color: "var(--text-muted)" }}>none</span>
                       )}
                     </td>
-                    <td className="p-2 text-right">
-                      <Button variant="ghost" disabled={busy === s.uuid} onClick={() => restart(s.uuid)}>
-                        {busy === s.uuid ? <Spinner /> : <RefreshCw className="h-3.5 w-3.5" />} Restart
-                      </Button>
+                    <td className="p-2">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          disabled={busy === s.uuid}
+                          onClick={() => clearQueue(s.uuid)}
+                          title="Unwedge a stuck deploy: fail its queued rows, drop hung build containers, nudge the worker"
+                        >
+                          <Eraser className="h-3.5 w-3.5" /> Clear queue
+                        </Button>
+                        <Button variant="ghost" disabled={busy === s.uuid} onClick={() => restart(s.uuid)}>
+                          {busy === s.uuid ? <Spinner /> : <RefreshCw className="h-3.5 w-3.5" />} Restart
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -220,6 +284,46 @@ export default function Fleet() {
             </table>
           </Card>
         </>
+      )}
+
+      {/* Rebooting a host takes EVERY service on it down together, so this asks for the
+          IP to be typed rather than offering a one-click button next to per-service
+          actions. The server independently requires the same echo. */}
+      {reboot && (
+        <div
+          onClick={rebootBusy ? undefined : () => setReboot(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(460px, 94vw)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}
+          >
+            <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 600, color: "var(--text)" }}>Reboot {reboot.name}?</h3>
+            <p style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>
+              Every service on this host goes down until it comes back — usually a minute or two.
+              {data?.sites?.length ? ` ${data.sites.length} services run across the fleet.` : ""}
+              {" "}This is a graceful reboot, not a power cycle. Type <b style={{ color: "var(--text)" }}>{reboot.ip}</b> to confirm.
+            </p>
+            <input
+              className="input"
+              style={{ width: "100%", marginTop: 12, fontFamily: "var(--font-mono, monospace)" }}
+              value={rebootText}
+              onChange={(e) => setRebootText(e.target.value)}
+              placeholder={reboot.ip}
+              autoFocus
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+              <Button variant="ghost" onClick={() => { setReboot(null); setRebootText(""); }} disabled={rebootBusy}>Cancel</Button>
+              <Button
+                variant="danger"
+                disabled={rebootBusy || rebootText.trim() !== reboot.ip}
+                onClick={rebootHost}
+              >
+                {rebootBusy ? <Spinner /> : <Power className="h-3.5 w-3.5" />} Reboot host
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

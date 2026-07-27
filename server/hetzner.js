@@ -115,6 +115,28 @@ export async function getServer(id) {
   };
 }
 
+// Find a server by its public IPv4 — the only identifier we hold for a host elsewhere
+// in the panel (Coolify knows IPs, not Hetzner ids). Returns null when it isn't ours,
+// which is the safe answer: a reboot must never fall through to "some server".
+export async function findServerByIp(ip) {
+  const wanted = String(ip || "").trim();
+  if (!wanted) return null;
+  if (isDemo()) return { id: 1, name: "demo-host", ip: wanted, status: "running" };
+  const data = await hz("/servers");
+  const s = (data.servers || []).find((x) => x.public_net?.ipv4?.ip === wanted);
+  return s ? { id: s.id, name: s.name, ip: wanted, status: s.status } : null;
+}
+
+// Graceful reboot (ACPI soft reboot — Hetzner's `reboot`, NOT `reset`, which is a
+// power-cycle and can corrupt disks). Every service on the box goes down for the
+// duration, so callers must gate this behind an explicit human confirmation.
+export async function rebootServer(id) {
+  if (!id) throw Object.assign(new Error("id is required"), { status: 400 });
+  if (isDemo()) return { ok: true, action: "reboot", id, status: "running" };
+  const data = await hz(`/servers/${id}/actions/reboot`, { method: "POST" });
+  return { ok: true, action: "reboot", id, status: data?.action?.status || "running" };
+}
+
 export async function deleteServer(id) {
   if (!id) throw Object.assign(new Error("id is required"), { status: 400 });
 

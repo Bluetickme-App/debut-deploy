@@ -220,6 +220,13 @@ export const api = {
   // Fleet monitoring
   fleetOverview: () => req("/fleet/overview"),
   restartService: (id) => req(`/services/${id}/restart`, { method: "POST" }),
+  // Unwedge one service's stuck deploys: fails its in_progress/queued rows, drops the
+  // hung build helpers, nudges the worker. Scoped to that service only.
+  clearDeployQueue: (id) => req(`/services/${id}/clear-queue`, { method: "POST" }),
+  // Master-admin: consoles behind the platform, and host power. rebootHost echoes the
+  // IP back as `confirm` — the server rejects the call without it.
+  adminPortals: () => req("/admin/portals"),
+  rebootHost: (ip) => req("/admin/hosts/reboot", { method: "POST", body: { ip, confirm: ip } }),
   situations: () => req("/situations"),
   remediateSituation: (id) => req(`/situations/${id}/remediate`, { method: "POST" }),
 };

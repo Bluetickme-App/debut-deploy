@@ -789,6 +789,43 @@ app.post(
   })
 );
 
+// --- master-admin: upstream portals + host power ---------------------------
+// Deep links to the consoles behind the platform. Admin-only, because the orchestrator
+// URL is infrastructure detail we deliberately keep off every customer-facing surface
+// (see the disclosure rules in status.js).
+app.get("/api/admin/portals", requireAuth, requireAdmin, h(() => ({
+  portals: [
+    {
+      key: "orchestrator",
+      label: "Deployment console",
+      url: (process.env.COOLIFY_BASE_URL || "").replace(/\/$/, ""),
+      note: "Builds, containers and server config",
+    },
+    {
+      key: "hetzner",
+      label: "Infrastructure console",
+      url: "https://console.hetzner.cloud/",
+      note: "Servers, volumes, networking and billing",
+    },
+  ].filter((p) => p.url),
+})));
+
+// Reboot a host by IP. This takes EVERY service on that box down for the duration, so
+// it is admin-only, requires the caller to echo the exact IP back in `confirm` (a
+// mis-click cannot reach it), and is audited. Graceful ACPI reboot, never a power reset.
+app.post("/api/admin/hosts/reboot", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const ip = String(req.body?.ip || "").trim();
+  if (!ip) throw Object.assign(new Error("ip is required"), { status: 400 });
+  if (String(req.body?.confirm || "").trim() !== ip) {
+    throw Object.assign(new Error("Type the host IP to confirm the reboot"), { status: 400 });
+  }
+  const server = await hetzner.findServerByIp(ip);
+  if (!server) throw Object.assign(new Error("No server with that IP in this account"), { status: 404 });
+  const r = await hetzner.rebootServer(server.id);
+  record(req, "host.reboot", { resourceType: "server", resourceUuid: String(server.id), metadata: { ip, name: server.name } });
+  return { ...r, ip, name: server.name };
+}));
+
 // --- password-gated host command (admin escape hatch) ---
 // Deliberate raw-shell tool for box ops the bounded tools don't cover. Guarded THREE
 // ways: (1) admin-only, (2) a shared password (SSH_EXEC_PASSWORD) — the "human gate":
