@@ -62,6 +62,47 @@ a Privacy Policy is noise.
 Pricing comes from the same tier table the pricing section quotes, so the
 calculator cannot drift from the published plans.
 
+## Responsive
+
+The site is verified on phones and tablets with a real headless-Chromium audit
+over 21 pages x 5 viewports (320 / 390 / 412 / 768 / 1024). Current state:
+zero horizontal overflow, zero text under 12px.
+
+Two things to know before editing layout here:
+
+1. **Element styling is inline** (that is how the design produced it), so an
+   external stylesheet cannot override it. Chrome-level responsive rules ship
+   as a `<style>` block — `CHROME_CSS` in `_chrome.mjs`, with an identical copy
+   in `index.html`'s `<head>`. Keep the two in step.
+2. **Everything is scoped below 1140px**, the width the design already collapses
+   the nav at, so the desktop composition is never touched.
+
+Header behaviour as the screen narrows: side padding tightens, the `/ crumb`
+drops, and below 400px the "Deploy an app" CTA hides — the drawer carries it, so
+the CTA is never actually lost. The hamburger always survives.
+
+The legal tables have no wrapper element to hang a scroll container on (that
+markup is hand-written and not generated), so `.doc table` itself becomes the
+scroller via `display: block; overflow-x: auto`. The page stays put; only the
+table moves sideways.
+
+### Re-running the audits
+
+Playwright lives in the npx cache, not this project, and the installed Chromium
+revision differs from the one Playwright expects — hence both env vars:
+
+```bash
+export NODE_PATH="$LOCALAPPDATA/npm-cache/_npx/31e32ef8478fbf80/node_modules"
+export DD_CHROME="$LOCALAPPDATA/ms-playwright/chromium-1234/chrome-win64/chrome.exe"
+node responsive-audit.mjs https://www.debutdepoly.com      # mobile + tablet
+node desktop-check.mjs   https://www.debutdepoly.com --all # desktop regressions
+node app-audit.mjs                                         # the app login screen
+```
+
+Two audit findings are known false positives: the `dpa.html` subprocessor table
+(clipped by its own scroller, document overflow is 0) and the `security.html`
+`mailto:` link (an inline link in body text, which WCAG 2.5.8 exempts).
+
 ## Known gaps
 
 - **Regions.** Every page states compute runs in Germany *and Finland*
