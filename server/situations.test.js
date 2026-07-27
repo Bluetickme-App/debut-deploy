@@ -212,6 +212,51 @@ test("REGISTRY: no remediation shells out to a coolify container restart", () =>
   }
 });
 
+// ── zombie age: stall, not queue wait ────────────────────────────────────────
+
+const { parseDeployRows } = await import("./situations.js");
+
+test("CRITICAL: a long-QUEUED deploy that is building fine is NOT a zombie", () => {
+  // The DebutWebConsultantsWebsite incident: enqueued 1232s ago, but only 400s into its
+  // own build because it sat behind another. Judging on ageSec killed it mid-build.
+  const out = evaluateSituations({
+    host: { diskRoot: { pct: 5 }, diskVolume: null, mem: { pct: 10 } },
+    sites: [],
+    deploys: [{ uuid: "d1", appUuid: "app1", application_name: "Site", status: "in_progress", ageSec: 1232, stallSec: 400 }],
+  });
+  assert.equal(out.find((x) => x.type === "deploy.zombie"), undefined, "queue wait must not count as a stall");
+});
+
+test("a genuinely stalled deploy IS a zombie, and says so", () => {
+  const out = evaluateSituations({
+    host: { diskRoot: { pct: 5 }, diskVolume: null, mem: { pct: 10 } },
+    sites: [],
+    deploys: [{ uuid: "d1", appUuid: "app1", application_name: "Site", status: "in_progress", ageSec: 4000, stallSec: 3500 }],
+  });
+  const z = out.find((x) => x.type === "deploy.zombie");
+  assert.ok(z);
+  assert.equal(z.target, "app1");
+  assert.match(z.detail, /no progress for 3500s/);
+});
+
+test("legacy rows with no stall age fall back to total age (today's behaviour)", () => {
+  const out = evaluateSituations({
+    host: { diskRoot: { pct: 5 }, diskVolume: null, mem: { pct: 10 } },
+    sites: [],
+    deploys: [{ uuid: "d1", appUuid: "app1", application_name: "Site", status: "in_progress", ageSec: 5000, stallSec: null }],
+  });
+  assert.equal(out.find((x) => x.type === "deploy.zombie")?.severity, "crit");
+});
+
+test("parseDeployRows reads both the 6-column and legacy 5-column shapes", () => {
+  const six = parseDeployRows("dep1|app1|Site|in_progress|1232|400\n");
+  assert.deepEqual(six, [{ uuid: "dep1", appUuid: "app1", application_name: "Site", status: "in_progress", ageSec: 1232, stallSec: 400 }]);
+  const five = parseDeployRows("dep1|app1|Site|in_progress|1232\n");
+  assert.equal(five[0].stallSec, null, "legacy shape must yield a null stall, not NaN");
+  assert.equal(five[0].ageSec, 1232);
+  assert.deepEqual(parseDeployRows(""), []);
+});
+
 test("evaluateSituations: deploy.zombie targets the app UUID (what clear-deploy-queue needs)", () => {
   const out = evaluateSituations({
     host: { diskRoot: { pct: 5 }, diskVolume: null, mem: { pct: 10 } },

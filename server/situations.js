@@ -10,7 +10,23 @@ const DOWN_STATUSES = new Set(["exited", "stopped", "dead", "not_running", "paus
 // clear-deploy-queue acts on a specific application, and only the uuid identifies one.
 // LEFT JOIN + fallback: a queue row whose application row is gone still gets reported.
 // (application_id is TEXT in Coolify's schema, hence the ::text cast on applications.id.)
+// Two ages per row, and the difference matters. created_at is when the deploy was
+// ENQUEUED; Coolify serialises builds per server, so a deploy queued behind another
+// accrues that age doing nothing wrong. Judging a zombie on it killed healthy builds:
+// a service whose builds take ~900s, queued behind one more, trips 1200s while its own
+// build is 5 minutes old and progressing fine. updated_at is when the row last MOVED,
+// so "stalled" is the honest test — a build whose worker died stops touching it.
 const DEPLOY_QUERY =
+  "SELECT q.deployment_uuid, COALESCE(a.uuid,''), q.application_name, q.status," +
+  " EXTRACT(EPOCH FROM (now()-q.created_at))::int," +
+  " EXTRACT(EPOCH FROM (now()-q.updated_at))::int" +
+  " FROM application_deployment_queues q LEFT JOIN applications a ON a.id::text = q.application_id" +
+  " WHERE q.status IN ('in_progress','queued')";
+
+// Same query without updated_at. collectSituationInputs falls back to this if the
+// column isn't there: a failed query yields deploys=[], which would silently switch
+// OFF every deploy situation fleet-wide — a worse failure than the bug being fixed.
+const DEPLOY_QUERY_LEGACY =
   "SELECT q.deployment_uuid, COALESCE(a.uuid,''), q.application_name, q.status," +
   " EXTRACT(EPOCH FROM (now()-q.created_at))::int" +
   " FROM application_deployment_queues q LEFT JOIN applications a ON a.id::text = q.application_id" +
@@ -30,14 +46,31 @@ export async function collectSituationInputs({ fleetOverview = _fleetOverview } 
     host = fo.host ?? host;
     sites = fo.sites ?? [];
   } catch { /* best-effort */ }
+  const psql = (q) => runOnHost(`docker exec coolify-db psql -U coolify -d coolify -tAF'|' -c "${q}"`);
   try {
-    const raw = await runOnHost(`docker exec coolify-db psql -U coolify -d coolify -tAF'|' -c "${DEPLOY_QUERY}"`);
-    deploys = raw.split("\n").filter(Boolean).map((line) => {
-      const [uuid, appUuid, application_name, status, ageSec] = line.split("|");
-      return { uuid, appUuid: appUuid || null, application_name, status, ageSec: Number(ageSec) };
-    });
+    // stallSec is absent on the legacy path, and parseDeployRows leaves it null there —
+    // evaluateSituations then falls back to ageSec, i.e. today's behaviour.
+    let raw;
+    try { raw = await psql(DEPLOY_QUERY); }
+    catch { raw = await psql(DEPLOY_QUERY_LEGACY); }
+    deploys = parseDeployRows(raw);
   } catch { /* best-effort: SSH down or no deploys table */ }
   return { host, sites, deploys };
+}
+
+/** Parse psql's `-tAF'|'` output. Tolerates the 5-column legacy shape. */
+export function parseDeployRows(raw) {
+  return String(raw ?? "").split("\n").filter(Boolean).map((line) => {
+    const [uuid, appUuid, application_name, status, ageSec, stallSec] = line.split("|");
+    return {
+      uuid,
+      appUuid: appUuid || null,
+      application_name,
+      status,
+      ageSec: Number(ageSec),
+      stallSec: stallSec === undefined || stallSec === "" ? null : Number(stallSec),
+    };
+  });
 }
 
 export const DISK_WARN = 85;
@@ -45,6 +78,10 @@ export const DISK_CRIT = 92;
 export const MEM_WARN = 90;
 export const ZOMBIE_DEPLOY_SEC = 1200;
 export const QUEUE_PILEUP = 3;
+
+// How long an in-progress deploy has gone without moving. Prefers the stall age; only a
+// legacy row with no updated_at falls back to total age (which counts queue wait).
+export const zombieStallSec = (d) => (d.stallSec == null ? d.ageSec : d.stallSec);
 
 export const REGISTRY = {
   "prune-docker": {
@@ -137,8 +174,17 @@ export function evaluateSituations({ host, sites, deploys }) {
     // target is the app UUID (what clear-deploy-queue needs), mirroring service.unhealthy;
     // the human-readable name lives in `detail`. Falls back to the name when the app row
     // is missing — the situation still opens, its remediation just can't resolve a target.
-    if (d.status === "in_progress" && d.ageSec > ZOMBIE_DEPLOY_SEC)
-      out.push({ type: "deploy.zombie", target: d.appUuid ?? d.application_name, severity: "crit", detail: `${d.application_name} deploy in_progress for ${d.ageSec}s`, suggested_remediation: "clear-deploy-queue" });
+    //
+    // Judged on STALL, not total age: queue wait is not evidence of a hung build. Only
+    // when updated_at is unavailable (legacy query) does this fall back to total age.
+    if (d.status !== "in_progress") continue;
+    const stalled = zombieStallSec(d);
+    if (stalled > ZOMBIE_DEPLOY_SEC) {
+      const detail = d.stallSec == null
+        ? `${d.application_name} deploy in_progress for ${d.ageSec}s`
+        : `${d.application_name} deploy stalled — no progress for ${d.stallSec}s (queued ${d.ageSec}s ago)`;
+      out.push({ type: "deploy.zombie", target: d.appUuid ?? d.application_name, severity: "crit", detail, suggested_remediation: "clear-deploy-queue" });
+    }
   }
 
   const queued = deploys.filter((d) => d.status === "queued");
