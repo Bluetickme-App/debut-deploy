@@ -1,0 +1,14 @@
+<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <!-- Current DWC brand: orange hex + white D (matches debut_icon_1024.png).
+       The old blue (#1E40AF) fill pre-dated the orange rebrand — browsers prefer
+       SVG favicons, so this file must always carry the CURRENT brand colours. -->
+  <defs>
+    <linearGradient id="dwc-orange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8862F"/>
+      <stop offset="100%" stop-color="#E2661C"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 4L40 13V35L24 44L8 35V13L24 4Z" fill="url(#dwc-orange)"/>
+  <path d="M20 16H24C27.3137 16 30 18.6863 30 22V26C30 29.3137 27.3137 32 24 32H20V16Z" fill="white"/>
+  <path d="M20 16V32" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>
