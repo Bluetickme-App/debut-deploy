@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>DebutDeploy — European PaaS Hosting Without Egress Surprises</title>
+<meta name="description" content="Deploy web applications, workers and managed Postgres from Git on European infrastructure. Predictable monthly pricing, no cold starts and assisted migration." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #ffffff; color: #0b0d12; -webkit-font-smoothing: antialiased; }
+  a { color: #2563eb; text-decoration: none; }
+  a:hover { color: #1b4ed1; }
+  h1, h2, h3, h4, p, ul, ol, figure { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 4px; }
+  ::selection { background: #dbe6ff; }
+  @keyframes dd-ring { 0% { transform: scale(1); opacity: 0.6 } 70% { transform: scale(1.34); opacity: 0 } 100% { transform: scale(1.34); opacity: 0 } }
+  .rail::-webkit-scrollbar { height: 6px; }
+  .rail::-webkit-scrollbar-thumb { background: #d6dbe4; border-radius: 999px; }
+  @keyframes dd-blink { 0%, 60% { opacity: 1 } 61%, 100% { opacity: 0.25 } }
+  @keyframes dd-bar { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; } }
+  [data-nav-toggle] { display: none; }
+  @media (max-width: 760px) { [data-rail] { scroll-snap-type: x proximity; } }
+  @media (max-width: 1140px) {
+    [data-nav], [data-signin] { display: none !important; }
+    [data-hero] { grid-template-columns: minmax(0, 1fr) !important; gap: 44px !important; }
+    h1 { font-size: 44px !important; }
+    [data-nav-toggle] { display: grid !important; }
+    [data-grid="4"], [data-grid="4s"], [data-grid="footer"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    [data-grid="plans"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  }
+  @media (max-width: 900px) {
+    [data-wrap] { padding-left: 24px !important; padding-right: 24px !important; padding-top: 76px !important; padding-bottom: 76px !important; }
+    [data-hero], [data-2col] { grid-template-columns: minmax(0, 1fr) !important; gap: 40px !important; }
+    [data-grid="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    h1 { font-size: 40px !important; }
+    h2 { font-size: 30px !important; }
+  }
+  @media (max-width: 760px) {
+    [data-grid], [data-grid="plans"], [data-grid="footer"], [data-grid="2"], [data-grid="4"] { grid-template-columns: minmax(0, 1fr) !important; }
+    [data-grid="4s"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    [data-card] { flex-basis: 86% !important; }
+    [data-cta] { width: 100% !important; }
+    [data-wrap] { padding-top: 60px !important; padding-bottom: 60px !important; }
+    h1 { font-size: 33px !important; }
+    h2 { font-size: 26px !important; }
+  }
+</style>
+<script src="./image-slot.js"></script>
+</helmet>
+
+<header style="position: sticky; top: 0; z-index: 60; background: rgba(255,255,255,0.86); backdrop-filter: blur(14px); border-bottom: 1px solid {{ navBorder }};">
+  <div style="max-width: 1280px; margin: 0 auto; padding: 0 32px; height: {{ navHeight }}; display: flex; align-items: center; gap: 28px; transition: height .2s ease;">
+    <a href="#top" style="display: flex; align-items: center; gap: 10px; color: #0b0d12; flex: none;">
+      <svg width="34" height="34" viewBox="0 0 64 64" role="img" aria-label="DebutDeploy" overflow="visible" style="flex: none; overflow: visible; filter: drop-shadow(0 3px 9px rgba(37,99,235,0.38));"><defs><linearGradient id="ddg34" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4d7bff"></stop><stop offset="0.55" stop-color="#2563eb"></stop><stop offset="1" stop-color="#1a48cc"></stop></linearGradient></defs><path d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" style="transform-box: fill-box; transform-origin: center; animation: dd-ring 2.8s cubic-bezier(0.25,0.6,0.3,1) infinite;"></path><path d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="url(#ddg34)" stroke="url(#ddg34)" stroke-width="2.2" stroke-linejoin="round"></path><g stroke="#ffffff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.93"><path d="M32 19.5 V14.6 L37.2 9.4"></path><path d="M32 45 V49.9 L26.8 55.1"></path><path d="M21.5 32.4 H13.6"></path><path d="M21.5 25.6 H17.8 L14.4 22.2"></path><path d="M21.5 39.2 H17.8 L14.4 42.6"></path><path d="M43.4 32.4 H50.4"></path><path d="M43.4 25.6 H46.2 L49.6 22.2"></path><path d="M43.4 39.2 H46.2 L49.6 42.6"></path></g><g fill="#ffffff" opacity="0.96"><circle cx="38.4" cy="9.4" r="1.25"></circle><circle cx="25.6" cy="55.1" r="1.25"></circle><circle cx="12.4" cy="32.4" r="1.25"></circle><circle cx="13.2" cy="22.2" r="1.25"></circle><circle cx="13.2" cy="42.6" r="1.25"></circle><circle cx="51.6" cy="32.4" r="1.25"></circle><circle cx="50.8" cy="22.2" r="1.25"></circle><circle cx="50.8" cy="42.6" r="1.25"></circle></g><path d="M21.5 19.5 H31.6 C39.8 19.5 43.4 25.2 43.4 32.5 C43.4 39.8 39.8 45 31.6 45 H21.5 Z M27 24.6 V39.9 H31 C35.2 39.9 37.6 36.9 37.6 32.4 C37.6 27.8 35.2 24.6 31 24.6 Z" fill="#ffffff" fill-rule="evenodd"></path></svg>
+      <span style="font-weight: 800; font-size: 19px; letter-spacing: -0.025em; color: #0b0d12;">Debut<span style="color: #2563eb;">Deploy</span></span>
+    </a>
+    <nav data-nav="" aria-label="Main" style="display: flex; align-items: center; gap: 4px; margin-left: 8px;">
+      <div style="position: relative;">
+        <button type="button" aria-haspopup="true" onClick="{{ togglePlatform }}" style="background: none; border: 0; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661; cursor: pointer; display: flex; align-items: center; gap: 6px;" style-hover="background: #f2f4f8; color: #0b0d12;">Platform <span style="font-size: 9px; color: #8b939f;">▼</span></button>
+        <sc-if value="{{ platformOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; top: calc(100% + 8px); left: 0; width: 232px; background: #fff; border: 1px solid #e5e8ee; border-radius: 12px; box-shadow: 0 16px 40px -12px rgba(11,13,18,0.18); padding: 8px;">
+            <sc-for list="{{ platformItems }}" as="it" hint-placeholder-count="7">
+              <a href="{{ it.href }}" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;" style-hover="background: #f2f4f8; color: #2563eb;">{{ it.label }}</a>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <a href="#pricing" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">Pricing</a>
+      <div style="position: relative;">
+        <button type="button" aria-haspopup="true" onClick="{{ toggleCompare }}" style="background: none; border: 0; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661; cursor: pointer; display: flex; align-items: center; gap: 6px;" style-hover="background: #f2f4f8; color: #0b0d12;">Compare <span style="font-size: 9px; color: #8b939f;">▼</span></button>
+        <sc-if value="{{ compareOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; top: calc(100% + 8px); left: 0; width: 252px; background: #fff; border: 1px solid #e5e8ee; border-radius: 12px; box-shadow: 0 16px 40px -12px rgba(11,13,18,0.18); padding: 8px;">
+            <sc-for list="{{ compareItems }}" as="it" hint-placeholder-count="4">
+              <a href="{{ it.href }}" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;" style-hover="background: #f2f4f8; color: #2563eb;">{{ it.label }}</a>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <a href="#migrate" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">Migrate</a>
+      <a href="#security" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">Security</a>
+      <a href="https://docs.debutdeploy.com" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">Documentation</a>
+      <a href="https://status.debutdeploy.com" style="padding: 8px 10px 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661; display: flex; align-items: center; gap: 7px;" style-hover="background: #f2f4f8; color: #0b0d12;">Status <span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.14);"></span></a>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none;">
+      <a data-signin="" href="https://app.debutdeploy.com" style="padding: 9px 14px; font-size: 14px; font-weight: 600; color: #2b323c; border-radius: 9px;" style-hover="background: #f2f4f8;">Sign in</a>
+      <a href="https://app.debutdeploy.com/new" style="padding: 10px 16px; font-size: 14px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 9px; box-shadow: 0 1px 2px rgba(11,13,18,0.16);" style-hover="background: #1b4ed1;">Deploy an app</a>
+      <button type="button" data-nav-toggle="" aria-label="Open menu" aria-expanded="{{ mobileOpen }}" onClick="{{ toggleMobile }}" style="width: 44px; height: 44px; place-items: center; border: 1px solid #d8dde6; background: #fff; border-radius: 10px; cursor: pointer; font-size: 15px;">{{ mobileSign }}</button>
+    </div>
+  </div>
+  <sc-if value="{{ mobileOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="border-top: 1px solid #e5e8ee; background: #fff; padding: 12px 24px 20px; max-height: 70vh; overflow-y: auto;">
+      <sc-for list="{{ mobileLinks }}" as="m" hint-placeholder-count="9">
+        <a href="{{ m.href }}" onClick="{{ closeMobile }}" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;" style-hover="color: #2563eb;">{{ m.label }}</a>
+      </sc-for>
+      <a href="https://app.debutdeploy.com" style="display: grid; place-items: center; min-height: 48px; margin-top: 14px; border: 1px solid #d8dde6; border-radius: 10px; font-size: 15px; font-weight: 600; color: #0b0d12;">Sign in</a>
+    </div>
+  </sc-if>
+</header>
+
+<main id="top" style="display: block;">
+
+  <section style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);">
+    <div data-wrap="" data-hero="" style="max-width: 1280px; margin: 0 auto; padding: 88px 32px 96px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr); gap: 64px; align-items: start;">
+      <div>
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; margin-bottom: 22px; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>European application deployment platform</p>
+        <h1 style="font-size: 60px; line-height: 1.03; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">Deploy from Git. Stay always on. Pay a predictable monthly price.</h1>
+        <p style="margin-top: 24px; font-size: 18.5px; line-height: 1.55; color: #4d5661; max-width: 34em; text-wrap: pretty;">Deploy production applications, workers and managed Postgres on fast European infrastructure. No cold starts, no unexpected egress bills and no infrastructure administration.</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px;">
+          <a data-cta="" href="https://app.debutdeploy.com/new" style="padding: 14px 22px; font-size: 15px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 11px; box-shadow: 0 6px 18px -8px rgba(37,99,235,0.7);" style-hover="background: #1b4ed1;">Deploy a test application</a>
+          <a data-cta="" href="#calculator" style="padding: 14px 22px; font-size: 15px; font-weight: 600; color: #0b0d12; background: #fff; border: 1px solid #d8dde6; border-radius: 11px;" style-hover="border-color: #2563eb; color: #2563eb;">Compare my current hosting bill</a>
+        </div>
+        <div style="margin-top: 30px; padding: 18px 20px; border: 1px solid #e5e8ee; background: #fff; border-radius: 14px; max-width: 460px;">
+          <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Typical 2 vCPU / 4 GB application</p>
+          <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; align-items: center; margin-top: 14px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #4d5661;">Render</span>
+            <span style="height: 8px; border-radius: 999px; background: #e5e8ee;"><span style="display: block; width: 100%; height: 8px; border-radius: 999px; background: #c3cad6; transform-origin: left; animation: dd-bar .9s ease .1s both;"></span></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: #4d5661;">$85/mo</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #0b0d12; font-weight: 600;">DebutDeploy</span>
+            <span style="height: 8px; border-radius: 999px; background: #e5e8ee;"><span style="display: block; width: 53%; height: 8px; border-radius: 999px; background: #2563eb; transform-origin: left; animation: dd-bar .9s ease .25s both;"></span></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; color: #2563eb;">$45/mo</span>
+          </div>
+          <div style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4d5661;">You pay <strong style="color: #0b0d12; font-weight: 700;">$45</strong> /mo</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 6px 12px;">Save 47% · $40 /mo</span>
+          </div>
+          <p style="margin-top: 12px; font-size: 12px; color: #8b939f; line-height: 1.5;">Comparison verified July 2026 on equivalent configuration assumptions. <a href="#comparison" style="font-weight: 600;">See the full breakdown</a></p>
+        </div>
+        <p style="margin-top: 26px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6c7480; line-height: 1.9;">European infrastructure · Git deployments · Automated TLS · Managed backups · Assisted migration</p>
+      </div>
+
+      <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; box-shadow: 0 30px 60px -34px rgba(11,13,18,0.28); overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eceff4; background: #fbfcfe;">
+          <span style="display: flex; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #e3e6ec;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #e3e6ec;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #e3e6ec;"></span></span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f; margin-left: 6px;">app.debutdeploy.com/services/marketing-genius</span>
+        </div>
+        <div style="padding: 20px 22px 24px;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">marketing-genius</h2>
+                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: #eafaf0; color: #15803d; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+              </div>
+              <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f; margin-top: 7px;">github.com/debutweb/marketing-genius · main · fra1</p>
+            </div>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #2563eb; border: 1px solid #d3e0ff; background: #f2f6ff; padding: 5px 9px; border-radius: 7px;">Web service</span>
+          </div>
+
+          <div data-grid="4s" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px;">
+            <sc-for list="{{ heroStats }}" as="s" hint-placeholder-count="4">
+              <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 11px 12px; background: #fbfcfe;">
+                <p style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">{{ s.label }}</p>
+                <p style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; margin-top: 6px; color: #0b0d12;">{{ s.value }}</p>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 12px; background: #fbfcfe;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><p style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">CPU</p><p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #4d5661;">{{ cpuPct }}</p></div>
+              <div style="height: 6px; border-radius: 999px; background: #e9ecf2; margin-top: 9px; overflow: hidden;"><div style="height: 6px; border-radius: 999px; background: #2563eb; width: {{ cpuPct }};"></div></div>
+            </div>
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 12px; background: #fbfcfe;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><p style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Memory</p><p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #4d5661;">{{ memLabel }}</p></div>
+              <div style="height: 6px; border-radius: 999px; background: #e9ecf2; margin-top: 9px; overflow: hidden;"><div style="height: 6px; border-radius: 999px; background: #7c9cf5; width: {{ memPct }};"></div></div>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px; border: 1px solid #e9ecf2; border-radius: 11px; background: #0e1117; padding: 14px 15px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.85; overflow-x: auto;">
+            <sc-for list="{{ heroLogs }}" as="l" hint-placeholder-count="6">
+              <div style="display: flex; gap: 10px; white-space: nowrap;"><span style="color: #5b6675;">{{ l.t }}</span><span style="color: #cbd5e3;">{{ l.msg }}</span></div>
+            </sc-for>
+            <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">{{ nowStamp }}</span><span style="color: #4ade80;">✓ Deploy live · https://marketing.debutwebconsultants.co.uk</span><span style="color: #4ade80; animation: dd-blink 1.1s steps(1) infinite;">▍</span></div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 11px 13px; border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #4d5661;">postgres · mg-primary · 20 GB</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #15803d;">connected · backup 03:00 UTC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Platform guarantees" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div style="max-width: 1280px; margin: 0 auto; padding: 22px 32px; display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; justify-content: space-between;">
+      <sc-for list="{{ trustItems }}" as="t" hint-placeholder-count="7">
+        <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">{{ t.icon }}</span>{{ t.label }}</span>
+      </sc-for>
+    </div>
+  </section>
+
+  <section id="platform" style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Product demonstration</p>
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">From Git repository to live application.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Connect your repository, add environment variables and deploy. DebutDeploy handles builds, TLS, networking, service health and infrastructure management.</p>
+      </div>
+
+      <div data-2col="" style="margin-top: 44px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 28px; align-items: start;">
+        <div role="tablist" aria-label="Deployment steps" style="display: grid; gap: 10px;">
+          <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+            <button type="button" role="tab" aria-selected="{{ st.selected }}" onClick="{{ st.select }}" style="text-align: left; cursor: pointer; padding: 16px 18px; border-radius: 13px; background: {{ st.bg }}; border: 1px solid {{ st.border }}; display: grid; grid-template-columns: 26px 1fr; gap: 14px; align-items: start;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: {{ st.num }}; padding-top: 2px;">{{ st.index }}</span>
+              <span style="display: block;">
+                <span style="display: block; font-size: 15.5px; font-weight: 650; color: #0b0d12; letter-spacing: -0.01em;">{{ st.title }}</span>
+                <span style="display: block; font-size: 13.5px; line-height: 1.5; color: #5a6472; margin-top: 5px;">{{ st.desc }}</span>
+              </span>
+            </button>
+          </sc-for>
+          <a href="https://docs.debutdeploy.com/deploy" style="margin-top: 6px; font-size: 14px; font-weight: 600; padding: 4px 2px;">See how deployment works →</a>
+        </div>
+
+        <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; overflow: hidden; box-shadow: 0 20px 44px -30px rgba(11,13,18,0.24);">
+          <div style="padding: 11px 16px; border-bottom: 1px solid #eceff4; background: #fbfcfe; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f;">{{ stepCrumb }}</div>
+          <div style="padding: 22px; min-height: 348px;">
+            <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <p style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Select a repository</p>
+                <div style="border: 1px solid #eceff4; border-radius: 11px; overflow: hidden;">
+                  <sc-for list="{{ repos }}" as="r" hint-placeholder-count="4">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-bottom: 1px solid #f2f4f8;">
+                      <span style="display: flex; align-items: center; gap: 11px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #0e1117; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700;">{{ r.initial }}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #2b323c;">{{ r.name }}</span></span>
+                      <span style="display: flex; align-items: center; gap: 12px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9aa2ae;">{{ r.updated }}</span><span style="font-size: 12px; font-weight: 600; color: #2563eb; border: 1px solid #d3e0ff; padding: 5px 10px; border-radius: 7px;">Connect</span></span>
+                    </div>
+                  </sc-for>
+                </div>
+                <p style="margin-top: 14px; font-size: 12.5px; color: #8b939f;">Repository access uses a single read-only deploy key. Only the GitHub scopes needed to build and deploy are requested.</p>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 10px; background: #f2f6ff; border: 1px solid #d3e0ff; font-size: 13px; color: #1b4ed1; font-weight: 550;">Framework detected — Next.js 15 · Node 22</div>
+                <div style="margin-top: 16px; display: grid; gap: 14px;">
+                  <sc-for list="{{ configFields }}" as="f" hint-placeholder-count="4">
+                    <label style="display: block;">
+                      <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f; margin-bottom: 7px;">{{ f.label }}</span>
+                      <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #2b323c; border: 1px solid #e5e8ee; background: #fbfcfe; border-radius: 9px; padding: 11px 13px;">{{ f.value }}</span>
+                    </label>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <p style="font-size: 14px; font-weight: 600;">Environment variables</p>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #15803d; background: #eafaf0; border-radius: 7px; padding: 5px 9px;">encrypted at rest</span>
+                </div>
+                <div style="margin-top: 14px; border: 1px solid #eceff4; border-radius: 11px; overflow: hidden; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">
+                  <sc-for list="{{ envVars }}" as="e" hint-placeholder-count="5">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 12px 15px; border-bottom: 1px solid #f2f4f8;">
+                      <span style="color: #2b323c;">{{ e.key }}</span>
+                      <span style="color: #9aa2ae; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.value }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <p style="margin-top: 14px; font-size: 12.5px; color: #8b939f;">Secrets are write-only after saving and are never rendered back into the browser.</p>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                  <span style="display: inline-flex; align-items: center; gap: 7px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: #15803d; background: #eafaf0; padding: 6px 10px; border-radius: 999px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>DEPLOY SUCCEEDED</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f;">build 1m 48s</span>
+                </div>
+                <div style="margin-top: 14px; border-radius: 11px; background: #0e1117; padding: 15px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.9;">
+                  <sc-for list="{{ buildLogs }}" as="l" hint-placeholder-count="8">
+                    <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">{{ l.t }}</span><span style="color: #cbd5e3;">{{ l.msg }}</span></div>
+                  </sc-for>
+                </div>
+                <div style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid #d3e0ff; background: #f2f6ff; border-radius: 10px;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #1b4ed1;">https://app.example.com</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #1b4ed1;">TLS issued automatically</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="showcase" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: end; justify-content: space-between;">
+        <div style="max-width: 700px;">
+          <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Running in production</p>
+          <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">We trust DebutDeploy with our own production products.</h2>
+          <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">DebutDeploy was built to run the applications we develop and operate ourselves. From multi-model AI and autonomous marketing to automotive, finance and logistics platforms, these are live products rather than demonstration templates.</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" aria-label="Previous products" onClick="{{ railPrev }}" style="width: 44px; height: 44px; border-radius: 11px; border: 1px solid #d8dde6; background: #fff; cursor: pointer; font-size: 15px; color: #2b323c;" style-hover="border-color: #2563eb; color: #2563eb;">←</button>
+          <button type="button" aria-label="Next products" onClick="{{ railNext }}" style="width: 44px; height: 44px; border-radius: 11px; border: 1px solid #d8dde6; background: #fff; cursor: pointer; font-size: 15px; color: #2b323c;" style-hover="border-color: #2563eb; color: #2563eb;">→</button>
+        </div>
+      </div>
+
+      <div class="rail" data-rail="" ref="{{ railRef }}" onMouseEnter="{{ railHold }}" onMouseLeave="{{ railRelease }}" onFocus="{{ railHold }}" onTouchStart="{{ railHold }}" style="margin-top: 40px; display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: none; padding-bottom: 18px; scroll-behavior: auto;">
+        <article data-card="" style="flex: 0 0 460px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;" style-hover="border-color: #c9d4e8; box-shadow: 0 18px 40px -28px rgba(11,13,18,0.3);">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <image-slot id="shot-marketing-genius" shape="rect" fit="cover" placeholder="Drop the Marketing Genius screenshot — 1600×900"></image-slot>
+            <span style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #eceff4; background: #fff; display: grid; place-items: center; overflow: hidden; flex: none;"><img src="uploads/marketing-genius-icon-dark-transparent.png" alt="Marketing Genius logo" style="display: block; width: 30px; height: 30px; object-fit: contain;" /></span>
+              <span>
+                <span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Marketing Genius</span>
+                <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Autonomous marketing operating system</span>
+              </span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A multi-service marketing platform combining AI agents, campaign workflows, analytics, integrations and automation.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">multi-service</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">AI workloads</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">background processes</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">API integrations</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">postgres</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" onClick="{{ expand0 }}" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;" style-hover="border-color: #2563eb; color: #2563eb;">View application</button>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
+        <article data-card="" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;" style-hover="border-color: #c9d4e8; box-shadow: 0 18px 40px -28px rgba(11,13,18,0.3);">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <image-slot id="shot-fully-informed" shape="rect" fit="cover" placeholder="Drop the Fully Informed screenshot — 1600×900"></image-slot>
+            <span style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; overflow: hidden; display: grid; place-items: center; flex: none;"><img src="uploads/fi-monogram-purple.svg" alt="Fully Informed logo" style="display: block; width: 36px; height: 36px; object-fit: contain;" /></span>
+              <span>
+                <span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Fully Informed</span>
+                <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Multi-model decision intelligence</span>
+              </span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A multi-model reasoning platform that combines several AI systems into structured, evidence-led decision reports.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">multi-model orchestration</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">live inference</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">file processing</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">credit billing</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" onClick="{{ expand1 }}" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;" style-hover="border-color: #2563eb; color: #2563eb;">View application</button>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
+        <article data-card="" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;" style-hover="border-color: #c9d4e8; box-shadow: 0 18px 40px -28px rgba(11,13,18,0.3);">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <image-slot id="shot-aurora-assistant" shape="rect" fit="cover" placeholder="Drop the Aurora Assistant screenshot — 1600×900"></image-slot>
+            <span style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #eceff4; background: #fff; display: grid; place-items: center; overflow: hidden; flex: none;"><img src="uploads/icon-1024.png" alt="Aurora Assistant logo" style="display: block; width: 30px; height: 30px; object-fit: contain;" /></span>
+              <span>
+                <span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Aurora Assistant</span>
+                <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Intelligent assistant platform</span>
+              </span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">An AI assistant platform designed for structured workflows, intelligent support and secure application interactions.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">AI workflows</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">authentication</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">API services</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" onClick="{{ expand2 }}" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;" style-hover="border-color: #2563eb; color: #2563eb;">View application</button>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
+        <article data-card="" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;" style-hover="border-color: #c9d4e8; box-shadow: 0 18px 40px -28px rgba(11,13,18,0.3);">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <image-slot id="shot-cryptopilot" shape="rect" fit="cover" placeholder="Drop the CryptoPilot screenshot — 1600×900"></image-slot>
+            <span style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; background: #0d1117; display: grid; place-items: center; overflow: hidden; flex: none;"><img src="https://u079.me/static/icons/icon-144x144.png" alt="CryptoPilot logo" style="display: block; width: 30px; height: 30px; object-fit: contain;" /></span>
+              <span>
+                <span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">CryptoPilot</span>
+                <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Autonomous trading platform</span>
+              </span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A private trading intelligence platform using persistent workers, real-time data and secure authenticated dashboards.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">real-time data</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">persistent workers</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">scheduled processes</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">authenticated</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" onClick="{{ expand3 }}" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;" style-hover="border-color: #2563eb; color: #2563eb;">Private platform</button>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
+        <article data-card="" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;" style-hover="border-color: #c9d4e8; box-shadow: 0 18px 40px -28px rgba(11,13,18,0.3);">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <image-slot id="shot-lc-traders" shape="rect" fit="cover" placeholder="Drop the L&amp;C Traders screenshot — 1600×900"></image-slot>
+            <span style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="height: 36px; padding: 0 5px; border-radius: 9px; background: #1c1c1c; display: grid; place-items: center; flex: none;"><img src="uploads/pasted-1785119243810-0.png" alt="Logistics &amp; Consultancy logo" style="display: block; height: 24px; width: auto; max-width: 124px; object-fit: contain;" /></span>
+              <span>
+                <span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">L&amp;C Traders</span>
+                <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Automotive trade network</span>
+              </span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A closed dealer platform supporting vehicle stock, dealer accounts and automotive trade workflows.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">dealer accounts</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">stock workflows</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">database-backed</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" onClick="{{ expand4 }}" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;" style-hover="border-color: #2563eb; color: #2563eb;">View website</button>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
+        <article data-card="" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;" style-hover="border-color: #c9d4e8; box-shadow: 0 18px 40px -28px rgba(11,13,18,0.3);">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <image-slot id="shot-trusted-car-finance" shape="rect" fit="cover" placeholder="Drop the Trusted Car Finance screenshot — 1600×900"></image-slot>
+            <span style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="height: 36px; padding: 0 4px; border-radius: 9px; border: 1px solid #eceff4; background: #fff; display: grid; place-items: center; flex: none;"><img src="uploads/logo.png" alt="Trusted Car Finance logo" style="display: block; height: 26px; width: auto; max-width: 118px; object-fit: contain;" /></span>
+              <span>
+                <span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Trusted Car Finance</span>
+                <span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Automotive finance platform</span>
+              </span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A UK vehicle-finance platform supporting eligibility journeys, calculators and secure customer applications.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">multi-step forms</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">eligibility journeys</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">finance calculators</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">secure data</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" onClick="{{ expand5 }}" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;" style-hover="border-color: #2563eb; color: #2563eb;">View application</button>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
+      </div>
+      <p style="margin-top: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8b939f;">Multiple production products · multiple industries · one deployment platform</p>
+
+      <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top: 28px; border: 1px solid #d3e0ff; background: #f7f9ff; border-radius: 16px; padding: 26px;">
+          <div style="display: flex; align-items: start; justify-content: space-between; gap: 20px;">
+            <div>
+              <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #2563eb;">Case detail</p>
+              <h3 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px;">{{ selName }}</h3>
+            </div>
+            <button type="button" onClick="{{ collapse }}" aria-label="Close detail" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; width: 44px; height: 44px; cursor: pointer; font-size: 15px;">✕</button>
+          </div>
+          <div data-2col="" style="display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 26px; margin-top: 20px;">
+            <div style="border: 1px solid #dfe4ec; border-radius: 13px; background: #fff; aspect-ratio: 16 / 10; overflow: hidden; position: relative;">
+              <sc-if value="{{ selSlotId }}" hint-placeholder-val="{{ false }}"><image-slot id="{{ selSlotId }}" shape="rect" fit="cover" placeholder="{{ selShot }}"></image-slot></sc-if>
+            </div>
+            <div style="display: grid; gap: 16px;">
+              <sc-for list="{{ selDetails }}" as="d" hint-placeholder-count="4">
+                <div>
+                  <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">{{ d.label }}</p>
+                  <p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px; text-wrap: pretty;">{{ d.value }}</p>
+                </div>
+              </sc-for>
+              <a href="{{ selUrl }}" style="font-size: 14px; font-weight: 600;">{{ selLinkLabel }}</a>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <section style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; max-width: 620px;">Everything required to run a production application.</h2>
+      <div data-grid="3" style="margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+        <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="6">
+          <article style="border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px;" style-hover="border-color: #c9d4e8; box-shadow: 0 16px 36px -28px rgba(11,13,18,0.28);">
+            <div style="border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe; padding: 12px 13px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #4d5661; display: flex; justify-content: space-between; gap: 12px;">
+              <span style="color: #9aa2ae;">{{ b.fragLabel }}</span>
+              <span style="color: #2563eb; font-weight: 600;">{{ b.fragValue }}</span>
+            </div>
+            <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 18px;">{{ b.title }}</h3>
+            <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">{{ b.body }}</p>
+          </article>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section id="comparison" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Clear cost comparison</p>
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">See exactly what you are paying for.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Compare equivalent application resources rather than headline prices that exclude databases, workspace fees or transfer charges.</p>
+      </div>
+
+      <div style="margin-top: 36px; border: 1px solid #e5e8ee; border-radius: 16px; overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
+            <caption style="text-align: left; padding: 18px 22px; background: #fbfcfe; border-bottom: 1px solid #eceff4; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6c7480;">One production workload — a 2 vCPU / 4 GB web service, a small managed Postgres and ~100 GB of traffic</caption>
+            <thead>
+              <tr style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
+                <th scope="col" style="text-align: left; padding: 13px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Platform</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Same workload / mo</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">100 GB egress</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Cold starts</th>
+                <th scope="col" style="text-align: left; padding: 13px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">You save</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ platformRows }}" as="pr" hint-placeholder-count="5">
+                <tr style="border-bottom: 1px solid #f2f4f8; background: {{ pr.bg }};">
+                  <th scope="row" style="text-align: left; padding: 15px 22px; font-size: 14px; font-weight: 700; color: {{ pr.nameColor }}; white-space: nowrap;">{{ pr.name }}</th>
+                  <td style="padding: 15px 16px; font-size: 14px; font-weight: 600; color: {{ pr.nameColor }};">{{ pr.total }}</td>
+                  <td style="padding: 15px 16px; font-size: 13.5px; color: {{ pr.subColor }};">{{ pr.egress }}</td>
+                  <td style="padding: 15px 16px; font-size: 13.5px; color: {{ pr.subColor }};">{{ pr.cold }}</td>
+                  <td style="padding: 15px 22px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: {{ pr.saveColor }}; background: {{ pr.saveBg }}; border: 1px solid {{ pr.saveBorder }}; border-radius: 999px; padding: 5px 11px;">{{ pr.save }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <p style="padding: 16px 22px; border-bottom: 1px solid #e5e8ee; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f; line-height: 1.8;">Prices in USD, per month, ex-VAT. Our figure = Pro Plus compute ($45) + DB Starter ($12), 20 TB traffic included. Competitor figures are published list rates as of July 2026, matched to the nearest plan that meets the workload; usage-based platforms (Railway, Fly.io) are computed always-on and marked indicative (*). Sources: <a href="https://render.com/pricing">render.com/pricing</a> · <a href="https://railway.com/pricing">railway.com/pricing</a> · <a href="https://fly.io/docs/about/pricing">fly.io/docs/about/pricing</a> · <a href="https://heroku.com/pricing">heroku.com/pricing</a>.</p>
+          <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
+            <caption style="text-align: left; padding: 18px 22px; background: #fbfcfe; border-bottom: 1px solid #eceff4; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6c7480;">Line-by-line: what each provider actually bills for the same service · USD excl. VAT · checked 24 July 2026</caption>
+            <thead>
+              <tr style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
+                <th scope="col" style="text-align: left; padding: 13px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Component</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #2563eb;">DebutDeploy</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 13px; font-weight: 600; color: #4d5661;">Render</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 13px; font-weight: 600; color: #4d5661;">Railway</th>
+                <th scope="col" style="text-align: left; padding: 13px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ compareRows }}" as="r" hint-placeholder-count="12">
+                <tr style="border-bottom: 1px solid #f2f4f8;">
+                  <th scope="row" style="text-align: left; padding: 13px 22px; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">{{ r.component }}</th>
+                  <td style="padding: 13px 16px; font-family: 'IBM Plex Mono', monospace; font-size: {{ r.size }}; color: {{ r.ddColor }}; background: #f7f9ff; font-weight: {{ r.weight }};">{{ r.dd }}</td>
+                  <td style="padding: 13px 16px; font-family: 'IBM Plex Mono', monospace; font-size: {{ r.size }}; color: {{ r.compColor }}; font-weight: {{ r.weight }};">{{ r.render }}</td>
+                  <td style="padding: 13px 16px; font-family: 'IBM Plex Mono', monospace; font-size: {{ r.size }}; color: {{ r.compColor }}; font-weight: {{ r.weight }};">{{ r.railway }}</td>
+                  <td style="padding: 13px 22px; font-size: 12.5px; color: #6c7480; line-height: 1.5;">{{ r.note }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 20px 22px; background: #fbfcfe; border-top: 1px solid #eceff4; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center;">
+          <p style="font-size: 14.5px; color: #2b323c;"><strong style="font-weight: 700;">Example saving: $47 per month</strong> · equivalent annual saving $564 against Render on this configuration.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #8b939f;">
+            <a href="https://render.com/pricing">Render pricing source</a>
+            <a href="https://railway.com/pricing">Railway pricing source</a>
+            <span style="font-family: 'IBM Plex Mono', monospace;">shared vs dedicated CPU noted per row</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 40px; display: flex; flex-wrap: wrap; gap: 24px; align-items: end; justify-content: space-between;">
+        <h3 style="font-size: 30px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800;">Managed Postgres</h3>
+        <p style="font-size: 15px; line-height: 1.6; color: #4d5661; max-width: 34em;">Add a database to any app. Automated backups and volumes included — storage overage at $0.10/GB.</p>
+      </div>
+      <div style="margin-top: 20px; border: 1px solid #e5e8ee; border-radius: 16px; overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 720px;">
+            <thead>
+              <tr style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
+                <th scope="col" style="text-align: left; padding: 14px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Database</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Spec</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Price</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Elsewhere</th>
+                <th scope="col" style="padding: 14px 22px;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Saving</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ dbRows }}" as="d" hint-placeholder-count="2">
+                <tr style="border-bottom: 1px solid #f2f4f8;">
+                  <th scope="row" style="text-align: left; padding: 17px 22px; font-size: 15px; font-weight: 700; white-space: nowrap;">{{ d.name }}</th>
+                  <td style="padding: 17px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #4d5661;">{{ d.spec }}</td>
+                  <td style="padding: 17px 16px;"><span style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em;">{{ d.price }}</span> <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f;">/mo</span></td>
+                  <td style="padding: 17px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #8b939f;">from <s>{{ d.elsewhere }}</s></td>
+                  <td style="padding: 17px 22px; text-align: right;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 5px 11px;">{{ d.save }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing" style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: end; justify-content: space-between;">
+        <div style="max-width: 640px;">
+          <h2 style="font-size: 42px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800;">Compute</h2>
+          <p style="margin-top: 16px; font-size: 17px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">One app per plan. Each plan lists the resources you get and what the same box costs on Render — same power, same memory, a fraction of the price. Monthly billing, no contract, cancel any time.</p>
+        </div>
+        <div role="group" aria-label="Currency" style="display: inline-flex; padding: 4px; background: #eceff4; border-radius: 999px;">
+          <button type="button" aria-pressed="{{ usdActive }}" onClick="{{ setUsd }}" style="padding: 9px 16px; border: 0; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600; background: {{ usdBg }}; color: {{ usdColor }};">USD $</button>
+          <button type="button" aria-pressed="{{ gbpActive }}" onClick="{{ setGbp }}" style="padding: 9px 16px; border: 0; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600; background: {{ gbpBg }}; color: {{ gbpColor }};">GBP £</button>
+        </div>
+      </div>
+
+      <div data-grid="plans" style="margin-top: 40px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; align-items: start;">
+        <sc-for list="{{ plans }}" as="pl" hint-placeholder-count="5">
+          <article style="border: 1px solid {{ pl.border }}; border-radius: 15px; background: {{ pl.bg }}; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 100%;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: {{ pl.badgeColor }};">{{ pl.badge }}</span>
+            <h3 style="font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">{{ pl.name }}</h3>
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4d5661; line-height: 1.7;">{{ pl.specs }}<br /><span style="color: #8b939f;">{{ pl.cpuType }}</span></p>
+            <p style="display: flex; align-items: baseline; gap: 6px;"><span style="font-size: 36px; font-weight: 800; letter-spacing: -0.04em;">{{ pl.price }}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8b939f;">/mo</span></p>
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 8px; padding: 8px 10px; line-height: 1.45;">{{ pl.saving }}</p>
+            <ul style="display: grid; gap: 7px; font-size: 12.5px; color: #4d5661;">
+              <sc-for list="{{ pl.features }}" as="f" hint-placeholder-count="6">
+                <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>{{ f }}</span></li>
+              </sc-for>
+            </ul>
+            <a href="https://app.debutdeploy.com/new" style="margin-top: auto; text-align: center; padding: 12px 14px; min-height: 44px; border-radius: 10px; font-size: 14px; font-weight: 600; background: {{ pl.ctaBg }}; color: {{ pl.ctaColor }}; border: 1px solid {{ pl.ctaBorder }}; display: grid; place-items: center;">{{ pl.cta }}</a>
+          </article>
+        </sc-for>
+      </div>
+
+      <div style="margin-top: 20px; border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between;">
+        <div style="max-width: 620px;">
+          <h3 style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em;">Custom</h3>
+          <p style="margin-top: 8px; font-size: 14.5px; line-height: 1.6; color: #4d5661;">Multi-service applications, agency portfolios and workloads that need more than 8 GB or 4 vCPU. Databases priced separately per instance; team seats included at no extra charge.</p>
+        </div>
+        <a href="#migrate" style="padding: 13px 20px; min-height: 44px; display: grid; place-items: center; border-radius: 10px; font-size: 14px; font-weight: 600; color: #fff; background: #0b0d12;" style-hover="background: #2563eb;">Speak to an infrastructure specialist</a>
+      </div>
+      <p style="margin-top: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f; line-height: 1.8;">{{ priceNote }}</p>
+    </div>
+  </section>
+
+  <section id="calculator" style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f2f6ff 100%);">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div data-2col="" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 48px; align-items: start;">
+        <div>
+          <h2 style="font-size: 42px; line-height: 1.08; letter-spacing: -0.035em; font-weight: 800;">Not sure what you'd pay? <span style="color: #2563eb;">Compare your current cloud bill.</span></h2>
+          <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Drop in your current hosting invoice — our reader extracts the line items and estimates the same workload on DebutDeploy, Render and Railway. Or enter your services manually.</p>
+          <div role="tablist" aria-label="Calculator input method" style="margin-top: 26px; display: inline-flex; padding: 4px; background: #e8edf7; border-radius: 11px;">
+            <button type="button" role="tab" aria-selected="{{ uploadActive }}" onClick="{{ setUpload }}" style="padding: 10px 16px; min-height: 44px; border: 0; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; background: {{ uploadBg }}; color: {{ uploadColor }};">Upload invoice</button>
+            <button type="button" role="tab" aria-selected="{{ manualActive }}" onClick="{{ setManual }}" style="padding: 10px 16px; min-height: 44px; border: 0; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; background: {{ manualBg }}; color: {{ manualColor }};">Enter manually</button>
+          </div>
+          <sc-if value="{{ uploadActive }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top: 22px;">
+              <div style="border: 1.5px dashed #b9c7e6; border-radius: 15px; background: rgba(255,255,255,0.7); padding: 40px 24px; text-align: center;">
+                <span style="display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto; border-radius: 12px; background: #e8efff; color: #2563eb; font-size: 19px;">↑</span>
+                <p style="margin-top: 14px; font-size: 15px; font-weight: 600;">Drop your monthly bill here</p>
+                <p style="margin-top: 6px; font-size: 13px; color: #6c7480;">PDF, CSV or a screenshot — Render, Railway, Fly, Heroku, DigitalOcean…</p>
+                <button type="button" style="margin-top: 16px; padding: 12px 20px; min-height: 44px; border-radius: 10px; border: 0; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #1b4ed1;">Browse files</button>
+                <p style="margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;"><a href="#calculator" style="text-decoration: underline;">or try a sample Render bill →</a></p>
+              </div>
+              <p style="margin-top: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8b939f; line-height: 1.7;">🔒 Read once to estimate your savings, then discarded. We never store your bill.</p>
+              <p style="margin-top: 8px; font-size: 12.5px; color: #6c7480; line-height: 1.6;">Your invoice is used only to calculate equivalent resources. Remove sensitive billing information before upload. <a href="/privacy.html">Privacy policy</a></p>
+            </div>
+          </sc-if>
+          <sc-if value="{{ manualActive }}" hint-placeholder-val="{{ false }}">
+            <div data-grid="2" style="margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <label style="display: block;"><span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #6c7480; margin-bottom: 7px;">Current provider</span>
+                <select onChange="{{ setProvider }}" style="width: 100%; min-height: 44px; padding: 11px 12px; border: 1px solid #d8dde6; border-radius: 10px; background: #fff; font-size: 14px;">
+                  <sc-for list="{{ providers }}" as="pr" hint-placeholder-count="6"><option value="{{ pr }}">{{ pr }}</option></sc-for>
+                </select>
+              </label>
+              <sc-for list="{{ calcFields }}" as="cf" hint-placeholder-count="5">
+                <label style="display: block;"><span style="display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #6c7480; margin-bottom: 7px;">{{ cf.label }}</span>
+                  <input type="number" value="{{ cf.value }}" min="{{ cf.min }}" step="{{ cf.step }}" onChange="{{ cf.onChange }}" style="width: 100%; min-height: 44px; padding: 11px 12px; border: 1px solid #d8dde6; border-radius: 10px; background: #fff; font-size: 14px; font-family: 'IBM Plex Mono', monospace;" />
+                </label>
+              </sc-for>
+              <label style="display: flex; align-items: center; gap: 10px; grid-column: span 2; font-size: 14px; color: #2b323c;">
+                <input type="checkbox" checked="{{ needsDb }}" onChange="{{ toggleDb }}" style="width: 18px; height: 18px; accent-color: #2563eb;" />
+                Include a managed Postgres instance
+              </label>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="border: 1px solid #d3e0ff; background: #fff; border-radius: 16px; padding: 26px; box-shadow: 0 24px 50px -34px rgba(37,99,235,0.4);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">Estimated result</p>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #15803d; background: #eafaf0; padding: 5px 9px; border-radius: 7px;">{{ confidence }}</span>
+          </div>
+          <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="border: 1px solid #eceff4; border-radius: 12px; padding: 16px; background: #fbfcfe;">
+              <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Current monthly</p>
+              <p style="font-size: 27px; font-weight: 700; letter-spacing: -0.03em; margin-top: 7px; color: #4d5661;">{{ currentCost }}</p>
+            </div>
+            <div style="border: 1px solid #d3e0ff; border-radius: 12px; padding: 16px; background: #f5f8ff;">
+              <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">On DebutDeploy</p>
+              <p style="font-size: 27px; font-weight: 800; letter-spacing: -0.03em; margin-top: 7px; color: #2563eb;">{{ estCost }}</p>
+            </div>
+          </div>
+          <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+            <sc-for list="{{ savingTiles }}" as="s" hint-placeholder-count="3">
+              <div style="border: 1px solid #eceff4; border-radius: 12px; padding: 14px; background: #fbfcfe;">
+                <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">{{ s.label }}</p>
+                <p style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; color: #15803d;">{{ s.value }}</p>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: 18px; border-top: 1px solid #eceff4; padding-top: 16px;">
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Equivalent configuration</p>
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #2b323c; margin-top: 8px; line-height: 1.7;">{{ equivalent }}</p>
+            <p style="margin-top: 12px; font-size: 12px; color: #8b939f; line-height: 1.6;">{{ assumptions }}</p>
+          </div>
+          <a href="#migrate" style="margin-top: 20px; display: grid; place-items: center; min-height: 48px; border-radius: 11px; background: #2563eb; color: #fff; font-size: 15px; font-weight: 600;" style-hover="background: #1b4ed1;">Review my migration options</a>
+          <p style="margin-top: 10px; text-align: center; font-size: 12px; color: #8b939f;">No account required to see your result.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="migrate" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Assisted migration</p>
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">Move without risking your production application.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">DebutDeploy can help reproduce your current service configuration, migrate your data, validate the deployment and prepare a rollback plan before traffic is moved.</p>
+      </div>
+      <div data-grid="4" style="margin-top: 44px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;">
+        <sc-for list="{{ migrationSteps }}" as="m" hint-placeholder-count="4">
+          <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 22px; background: #fbfcfe;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: #2563eb;">{{ m.num }}</span>
+            <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 12px;">{{ m.title }}</h3>
+            <p style="margin-top: 9px; font-size: 14px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">{{ m.body }}</p>
+          </article>
+        </sc-for>
+      </div>
+      <div data-2col="" style="margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; align-items: start;">
+        <ul data-grid="2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px;">
+          <sc-for list="{{ migrationAssurances }}" as="a" hint-placeholder-count="6">
+            <li style="display: flex; gap: 10px; font-size: 14.5px; color: #2b323c; line-height: 1.5;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>{{ a }}</span></li>
+          </sc-for>
+        </ul>
+        <div style="border: 1px solid #d3e0ff; background: #f7f9ff; border-radius: 15px; padding: 22px;">
+          <p style="font-size: 14.5px; line-height: 1.6; color: #2b323c;">Most single-service applications move in a day. Multi-service platforms, large databases and workloads with persistent storage need a scheduled window — we will tell you which case you are in before you commit.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px;">
+            <a href="/migration" style="padding: 12px 18px; min-height: 44px; display: grid; place-items: center; border-radius: 10px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600;" style-hover="background: #1b4ed1;">Book a migration review</a>
+            <a href="https://docs.debutdeploy.com/migration" style="padding: 12px 18px; min-height: 44px; display: grid; place-items: center; border-radius: 10px; background: #fff; border: 1px solid #d8dde6; color: #0b0d12; font-size: 14px; font-weight: 600;" style-hover="border-color: #2563eb; color: #2563eb;">Read the migration guide</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; max-width: 560px;">Platform capabilities, labelled honestly.</h2>
+      <div style="margin-top: 40px; display: grid; gap: 28px;">
+        <sc-for list="{{ capabilityGroups }}" as="g" hint-placeholder-count="3">
+          <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <h3 style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #0b0d12;">{{ g.label }}</h3>
+              <span style="flex: 1; height: 1px; background: #e0e4ec;"></span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8b939f;">{{ g.note }}</span>
+            </div>
+            <ul data-grid="4" style="margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+              <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="8">
+                <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;">
+                  <span>{{ c.name }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">{{ c.status }}</span>
+                </li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section id="security" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800;">Security and reliability built into the platform.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">DebutDeploy applies platform-level controls across networking, secrets, backups, access and service monitoring. Security controls are designed around industry-standard practices; we publish certifications only once they are genuinely held.</p>
+      </div>
+      <div data-grid="4" style="margin-top: 44px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;">
+        <sc-for list="{{ securityItems }}" as="s" hint-placeholder-count="8">
+          <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;">
+            <h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">{{ s.title }}</h3>
+            <p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">{{ s.body }}</p>
+          </article>
+        </sc-for>
+      </div>
+      <div style="margin-top: 22px; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; padding: 18px 22px; border: 1px solid #e5e8ee; border-radius: 14px; background: #fbfcfe;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Data processing</span>
+        <sc-for list="{{ legalLinks }}" as="l" hint-placeholder-count="5">
+          <a href="{{ l.href }}" style="font-size: 13.5px; font-weight: 550;">{{ l.label }}</a>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section style="background: #0b0d12; color: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 96px 32px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: end; justify-content: space-between;">
+        <h2 style="font-size: 38px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; max-width: 520px;">A platform measured by what it runs.</h2>
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #7d8796; max-width: 320px; line-height: 1.7;">{{ telemetryNote }}</p>
+      </div>
+      <div data-grid="4" style="margin-top: 40px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+        <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="4">
+          <div style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b;">
+            <p style="font-size: 34px; font-weight: 800; letter-spacing: -0.035em;">{{ m.value }}</p>
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7d8796; margin-top: 10px;">{{ m.label }}</p>
+          </div>
+        </sc-for>
+      </div>
+      <div data-grid="3" style="margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
+        <sc-for list="{{ caseStudies }}" as="c" hint-placeholder-count="3">
+          <article style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b; display: flex; flex-direction: column; gap: 12px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">{{ c.eyebrow }}</span>
+            <p style="font-size: 15.5px; line-height: 1.6; color: #dfe4ec; text-wrap: pretty;">{{ c.quote }}</p>
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #7d8796; line-height: 1.7; margin-top: auto;">{{ c.attribution }}</p>
+            <a href="{{ c.href }}" style="font-size: 13.5px; font-weight: 600; color: #7fa5ff;">{{ c.linkLabel }}</a>
+          </article>
+        </sc-for>
+      </div>
+      <p style="margin-top: 20px; font-size: 12.5px; color: #6b7482;">Built and operated by Debut Web Consultants. External customer case studies will be published with named attribution once available.</p>
+    </div>
+  </section>
+
+  <section style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1000px; margin: 0 auto; padding: 104px 32px;">
+      <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800;">Frequently asked questions</h2>
+      <div style="margin-top: 34px; border-top: 1px solid #e5e8ee;">
+        <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="12">
+          <div style="border-bottom: 1px solid #e5e8ee;">
+            <button type="button" aria-expanded="{{ f.open }}" onClick="{{ f.toggle }}" style="width: 100%; text-align: left; background: none; border: 0; cursor: pointer; padding: 20px 4px; display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px;">
+              <span style="font-size: 16.5px; font-weight: 600; letter-spacing: -0.012em;">{{ f.q }}</span>
+              <span aria-hidden="true" style="font-size: 18px; color: #8b939f; flex: none;">{{ f.sign }}</span>
+            </button>
+            <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+              <p style="padding: 0 60px 22px 4px; font-size: 15px; line-height: 1.65; color: #4d5661; text-wrap: pretty;">{{ f.a }}</p>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <p style="margin-top: 24px; font-size: 14.5px; color: #4d5661;">30 more operational questions are answered in full on the <a href="/faq" style="font-weight: 600;">complete FAQ page</a>.</p>
+    </div>
+  </section>
+
+  <section style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap="" style="max-width: 1000px; margin: 0 auto; padding: 108px 32px; text-align: center;">
+      <h2 style="font-size: 46px; line-height: 1.06; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">Deploy one application before moving anything important.</h2>
+      <p style="margin-top: 20px; font-size: 18px; line-height: 1.6; color: #4d5661; max-width: 40em; margin-left: auto; margin-right: auto; text-wrap: pretty;">Connect a repository, test the deployment workflow and compare the result with your current provider. No production migration is required.</p>
+      <div style="margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
+        <a data-cta="" href="https://app.debutdeploy.com/new" style="padding: 15px 24px; min-height: 48px; display: grid; place-items: center; border-radius: 11px; background: #2563eb; color: #fff; font-size: 15.5px; font-weight: 600; box-shadow: 0 8px 22px -10px rgba(37,99,235,0.8);" style-hover="background: #1b4ed1;">Deploy a test application</a>
+        <a data-cta="" href="/migration" style="padding: 15px 24px; min-height: 48px; display: grid; place-items: center; border-radius: 11px; background: #fff; border: 1px solid #d8dde6; color: #0b0d12; font-size: 15.5px; font-weight: 600;" style-hover="border-color: #2563eb; color: #2563eb;">Speak to a migration engineer</a>
+      </div>
+      <p style="margin-top: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8b939f;">Keep your existing service online while you evaluate DebutDeploy.</p>
+    </div>
+  </section>
+
+  <footer style="background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 72px 32px 40px;">
+      <div data-grid="footer" style="display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(5, minmax(0, 1fr)); gap: 32px;">
+        <div>
+          <a href="#top" style="display: flex; align-items: center; gap: 10px; color: #0b0d12;">
+            <svg width="30" height="30" viewBox="0 0 64 64" role="img" aria-label="DebutDeploy" overflow="visible" style="flex: none; overflow: visible; filter: drop-shadow(0 3px 9px rgba(37,99,235,0.38));"><defs><linearGradient id="ddg30" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4d7bff"></stop><stop offset="0.55" stop-color="#2563eb"></stop><stop offset="1" stop-color="#1a48cc"></stop></linearGradient></defs><path d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" style="transform-box: fill-box; transform-origin: center; animation: dd-ring 2.8s cubic-bezier(0.25,0.6,0.3,1) infinite;"></path><path d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="url(#ddg30)" stroke="url(#ddg30)" stroke-width="2.2" stroke-linejoin="round"></path><g stroke="#ffffff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.93"><path d="M32 19.5 V14.6 L37.2 9.4"></path><path d="M32 45 V49.9 L26.8 55.1"></path><path d="M21.5 32.4 H13.6"></path><path d="M21.5 25.6 H17.8 L14.4 22.2"></path><path d="M21.5 39.2 H17.8 L14.4 42.6"></path><path d="M43.4 32.4 H50.4"></path><path d="M43.4 25.6 H46.2 L49.6 22.2"></path><path d="M43.4 39.2 H46.2 L49.6 42.6"></path></g><g fill="#ffffff" opacity="0.96"><circle cx="38.4" cy="9.4" r="1.25"></circle><circle cx="25.6" cy="55.1" r="1.25"></circle><circle cx="12.4" cy="32.4" r="1.25"></circle><circle cx="13.2" cy="22.2" r="1.25"></circle><circle cx="13.2" cy="42.6" r="1.25"></circle><circle cx="51.6" cy="32.4" r="1.25"></circle><circle cx="50.8" cy="22.2" r="1.25"></circle><circle cx="50.8" cy="42.6" r="1.25"></circle></g><path d="M21.5 19.5 H31.6 C39.8 19.5 43.4 25.2 43.4 32.5 C43.4 39.8 39.8 45 31.6 45 H21.5 Z M27 24.6 V39.9 H31 C35.2 39.9 37.6 36.9 37.6 32.4 C37.6 27.8 35.2 24.6 31 24.6 Z" fill="#ffffff" fill-rule="evenodd"></path></svg>
+            <span style="font-weight: 800; font-size: 17px; letter-spacing: -0.025em; color: #0b0d12;">Debut<span style="color: #2563eb;">Deploy</span></span>
+          </a>
+          <p style="margin-top: 14px; font-size: 13.5px; line-height: 1.65; color: #6c7480; max-width: 26em;">Push-to-deploy applications, workers and managed Postgres on fast European infrastructure. Always on, predictably priced.</p>
+        </div>
+        <sc-for list="{{ footerColumns }}" as="col" hint-placeholder-count="5">
+          <div>
+            <h3 style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">{{ col.title }}</h3>
+            <ul style="margin-top: 14px; display: grid; gap: 9px;">
+              <sc-for list="{{ col.links }}" as="l" hint-placeholder-count="6">
+                <li><a href="{{ l.href }}" style="font-size: 13.5px; color: #4d5661;" style-hover="color: #2563eb;">{{ l.label }}</a></li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e8ee; display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: space-between;">
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f; line-height: 1.9; max-width: 62em;">{{ legalIdentity }}</p>
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f;">© 2026 DebutDeploy · EU data residency · billed via Stripe</p>
+      </div>
+    </div>
+  </footer>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440}}">
+class Component extends DCLogic {
+  state = {
+    scrolled: false, menu: null, step: 1, sel: null, cur: 'usd', tab: 'upload',
+    faq: 0, provider: 'Render', services: 3, cpu: 2, ram: 4, transfer: 500, current: 412, db: true
+  };
+
+  componentDidMount() {
+    this._onScroll = () => {
+      const s = window.scrollY > 24;
+      if (s !== this.state.scrolled) this.setState({ scrolled: s });
+    };
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce) {
+      this._pos = 0;
+      const tick = () => {
+        this._raf = requestAnimationFrame(tick);
+        const el = this._rail;
+        if (!el || this._hold) return;
+        const max = el.scrollWidth - el.clientWidth;
+        if (max <= 0) return;
+        if (Math.abs(el.scrollLeft - this._pos) > 4) this._pos = el.scrollLeft;
+        this._pos += 0.35;
+        if (this._pos > max) this._pos = 0;
+        el.scrollLeft = this._pos;
+      };
+      this._raf = requestAnimationFrame(tick);
+    }
+  }
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this._onScroll);
+    cancelAnimationFrame(this._raf);
+  }
+
+  money(v, cur) {
+    if (cur === 'gbp') return '£' + Math.round(v * 0.79);
+    return '$' + v;
+  }
+
+  planFor(cpu, ram) {
+    const tiers = [
+      { name: 'Hobby', cpu: 0.5, ram: 0.5, usd: 5 },
+      { name: 'Starter', cpu: 0.5, ram: 1, usd: 9 },
+      { name: 'Pro', cpu: 1, ram: 2, usd: 15 },
+      { name: 'Pro Plus', cpu: 2, ram: 4, usd: 45 },
+      { name: 'Scale', cpu: 4, ram: 8, usd: 85 }
+    ];
+    return tiers.find(t => t.cpu >= cpu && t.ram >= ram) || tiers[tiers.length - 1];
+  }
+
+  renderVals() {
+    const s = this.state;
+    const cur = s.cur;
+    const usd = cur === 'usd';
+
+    const productData = [
+      { name: 'Marketing Genius', initials: 'MG', category: 'Autonomous marketing operating system', url: 'https://marketing.debutwebconsultants.co.uk/', cta: 'View application', link: 'Open marketing.debutwebconsultants.co.uk →', wide: true,
+        description: 'A multi-service marketing platform combining AI agents, campaign workflows, analytics, integrations and automation.',
+        meta: ['multi-service', 'AI workloads', 'background processes', 'API integrations', 'postgres'],
+        shot: 'Screenshot placeholder — Marketing Genius campaign dashboard (1600×900)',
+        details: [
+          ['What it does', 'Runs campaign planning, AI content generation, analytics reporting and third-party integrations for marketing teams.'],
+          ['Why DebutDeploy suits it', 'A web service, background workers and scheduled tasks share one predictable monthly cost instead of metered usage across four billing lines.'],
+          ['Services deployed', 'Web application · queue worker · scheduler · managed Postgres'],
+          ['Deployment', 'Push to main builds and deploys automatically; database backed up nightly with a retained rollback target.']
+        ] },
+      { name: 'Fully Informed', initials: 'FI', category: 'Multi-model decision intelligence', url: 'https://fullyinformed.co.uk/', cta: 'View application', link: 'Open fullyinformed.co.uk →',
+        description: 'A multi-model reasoning platform that combines several AI systems into structured, evidence-led decision reports.',
+        meta: ['multi-model orchestration', 'live inference', 'file processing', 'credit billing'],
+        shot: 'Screenshot placeholder — Fully Informed report view (1600×900)',
+        details: [
+          ['What it does', 'Runs a question through several AI models and assembles the responses into a structured, sourced decision report.'],
+          ['Why DebutDeploy suits it', 'Long-running inference requests need a service that never sleeps, and file processing needs steady memory rather than burst credits.'],
+          ['Services deployed', 'Web application · inference worker · managed Postgres · object storage'],
+          ['Deployment', 'Credit accounting and user accounts run against a managed database with automated backups.']
+        ] },
+      { name: 'Aurora Assistant', initials: 'AA', category: 'Intelligent assistant platform', url: 'https://auroraassistant.ai/', cta: 'View application', link: 'Open auroraassistant.ai →',
+        description: 'An AI assistant platform designed for structured workflows, intelligent support and secure application interactions.',
+        meta: ['AI workflows', 'authentication', 'API services'],
+        shot: 'Screenshot placeholder — Aurora Assistant workspace (1600×900)',
+        details: [
+          ['What it does', 'Provides an assistant interface over structured workflows with authenticated user sessions.'],
+          ['Why DebutDeploy suits it', 'API traffic is continuous, so cold starts are unacceptable and per-request pricing is unpredictable.'],
+          ['Services deployed', 'Web application · API service · managed Postgres'],
+          ['Deployment', 'Deployed from Git with automatic TLS on a custom domain.']
+        ] },
+      { name: 'CryptoPilot', initials: 'CP', category: 'Autonomous trading platform', url: '/showcase/cryptopilot', cta: 'Private platform', link: 'Read the CryptoPilot overview →',
+        description: 'A private trading intelligence platform using persistent workers, real-time data and secure authenticated dashboards.',
+        meta: ['real-time data', 'persistent workers', 'scheduled processes', 'authenticated'],
+        shot: 'Screenshot placeholder — CryptoPilot dashboard, redacted (1600×900)',
+        details: [
+          ['What it does', 'Ingests market data continuously and runs autonomous strategy processes behind an authenticated dashboard.'],
+          ['Why DebutDeploy suits it', 'Persistent workers must stay resident 24/7 — exactly the workload that becomes expensive on metered platforms.'],
+          ['Services deployed', 'Private dashboard · persistent workers · scheduler · managed Postgres'],
+          ['Deployment', 'Access is restricted; the public overview page describes the architecture without exposing infrastructure detail.']
+        ] },
+      { name: 'L&C Traders', initials: 'LC', category: 'Automotive trade network', url: 'https://logisticsandconsultancy.co.uk/', cta: 'View website', link: 'Open logisticsandconsultancy.co.uk →',
+        description: 'A closed dealer platform supporting vehicle stock, dealer accounts and automotive trade workflows.',
+        meta: ['dealer accounts', 'stock workflows', 'database-backed'],
+        shot: 'Screenshot placeholder — L&C Traders stock listing (1600×900)',
+        details: [
+          ['What it does', 'Runs the public trade site plus a closed dealer area for stock and account management.'],
+          ['Why DebutDeploy suits it', 'A modest but always-available service with a managed database, at a fixed monthly price.'],
+          ['Services deployed', 'Web application · managed Postgres'],
+          ['Deployment', 'Deployed from Git with nightly database backups.']
+        ] },
+      { name: 'Trusted Car Finance', initials: 'TF', category: 'Automotive finance platform', url: 'https://trustedcarfinance.com/', cta: 'View application', link: 'Open trustedcarfinance.com →',
+        description: 'A UK vehicle-finance platform supporting eligibility journeys, calculators and secure customer applications.',
+        meta: ['multi-step forms', 'eligibility journeys', 'finance calculators', 'secure data'],
+        shot: 'Screenshot placeholder — Trusted Car Finance eligibility flow (1600×900)',
+        details: [
+          ['What it does', 'Guides customers through eligibility questions and finance calculations, then submits applications to partners.'],
+          ['Why DebutDeploy suits it', 'Customer application data stays in the EU on a managed database with controlled access.'],
+          ['Services deployed', 'Web application · managed Postgres'],
+          ['Deployment', 'Pending removal of remaining placeholder copy on the live site before it is featured publicly.']
+        ] }
+    ];
+
+    const slugs = ['marketing-genius', 'fully-informed', 'aurora-assistant', 'cryptopilot', 'lc-traders', 'trusted-car-finance'];
+    const domains = ['marketing.debutwebconsultants.co.uk', 'fullyinformed.co.uk', 'auroraassistant.ai', 'u079.me', 'logisticsandconsultancy.co.uk', 'trustedcarfinance.com'];
+    const fav = d => 'https://www.google.com/s2/favicons?domain=' + d + '&sz=128';
+
+    const products = productData.map((p, i) => ({
+      name: p.name, initials: p.initials, category: p.category, description: p.description,
+      meta: p.meta, cta: p.cta, status: 'LIVE',
+      shotLabel: 'Drop the ' + p.name + ' screenshot (1600×900)',
+      slotId: 'shot-' + slugs[i], favicon: fav(domains[i]),
+      width: p.wide ? '460px' : '380px',
+      expand: () => this.setState({ sel: i })
+    }));
+
+    const sel = s.sel === null ? null : productData[s.sel];
+
+    const steps = [
+      { title: 'Connect GitHub', desc: 'Authorise once and pick the repository you want to deploy.' },
+      { title: 'Configure application', desc: 'Framework detection fills in build and start commands — override anything.' },
+      { title: 'Add environment variables', desc: 'Paste your .env; values are encrypted at rest and write-only afterwards.' },
+      { title: 'Deploy', desc: 'Watch the build log, get a live domain with TLS issued automatically.' }
+    ].map((st, i) => {
+      const on = s.step === i + 1;
+      return {
+        title: st.title, desc: st.desc, index: '0' + (i + 1), selected: on,
+        bg: on ? '#ffffff' : 'transparent',
+        border: on ? '#c9d4e8' : '#e5e8ee',
+        num: on ? '#2563eb' : '#9aa2ae',
+        select: () => this.setState({ step: i + 1 })
+      };
+    });
+    const crumbs = ['Step 01 — repositories', 'Step 02 — service configuration', 'Step 03 — environment', 'Step 04 — deployment log'];
+
+    const planData = [
+      { name: 'Hobby', badge: '', specs: '512 MB RAM · 0.5 vCPU', cpuType: 'shared box', usd: 5, saving: 'Save 29% vs Render Starter ($7)', apps: '1 application' },
+      { name: 'Starter', badge: '', specs: '1 GB RAM · 0.5 vCPU', cpuType: 'shared box', usd: 9, saving: 'Save 10% vs the going rate ($10)', apps: '1 application' },
+      { name: 'Pro', badge: '', specs: '2 GB RAM · 1 vCPU', cpuType: 'shared box', usd: 15, saving: 'Save 40% vs Render Standard ($25)', apps: '1 application' },
+      { name: 'Pro Plus', badge: 'MOST POPULAR', specs: '4 GB RAM · 2 vCPU', cpuType: 'dedicated', usd: 45, saving: 'Save 47% vs Render Pro ($85)', apps: '1 application' },
+      { name: 'Scale', badge: '', specs: '8 GB RAM · 4 vCPU', cpuType: 'dedicated', usd: 85, saving: 'Save 51% vs Render Pro Plus ($175)', apps: '1 application' }
+    ];
+    const plans = planData.map(p => {
+      const pop = p.badge !== '';
+      return {
+        name: p.name, badge: pop ? p.badge : 'PLAN', specs: p.specs, cpuType: p.cpuType,
+        price: this.money(p.usd, cur), saving: p.saving,
+        badgeColor: pop ? '#2563eb' : '#b3bac5',
+        bg: pop ? '#f5f8ff' : '#ffffff',
+        border: pop ? '#2563eb' : '#e5e8ee',
+        ctaBg: pop ? '#2563eb' : '#ffffff',
+        ctaColor: pop ? '#ffffff' : '#0b0d12',
+        ctaBorder: pop ? '#2563eb' : '#d8dde6',
+        cta: 'Choose ' + p.name,
+        features: [
+          p.apps + ' · unlimited team members',
+          '20 TB outbound transfer included',
+          'No cold starts, no inactivity sleep',
+          'Automatic TLS + custom domains',
+          'Nightly backups, 7-day retention',
+          'Email support, next business day',
+          'Managed Postgres priced separately'
+        ]
+      };
+    });
+
+    const plan = this.planFor(Number(s.cpu), Number(s.ram));
+    const dbCost = s.db ? 12 : 0;
+    const est = plan.usd * Number(s.services) + dbCost;
+    const currentNum = Number(s.current) || 0;
+    const saveMonth = Math.max(currentNum - est, 0);
+    const pct = currentNum > 0 ? Math.round((saveMonth / currentNum) * 100) : 0;
+
+    const platformData = [
+      { name: 'DebutDeploy', total: '$57', egress: '$0 · 20 TB included', cold: 'Never — always on', save: '—', us: true },
+      { name: 'Render', total: '~$104', egress: 'Metered over allowance', cold: 'Paid: no · free tier sleeps', save: '~45% less' },
+      { name: 'Railway', total: '~$115 *', egress: '+$0.10/GB (+$10)', cold: 'No', save: '~50% less' },
+      { name: 'Fly.io', total: '~$105 *', egress: '$0.02/GB (+$2)', cold: 'Opt-in auto-stop', save: '~46% less' },
+      { name: 'Heroku', total: '~$259', egress: 'No published egress fee', cold: 'Eco dynos sleep', save: '~78% less' }
+    ];
+    const platformRows = platformData.map(p => ({
+      name: p.name, total: p.total, egress: p.egress, cold: p.cold, save: p.save,
+      bg: p.us ? '#f2f6ff' : '#ffffff',
+      nameColor: p.us ? '#2563eb' : '#0b0d12',
+      subColor: p.us ? '#1b4ed1' : '#4d5661',
+      saveColor: p.us ? '#9aa2ae' : '#1b4ed1',
+      saveBg: p.us ? 'transparent' : '#eef3fe',
+      saveBorder: p.us ? 'transparent' : '#d8e3ff'
+    }));
+
+    const dbRows = [
+      { name: 'DB Hobby', spec: '256 MB · 2 GB storage', price: this.money(5, cur), elsewhere: this.money(6, cur), save: 'Save 17%' },
+      { name: 'DB Starter', spec: '1 GB · 10 GB storage', price: this.money(12, cur), elsewhere: this.money(19, cur), save: 'Save 37%' }
+    ];
+
+    const compareRows = [
+      { component: 'Web service', dd: 'Pro Plus', render: 'Pro', railway: 'Hobby+usage', note: 'Equivalent 2 vCPU / 4 GB instance' },
+      { component: 'CPU', dd: '2 vCPU dedicated', render: '2 vCPU', railway: 'metered vCPU', note: 'Railway bills per vCPU-hour' },
+      { component: 'RAM', dd: '4 GB', render: '4 GB', railway: 'metered GB', note: 'Same memory ceiling' },
+      { component: 'CPU type', dd: 'dedicated', render: 'dedicated', railway: 'shared', note: 'Shared CPU can be throttled under load' },
+      { component: 'Managed Postgres', dd: '$12 (DB Starter)', render: '$19', railway: 'metered', note: '1 GB RAM production instance' },
+      { component: 'Database storage', dd: '10 GB included', render: '16 GB', railway: 'metered', note: 'Overage $0.10/GB' },
+      { component: 'Backup retention', dd: '7 days nightly', render: '7 days', railway: 'plan dependent', note: 'Point-in-time on request' },
+      { component: 'Outbound transfer', dd: '20 TB included', render: '500 GB then $0.10/GB', railway: '$0.05/GB', note: 'The line that causes surprise bills' },
+      { component: 'Workspace fee', dd: 'none', render: '$19/user (Professional)', railway: '$20/seat', note: 'Team seats are free on DebutDeploy' },
+      { component: 'Log retention', dd: '7 days', render: '7 days', railway: '7 days', note: 'Longer retention on request' },
+      { component: 'Custom domains', dd: 'unlimited', render: 'unlimited', railway: 'unlimited', note: 'DNS remains under your control' },
+      { component: 'TLS', dd: 'automatic', render: 'automatic', railway: 'automatic', note: 'Issued via Traefik' },
+      { component: 'Support', dd: 'email, next business day', render: 'community / paid tiers', railway: 'community', note: 'Migration help included' },
+      { component: 'Estimated monthly total', dd: '$57', render: '~$104', railway: '~$115', note: '1 service + 1 database, 1 seat' }
+    ];
+
+    const priced = /^(\$|~\$)/;
+    const compareRowsStyled = compareRows.map(r => {
+      const total = r.component === 'Estimated monthly total';
+      const cheaper = total || (priced.test(r.dd) && priced.test(r.render));
+      return Object.assign({}, r, {
+        ddColor: cheaper ? '#15803d' : '#0b0d12',
+        compColor: cheaper ? '#dc2626' : '#4d5661',
+        weight: total ? '700' : (cheaper ? '600' : '400'),
+        size: total ? '14px' : '12.5px'
+      });
+    });
+
+    const faqData = [
+      ['What is DebutDeploy?', 'A European application deployment platform. You connect a Git repository and DebutDeploy builds it, runs it in an isolated container, issues TLS, and gives you logs, metrics, rollbacks and managed Postgres — at a fixed monthly price per service.'],
+      ['How is DebutDeploy different from Render?', 'The workflow is deliberately similar; the commercial model is not. Transfer is included at 20 TB rather than metered, team seats are free rather than per-user, and equivalent compute is 29–51% cheaper depending on plan. Compute runs in Germany and Finland.'],
+      ['How is DebutDeploy different from Railway?', 'Railway meters vCPU, memory and egress by usage, which makes a monthly figure hard to predict. DebutDeploy sells a fixed box: you choose CPU and memory and pay the same amount every month.'],
+      ['Where are applications hosted?', 'Compute and storage run in enterprise-grade data centres in Germany and Finland, inside the EU. You can see the region on every service.'],
+      ['Is my application isolated from other customers?', 'Yes. Every application and database runs in its own container with its own resource boundaries. Dedicated plans do not share CPU with other tenants.'],
+      ['Does DebutDeploy support Docker?', 'Yes. Deploy from a Dockerfile, or let the platform detect Node.js, Python, Go, Ruby, PHP and static frameworks and build them automatically.'],
+      ['Are background workers and scheduled jobs supported?', 'Background workers are available now and stay resident — they do not sleep. Scheduled jobs run on a cron expression per service.'],
+      ['How often are databases backed up, and how long are they kept?', 'Managed Postgres is backed up nightly with 7-day retention by default. Longer retention and point-in-time recovery are available on request.'],
+      ['What does the included transfer allowance cover, and what if I exceed it?', '20 TB of outbound transfer per month is included on every plan, covering HTTP responses, API traffic and media delivery. If you exceed it we contact you to agree a plan — there is no automatic overage charge and no per-GB egress fee.'],
+      ['Can I export my application and database?', 'Yes. Your code stays in your own Git repository, and you can take a full pg_dump of any managed database at any time. There is no proprietary lock-in layer.'],
+      ['Will migration require downtime?', 'Usually none for the cutover itself: we reproduce the service, validate it, then move DNS. Databases with large datasets need a short agreed write-freeze window. Your existing service stays online throughout preparation.'],
+      ['How is billing handled, and is VAT included?', 'Monthly via Stripe, in USD or GBP, no contract and no minimum term. Prices shown exclude VAT; VAT is applied at checkout where applicable based on your billing country.']
+    ];
+    const faqs = faqData.map((f, i) => ({
+      q: f[0], a: f[1], open: s.faq === i, sign: s.faq === i ? '−' : '+',
+      toggle: () => this.setState({ faq: s.faq === i ? null : i })
+    }));
+
+    return {
+      navBorder: s.scrolled ? '#e5e8ee' : 'transparent',
+      navHeight: s.scrolled ? '60px' : '72px',
+      platformOpen: s.menu === 'platform',
+      compareOpen: s.menu === 'compare',
+      togglePlatform: () => this.setState({ menu: s.menu === 'platform' ? null : 'platform' }),
+      toggleCompare: () => this.setState({ menu: s.menu === 'compare' ? null : 'compare' }),
+      platformItems: [
+        { label: 'Web Services', href: '/platform#web' },
+        { label: 'Background Workers', href: '/platform#workers' },
+        { label: 'Managed Postgres', href: '/managed-postgres' },
+        { label: 'Custom Domains', href: '/platform#domains' },
+        { label: 'Monitoring', href: '/platform#monitoring' },
+        { label: 'Backups', href: '/platform#backups' },
+        { label: 'Deployment Logs', href: '/platform#logs' }
+      ],
+      compareItems: [
+        { label: 'DebutDeploy vs Render', href: '/render-alternative' },
+        { label: 'DebutDeploy vs Railway', href: '/railway-alternative' },
+        { label: 'DebutDeploy vs Heroku', href: '/heroku-alternative' },
+        { label: 'DebutDeploy vs Fly.io', href: '/flyio-alternative' }
+      ],
+
+      heroStats: [
+        { label: 'Plan', value: 'Pro Plus' },
+        { label: 'vCPU', value: '2 dedicated' },
+        { label: 'Memory', value: '4 GB' },
+        { label: 'Region', value: 'fra1 · DE' }
+      ],
+      cpuPct: '38%', memPct: '61%', memLabel: '2.4 / 4 GB',
+      nowStamp: '14:22:07',
+      heroLogs: [
+        { t: '14:21:52', msg: '==> Cloning debutweb/marketing-genius#main' },
+        { t: '14:21:58', msg: '==> Detected Next.js 15 · node 22.4.0' },
+        { t: '14:22:01', msg: '==> npm ci && npm run build' },
+        { t: '14:22:04', msg: '==> Uploading container image (182 MB)' },
+        { t: '14:22:06', msg: '==> Health check /api/health → 200 OK' }
+      ],
+
+      trustItems: [
+        { icon: '◆', label: 'European infrastructure' },
+        { icon: '◇', label: 'No cold starts' },
+        { icon: '⬢', label: 'Automated TLS' },
+        { icon: '▣', label: 'Isolated workloads' },
+        { icon: '⧉', label: 'Managed backups' },
+        { icon: '◉', label: 'Live platform status' },
+        { icon: '≡', label: 'Predictable monthly billing' }
+      ],
+
+      steps, stepCrumb: crumbs[s.step - 1],
+      isStep1: s.step === 1, isStep2: s.step === 2, isStep3: s.step === 3, isStep4: s.step === 4,
+      repos: [
+        { initial: 'M', name: 'debutweb/marketing-genius', updated: '4h ago' },
+        { initial: 'F', name: 'debutweb/fully-informed', updated: '2d ago' },
+        { initial: 'A', name: 'debutweb/aurora-assistant', updated: '5d ago' },
+        { initial: 'L', name: 'debutweb/lc-traders', updated: '3w ago' }
+      ],
+      configFields: [
+        { label: 'Build command', value: 'npm ci && npm run build' },
+        { label: 'Start command', value: 'npm run start' },
+        { label: 'Instance', value: 'Pro Plus · 2 vCPU / 4 GB · dedicated' },
+        { label: 'Region', value: 'fra1 — Falkenstein, Germany' }
+      ],
+      envVars: [
+        { key: 'DATABASE_URL', value: 'postgres://•••••••••••••••' },
+        { key: 'OPENAI_API_KEY', value: 'sk-•••••••••••••••••••' },
+        { key: 'SESSION_SECRET', value: '•••••••••••••••••••••' },
+        { key: 'NODE_ENV', value: 'production' },
+        { key: 'NEXT_PUBLIC_APP_URL', value: 'https://app.example.com' }
+      ],
+      buildLogs: [
+        { t: '14:20:11', msg: '==> Build started · commit 8f2c9ab' },
+        { t: '14:20:19', msg: '==> Installing dependencies' },
+        { t: '14:21:02', msg: '==> Compiled successfully in 43s' },
+        { t: '14:21:24', msg: '==> Pushing image to eu registry' },
+        { t: '14:21:47', msg: '==> Starting container · 2 vCPU / 4 GB' },
+        { t: '14:21:55', msg: '==> Health check /api/health → 200 OK' },
+        { t: '14:21:57', msg: '==> Requesting TLS certificate' },
+        { t: '14:21:59', msg: '==> Live · previous deploy retained for rollback' }
+      ],
+
+      expand0: () => this.setState({ sel: 0 }),
+      expand1: () => this.setState({ sel: 1 }),
+      expand2: () => this.setState({ sel: 2 }),
+      expand3: () => this.setState({ sel: 3 }),
+      expand4: () => this.setState({ sel: 4 }),
+      expand5: () => this.setState({ sel: 5 }),
+      railRef: el => { this._rail = el; },
+      railHold: () => { this._hold = true; },
+      railRelease: () => { this._hold = false; },
+      railPrev: () => { this._rail && this._rail.scrollBy({ left: -400, behavior: 'smooth' }); },
+      railNext: () => { this._rail && this._rail.scrollBy({ left: 400, behavior: 'smooth' }); },
+      hasSelection: sel !== null,
+      selName: sel ? sel.name : '',
+      selShot: sel ? 'Drop the ' + sel.name + ' screenshot (1600×1000)' : '',
+      selSlotId: sel ? 'detail-' + slugs[s.sel] : 'detail-none',
+      selUrl: sel ? sel.url : '#',
+      selLinkLabel: sel ? sel.link : '',
+      selDetails: sel ? sel.details.map(d => ({ label: d[0], value: d[1] })) : [],
+      collapse: () => this.setState({ sel: null }),
+
+      benefits: [
+        { fragLabel: 'push → main', fragValue: 'deployed 1m 48s', title: 'Deploy directly from Git', body: 'Connect a GitHub repository and automatically build and deploy every approved change, with the previous release retained for rollback.' },
+        { fragLabel: 'uptime 30d', fragValue: 'always on', title: 'No sleeping services', body: 'Applications remain available without cold-start delays or inactivity shutdowns — including background workers.' },
+        { fragLabel: 'invoice', fragValue: 'same every month', title: 'Predictable monthly pricing', body: 'Select fixed CPU and memory resources instead of reconciling dozens of usage-based line items at the end of the month.' },
+        { fragLabel: 'pg_backup', fragValue: '03:00 UTC nightly', title: 'Managed Postgres', body: 'Provision production databases with automated nightly backups, secure connection details and a full export whenever you want one.' },
+        { fragLabel: 'region', fragValue: 'fra1 · hel1', title: 'European infrastructure', body: 'Run workloads close to UK and European users in Germany and Finland, with the hosting location stated on every service.' },
+        { fragLabel: 'events', fragValue: 'logs · health · usage', title: 'Built-in operational visibility', body: 'Review deployments, logs, service health and resource utilisation from one control panel, without adding an observability vendor.' }
+      ],
+
+      compareRows: compareRowsStyled, platformRows, dbRows,
+      mobileOpen: s.menu === 'mobile',
+      mobileSign: s.menu === 'mobile' ? '✕' : '☰',
+      toggleMobile: () => this.setState({ menu: s.menu === 'mobile' ? null : 'mobile' }),
+      closeMobile: () => this.setState({ menu: null }),
+      mobileLinks: [
+        { label: 'Platform', href: '/platform' },
+        { label: 'Pricing', href: '#pricing' },
+        { label: 'Compare providers', href: '#comparison' },
+        { label: 'Migrate', href: '#migrate' },
+        { label: 'Security', href: '#security' },
+        { label: 'Documentation', href: 'https://docs.debutdeploy.com' },
+        { label: 'Status', href: 'https://status.debutdeploy.com' },
+        { label: 'Compare my bill', href: '#calculator' },
+        { label: 'Running in production', href: '#showcase' }
+      ],
+
+      usdActive: usd, gbpActive: !usd,
+      usdBg: usd ? '#0b0d12' : 'transparent', usdColor: usd ? '#fff' : '#4d5661',
+      gbpBg: !usd ? '#0b0d12' : 'transparent', gbpColor: !usd ? '#fff' : '#4d5661',
+      setUsd: () => this.setState({ cur: 'usd' }),
+      setGbp: () => this.setState({ cur: 'gbp' }),
+      plans,
+      priceNote: usd
+        ? 'Prices in USD, excluding VAT · monthly billing via Stripe · no contract · managed Postgres from $5/mo · 20 TB transfer included on every plan · shared boxes may be co-tenanted, dedicated boxes are not.'
+        : 'Prices converted from USD at 0.79 and confirmed at checkout · excluding VAT · monthly billing via Stripe · no contract · managed Postgres from £4/mo · 20 TB transfer included on every plan.',
+
+      tabUpload: s.tab === 'upload',
+      uploadActive: s.tab === 'upload', manualActive: s.tab === 'manual',
+      uploadBg: s.tab === 'upload' ? '#fff' : 'transparent',
+      uploadColor: s.tab === 'upload' ? '#0b0d12' : '#5a6472',
+      manualBg: s.tab === 'manual' ? '#fff' : 'transparent',
+      manualColor: s.tab === 'manual' ? '#0b0d12' : '#5a6472',
+      setUpload: () => this.setState({ tab: 'upload' }),
+      setManual: () => this.setState({ tab: 'manual' }),
+      providers: ['Render', 'Railway', 'Heroku', 'Fly.io', 'DigitalOcean', 'Other'],
+      setProvider: e => this.setState({ provider: e.target.value }),
+      calcFields: [
+        { label: 'Number of services', value: s.services, min: '1', step: '1', onChange: e => this.setState({ services: e.target.value }) },
+        { label: 'vCPU per service', value: s.cpu, min: '0.5', step: '0.5', onChange: e => this.setState({ cpu: e.target.value }) },
+        { label: 'GB RAM per service', value: s.ram, min: '0.5', step: '0.5', onChange: e => this.setState({ ram: e.target.value }) },
+        { label: 'Monthly transfer (GB)', value: s.transfer, min: '0', step: '50', onChange: e => this.setState({ transfer: e.target.value }) },
+        { label: 'Current monthly cost ($)', value: s.current, min: '0', step: '1', onChange: e => this.setState({ current: e.target.value }) }
+      ],
+      needsDb: s.db,
+      toggleDb: () => this.setState({ db: !s.db }),
+      confidence: s.tab === 'upload' ? 'sample estimate' : 'complete inputs',
+      currentCost: this.money(currentNum, cur),
+      estCost: this.money(est, cur),
+      savingTiles: [
+        { label: 'Monthly saving', value: this.money(saveMonth, cur) },
+        { label: 'Annual saving', value: this.money(saveMonth * 12, cur) },
+        { label: 'Percentage', value: pct + '%' }
+      ],
+      equivalent: s.services + ' × ' + plan.name + ' (' + plan.ram + ' GB · ' + plan.cpu + ' vCPU)' + (s.db ? ' + 1 × managed Postgres' : ''),
+      assumptions: 'Assumes ' + s.transfer + ' GB outbound transfer (inside the 20 TB included allowance), one team seat, nightly backups with 7-day retention, and ' + s.provider + ' list pricing checked 24 July 2026. Excludes VAT.',
+
+      migrationSteps: [
+        { num: '01', title: 'Review', body: 'Assess services, databases, environment variables, storage, domains and background workers on your current provider.' },
+        { num: '02', title: 'Reproduce', body: 'Configure the equivalent DebutDeploy services and confirm build output matches.' },
+        { num: '03', title: 'Validate', body: 'Test application behaviour, database connectivity, build output and performance under realistic load.' },
+        { num: '04', title: 'Switch', body: 'Move DNS only after the new deployment is confirmed, keeping the old service warm as a rollback route.' }
+      ],
+      migrationAssurances: [
+        'Existing application remains active during preparation',
+        'Database migration plan agreed in advance',
+        'Environment variables handled securely, never in email',
+        'Rollback route retained after cutover',
+        'DNS changes stay under your control',
+        'Migration support from an engineer, not a ticket queue'
+      ],
+
+      capabilityGroups: [
+        { label: 'Available now', note: 'in production today', items: [
+          { name: 'GitHub deployment', status: 'AVAILABLE' }, { name: 'Docker deployment', status: 'AVAILABLE' },
+          { name: 'Custom domains', status: 'AVAILABLE' }, { name: 'Automatic TLS', status: 'AVAILABLE' },
+          { name: 'Environment variables', status: 'AVAILABLE' }, { name: 'Deployment logs', status: 'AVAILABLE' },
+          { name: 'Health checks', status: 'AVAILABLE' }, { name: 'Rollbacks', status: 'AVAILABLE' },
+          { name: 'Background workers', status: 'AVAILABLE' }, { name: 'Scheduled jobs', status: 'AVAILABLE' },
+          { name: 'Managed Postgres', status: 'AVAILABLE' }, { name: 'Automated backups', status: 'AVAILABLE' },
+          { name: 'Persistent storage', status: 'AVAILABLE' }, { name: 'Resource utilisation', status: 'AVAILABLE' },
+          { name: 'Team access', status: 'AVAILABLE' }, { name: 'API access', status: 'AVAILABLE' }
+        ] },
+        { label: 'In beta', note: 'usable, still changing', items: [
+          { name: 'Private networking', status: 'BETA' }, { name: 'Service-to-service calls', status: 'BETA' },
+          { name: 'Monitoring alerts', status: 'BETA' }, { name: 'Webhooks', status: 'BETA' }
+        ] },
+        { label: 'Planned', note: 'not available yet — do not plan around these', items: [
+          { name: 'Preview environments', status: 'PLANNED' }, { name: 'Point-in-time recovery', status: 'ON REQUEST' },
+          { name: 'Multi-region failover', status: 'PLANNED' }, { name: 'Custom SLA terms', status: 'CONTACT US' }
+        ] }
+      ],
+
+      securityItems: [
+        { title: 'Workload isolation', body: 'Every application and database runs in its own fully isolated container with clean resource boundaries. Dedicated plans do not co-tenant CPU.' },
+        { title: 'Secret management', body: 'Environment secrets are encrypted at rest and become write-only after saving. Our upstream infrastructure credentials never reach your browser or your repository.' },
+        { title: 'Encryption', body: 'All traffic is served over HTTPS with certificates issued automatically via Traefik. There are no plaintext endpoints.' },
+        { title: 'Backups', body: 'Managed Postgres is backed up nightly with 7-day retention. Platform configuration is backed up on the same schedule.' },
+        { title: 'Access and tokens', body: 'Sign in with GitHub or Google. API tokens are scoped read-only or full, revocable, with per-resource ownership checks.' },
+        { title: 'Least-privilege deploys', body: 'Repository access uses a single read-only deploy key, requesting only the GitHub scopes needed to build and deploy.' },
+        { title: 'Monitoring and incidents', body: 'Service health is checked continuously and incidents are published to the status page as they are investigated.' },
+        { title: 'Data location', body: 'Compute and storage run in data centres in Germany and Finland, inside the EU. No customer data is processed outside the region without notice.' }
+      ],
+      legalLinks: [
+        { label: 'Privacy Policy', href: '/privacy.html' },
+        { label: 'Data Processing Agreement', href: '/dpa.html' },
+        { label: 'Subprocessor list', href: '/subprocessors' },
+        { label: 'Security overview', href: '/security.html' },
+        { label: 'Live status', href: 'https://status.debutdeploy.com' }
+      ],
+
+      telemetryNote: 'Figures are read directly from platform telemetry and refresh daily. Values shown as — are pending the public telemetry feed; we publish nothing we cannot measure.',
+      metrics: [
+        { value: '—', label: 'Active services' },
+        { value: '—', label: 'Successful deployments' },
+        { value: '—', label: 'Managed databases' },
+        { value: '—', label: 'Measured platform uptime' }
+      ],
+      caseStudies: [
+        { eyebrow: 'Internal case study', quote: 'Marketing Genius runs a web application, background workers, scheduled tasks, AI orchestration and database-backed reporting through DebutDeploy on a single fixed monthly cost.', attribution: 'Marketing Genius · operated by Debut Web Consultants · 4 services · previously metered PaaS', href: '/showcase#marketing-genius', linkLabel: 'Read the case study →' },
+        { eyebrow: 'Internal case study', quote: 'Fully Informed keeps long-running multi-model inference online without cold starts, and pays for memory once rather than per request.', attribution: 'Fully Informed · operated by Debut Web Consultants · 3 services · credit-billed SaaS', href: '/showcase#fully-informed', linkLabel: 'Read the case study →' },
+        { eyebrow: 'Internal case study', quote: 'CryptoPilot holds persistent workers resident around the clock — the workload that gets expensive fastest on usage-metered platforms.', attribution: 'CryptoPilot · private platform · 4 services · always-on workers', href: '/showcase/cryptopilot', linkLabel: 'Read the case study →' }
+      ],
+
+      faqs,
+
+      footerColumns: [
+        { title: 'Product', links: [
+          { label: 'Platform', href: '/platform' }, { label: 'Pricing', href: '#pricing' },
+          { label: 'Managed Postgres', href: '/managed-postgres' }, { label: 'Background Workers', href: '/platform#workers' },
+          { label: 'Migration', href: '/migration' }, { label: 'Roadmap', href: '/roadmap' }
+        ] },
+        { title: 'Resources', links: [
+          { label: 'Documentation', href: 'https://docs.debutdeploy.com' }, { label: 'Deployment guides', href: 'https://docs.debutdeploy.com/guides' },
+          { label: 'API documentation', href: 'https://docs.debutdeploy.com/api' }, { label: 'Status', href: 'https://status.debutdeploy.com' },
+          { label: 'Changelog', href: '/changelog' }, { label: 'Support', href: '/contact.html' }
+        ] },
+        { title: 'Compare', links: [
+          { label: 'Render alternative', href: '/render-alternative' }, { label: 'Railway alternative', href: '/railway-alternative' },
+          { label: 'Heroku alternative', href: '/heroku-alternative' }, { label: 'Fly.io alternative', href: '/flyio-alternative' },
+          { label: 'European PaaS', href: '/european-paas' }
+        ] },
+        { title: 'Company', links: [
+          { label: 'About', href: '/about.html' }, { label: 'Contact', href: '/contact.html' },
+          { label: 'Security', href: '/security.html' }, { label: 'Careers', href: '/careers' }
+        ] },
+        { title: 'Legal', links: [
+          { label: 'Terms of Service', href: '/terms.html' }, { label: 'Privacy Policy', href: '/privacy.html' },
+          { label: 'Data Processing (DPA)', href: '/dpa.html' }, { label: 'Acceptable Use', href: '/acceptable-use.html' },
+          { label: 'SLA', href: '/sla.html' }, { label: 'Subprocessors', href: '/subprocessors' },
+          { label: 'Cookie Policy', href: '/cookies' }
+        ] }
+      ],
+      legalIdentity: 'DebutDeploy is operated by Debut Web Consultants · Company no. [company number] · Registered office [registered address] · VAT no. [VAT number] · Operating jurisdiction: United Kingdom, hosting within the EU'
+    };
+  }
+}
+</script>
+</body>
+</html>

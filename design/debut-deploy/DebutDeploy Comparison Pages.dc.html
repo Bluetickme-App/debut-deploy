@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>DebutDeploy vs Render, Railway, Heroku and Fly.io — dated price comparisons</title>
+<meta name="description" content="Plan-by-plan cost comparisons against Render, Railway, Heroku and Fly.io on equivalent CPU and memory, with sources and the date each figure was checked." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #ffffff; color: #0b0d12; -webkit-font-smoothing: antialiased; }
+  a { color: #2563eb; text-decoration: none; }
+  a:hover { color: #1b4ed1; }
+  h1, h2, h3, h4, p, ul, ol { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 4px; }
+  ::selection { background: #dbe6ff; }
+  @keyframes dd-ring { 0% { transform: scale(1); opacity: 0.6 } 70% { transform: scale(1.34); opacity: 0 } 100% { transform: scale(1.34); opacity: 0 } }
+  @media (max-width: 1140px) {
+    [data-nav] { display: none !important; }
+    [data-hero] { grid-template-columns: minmax(0, 1fr) !important; gap: 40px !important; }
+    h1 { font-size: 42px !important; }
+    [data-grid="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  }
+  @media (max-width: 900px) {
+    [data-wrap] { padding-left: 24px !important; padding-right: 24px !important; padding-top: 72px !important; padding-bottom: 72px !important; }
+    [data-2col] { grid-template-columns: minmax(0, 1fr) !important; }
+    [data-grid="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    h1 { font-size: 34px !important; }
+    h2 { font-size: 27px !important; }
+  }
+  @media (max-width: 700px) {
+    [data-grid], [data-grid="3"], [data-grid="4"] { grid-template-columns: minmax(0, 1fr) !important; }
+    [data-cta] { width: 100% !important; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; } }
+</style>
+</helmet>
+
+<header style="position: sticky; top: 0; z-index: 60; background: rgba(255,255,255,0.9); backdrop-filter: blur(14px); border-bottom: 1px solid #e5e8ee;">
+  <div style="max-width: 1280px; margin: 0 auto; padding: 0 32px; height: 68px; display: flex; align-items: center; gap: 28px;">
+    <a href="DebutDeploy Homepage.dc.html" style="display: flex; align-items: center; gap: 10px; color: #0b0d12; flex: none;">
+      <svg width="34" height="34" viewBox="0 0 64 64" role="img" aria-label="DebutDeploy" overflow="visible" style="flex: none; overflow: visible; filter: drop-shadow(0 3px 9px rgba(37,99,235,0.38));"><defs><linearGradient id="ddg34" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4d7bff"></stop><stop offset="0.55" stop-color="#2563eb"></stop><stop offset="1" stop-color="#1a48cc"></stop></linearGradient></defs><path d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" style="transform-box: fill-box; transform-origin: center; animation: dd-ring 2.8s cubic-bezier(0.25,0.6,0.3,1) infinite;"></path><path d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="url(#ddg34)" stroke="url(#ddg34)" stroke-width="2.2" stroke-linejoin="round"></path><g stroke="#ffffff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.93"><path d="M32 19.5 V14.6 L37.2 9.4"></path><path d="M32 45 V49.9 L26.8 55.1"></path><path d="M21.5 32.4 H13.6"></path><path d="M21.5 25.6 H17.8 L14.4 22.2"></path><path d="M21.5 39.2 H17.8 L14.4 42.6"></path><path d="M43.4 32.4 H50.4"></path><path d="M43.4 25.6 H46.2 L49.6 22.2"></path><path d="M43.4 39.2 H46.2 L49.6 42.6"></path></g><g fill="#ffffff" opacity="0.96"><circle cx="38.4" cy="9.4" r="1.25"></circle><circle cx="25.6" cy="55.1" r="1.25"></circle><circle cx="12.4" cy="32.4" r="1.25"></circle><circle cx="13.2" cy="22.2" r="1.25"></circle><circle cx="13.2" cy="42.6" r="1.25"></circle><circle cx="51.6" cy="32.4" r="1.25"></circle><circle cx="50.8" cy="22.2" r="1.25"></circle><circle cx="50.8" cy="42.6" r="1.25"></circle></g><path d="M21.5 19.5 H31.6 C39.8 19.5 43.4 25.2 43.4 32.5 C43.4 39.8 39.8 45 31.6 45 H21.5 Z M27 24.6 V39.9 H31 C35.2 39.9 37.6 36.9 37.6 32.4 C37.6 27.8 35.2 24.6 31 24.6 Z" fill="#ffffff" fill-rule="evenodd"></path></svg>
+      <span style="font-weight: 800; font-size: 19px; letter-spacing: -0.025em; color: #0b0d12;">Debut<span style="color: #2563eb;">Deploy</span></span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #9aa2ae;">/ compare</span>
+    </a>
+    <nav data-nav="" aria-label="Main" style="display: flex; align-items: center; gap: 4px; margin-left: 8px;">
+      <a href="DebutDeploy Homepage.dc.html#pricing" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">Pricing</a>
+      <a href="DebutDeploy Homepage.dc.html#migrate" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">Migrate</a>
+      <a href="DebutDeploy Homepage.dc.html#security" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">Security</a>
+      <a href="DebutDeploy FAQ.dc.html" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;" style-hover="background: #f2f4f8; color: #0b0d12;">FAQ</a>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none;">
+      <a href="https://app.debutdeploy.com/new" style="padding: 10px 16px; font-size: 14px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 9px;" style-hover="background: #1b4ed1;">Deploy an app</a>
+    </div>
+  </div>
+</header>
+
+<main style="display: block;">
+  <section style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 40px 32px 88px;">
+      <div role="tablist" aria-label="Choose a provider to compare" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 5px; background: #eff2f7; border-radius: 12px; width: fit-content;">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <button type="button" role="tab" aria-selected="{{ t.on }}" onClick="{{ t.select }}" style="padding: 10px 16px; min-height: 44px; border: 0; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 600; background: {{ t.bg }}; color: {{ t.color }};">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      <p style="margin-top: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f;">{{ slug }}</p>
+
+      <div data-hero="" style="margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: start;">
+        <div>
+          <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>{{ eyebrow }}</p>
+          <h1 style="margin-top: 20px; font-size: 54px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">{{ headline }}</h1>
+          <p style="margin-top: 22px; font-size: 18px; line-height: 1.6; color: #4d5661; max-width: 34em; text-wrap: pretty;">{{ intro }}</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px;">
+            <a data-cta="" href="https://app.debutdeploy.com/new" style="padding: 14px 22px; min-height: 48px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 11px; box-shadow: 0 6px 18px -8px rgba(37,99,235,0.7);" style-hover="background: #1b4ed1;">Deploy a test application</a>
+            <a data-cta="" href="DebutDeploy Homepage.dc.html#calculator" style="padding: 14px 22px; min-height: 48px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #0b0d12; background: #fff; border: 1px solid #d8dde6; border-radius: 11px;" style-hover="border-color: #2563eb; color: #2563eb;">Compare my current bill</a>
+          </div>
+          <p style="margin-top: 24px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f; line-height: 1.8;">{{ verified }}</p>
+        </div>
+
+        <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; padding: 26px; box-shadow: 0 26px 54px -34px rgba(11,13,18,0.26);">
+          <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">{{ workloadLabel }}</p>
+          <div style="margin-top: 20px; display: grid; gap: 16px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600; color: #2563eb;">DebutDeploy</span><span style="font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: #15803d;">{{ ourTotal }}</span></div>
+              <div style="height: 10px; border-radius: 999px; background: #eceff4; margin-top: 8px; overflow: hidden;"><div style="height: 10px; border-radius: 999px; background: #2563eb; width: {{ ourBar }};"></div></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600; color: #4d5661;">{{ rival }}</span><span style="font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: #dc2626;">{{ theirTotal }}</span></div>
+              <div style="height: 10px; border-radius: 999px; background: #eceff4; margin-top: 8px; overflow: hidden;"><div style="height: 10px; border-radius: 999px; background: #c3cad6; width: 100%;"></div></div>
+            </div>
+          </div>
+          <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid #eceff4; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="border: 1px solid #d3e0ff; background: #f5f8ff; border-radius: 11px; padding: 14px;">
+              <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">You save / mo</p>
+              <p style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 6px; color: #15803d;">{{ saveMonth }}</p>
+            </div>
+            <div style="border: 1px solid #eceff4; background: #fbfcfe; border-radius: 11px; padding: 14px;">
+              <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Over 12 months</p>
+              <p style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 6px; color: #0b0d12;">{{ saveYear }}</p>
+            </div>
+          </div>
+          <p style="margin-top: 16px; font-size: 12px; color: #8b939f; line-height: 1.6;">{{ workloadNote }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 88px 32px;">
+      <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">The short version</h2>
+      <div data-grid="3" style="margin-top: 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
+        <sc-for list="{{ shortVersion }}" as="sv" hint-placeholder-count="3">
+          <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 24px; background: #fbfcfe;">
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">{{ sv.label }}</p>
+            <h3 style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 12px;">{{ sv.title }}</h3>
+            <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">{{ sv.body }}</p>
+          </article>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-bottom: 1px solid #e5e8ee; background: #f7f9fc;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 88px 32px;">
+      <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">{{ tableHeading }}</h2>
+      <p style="margin-top: 14px; font-size: 16.5px; line-height: 1.6; color: #4d5661; max-width: 46em; text-wrap: pretty;">Plans are matched on CPU and memory, not on marketing tier names. Where a provider has no exact match, the nearest plan that meets the workload is used and the difference is stated.</p>
+      <div style="margin-top: 28px; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 860px;">
+            <thead>
+              <tr style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
+                <th scope="col" style="text-align: left; padding: 14px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Resources</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 13px; font-weight: 700; color: #2563eb;">DebutDeploy</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 13px; font-weight: 600; color: #4d5661;">{{ rival }}</th>
+                <th scope="col" style="text-align: left; padding: 14px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ planRows }}" as="r" hint-placeholder-count="5">
+                <tr style="border-bottom: 1px solid #f2f4f8;">
+                  <th scope="row" style="text-align: left; padding: 15px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 500; color: #2b323c; white-space: nowrap;">{{ r.spec }}</th>
+                  <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">{{ r.ours }}</span> <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8b939f;">{{ r.ourPlan }}</span></td>
+                  <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">{{ r.theirs }}</span> <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8b939f;">{{ r.theirPlan }}</span></td>
+                  <td style="padding: 15px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #1b4ed1;">{{ r.delta }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 18px 22px; background: #fbfcfe; border-top: 1px solid #eceff4;">
+          <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f; line-height: 1.85;">{{ sourceNote }}</p>
+        </div>
+      </div>
+
+      <div data-grid="4" style="margin-top: 20px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+        <sc-for list="{{ lineItems }}" as="li" hint-placeholder-count="4">
+          <div style="border: 1px solid #e5e8ee; border-radius: 13px; background: #fff; padding: 18px;">
+            <p style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">{{ li.label }}</p>
+            <p style="font-size: 14.5px; font-weight: 650; margin-top: 9px; color: #15803d;">{{ li.ours }}</p>
+            <p style="font-size: 13.5px; margin-top: 5px; color: #dc2626;">{{ li.theirs }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 88px 32px;">
+      <div data-2col="" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px;">
+        <div style="border: 1px solid #d3e0ff; background: #f7f9ff; border-radius: 16px; padding: 26px;">
+          <h2 style="font-size: 24px; font-weight: 700; letter-spacing: -0.025em;">{{ sameHeading }}</h2>
+          <ul style="margin-top: 18px; display: grid; gap: 11px;">
+            <sc-for list="{{ staysSame }}" as="x" hint-placeholder-count="6">
+              <li style="display: flex; gap: 10px; font-size: 14.5px; line-height: 1.55; color: #2b323c;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>{{ x }}</span></li>
+            </sc-for>
+          </ul>
+        </div>
+        <div style="border: 1px solid #e5e8ee; background: #fbfcfe; border-radius: 16px; padding: 26px;">
+          <h2 style="font-size: 24px; font-weight: 700; letter-spacing: -0.025em;">{{ betterHeading }}</h2>
+          <p style="margin-top: 10px; font-size: 14px; color: #6c7480; line-height: 1.6;">Stated plainly, because you will find out anyway during a trial.</p>
+          <ul style="margin-top: 18px; display: grid; gap: 11px;">
+            <sc-for list="{{ theyWin }}" as="x" hint-placeholder-count="4">
+              <li style="display: flex; gap: 10px; font-size: 14.5px; line-height: 1.55; color: #2b323c;"><span aria-hidden="true" style="color: #d97706;">→</span><span>{{ x }}</span></li>
+            </sc-for>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-bottom: 1px solid #e5e8ee; background: #f7f9fc;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 88px 32px;">
+      <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">{{ moveHeading }}</h2>
+      <div data-grid="4" style="margin-top: 32px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+        <sc-for list="{{ moveSteps }}" as="m" hint-placeholder-count="4">
+          <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fff;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: #2563eb;">{{ m.num }}</span>
+            <h3 style="font-size: 17px; font-weight: 700; letter-spacing: -0.018em; margin-top: 11px;">{{ m.title }}</h3>
+            <p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">{{ m.body }}</p>
+          </article>
+        </sc-for>
+      </div>
+      <div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px;">
+        <a data-cta="" href="DebutDeploy Homepage.dc.html#migrate" style="padding: 13px 20px; min-height: 46px; display: grid; place-items: center; border-radius: 10px; background: #2563eb; color: #fff; font-size: 14.5px; font-weight: 600;" style-hover="background: #1b4ed1;">Book a migration review</a>
+        <a data-cta="" href="https://docs.debutdeploy.com/migration" style="padding: 13px 20px; min-height: 46px; display: grid; place-items: center; border-radius: 10px; background: #fff; border: 1px solid #d8dde6; color: #0b0d12; font-size: 14.5px; font-weight: 600;" style-hover="border-color: #2563eb; color: #2563eb;">Read the migration guide</a>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap="" style="max-width: 1000px; margin: 0 auto; padding: 88px 32px;">
+      <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">{{ faqHeading }}</h2>
+      <div style="margin-top: 28px; border-top: 1px solid #e5e8ee;">
+        <sc-for list="{{ faqs }}" as="f" hint-placeholder-count="6">
+          <div style="border-bottom: 1px solid #e5e8ee;">
+            <button type="button" aria-expanded="{{ f.open }}" onClick="{{ f.toggle }}" style="width: 100%; text-align: left; background: none; border: 0; cursor: pointer; padding: 19px 4px; display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px;">
+              <span style="font-size: 16px; font-weight: 600; letter-spacing: -0.012em;">{{ f.q }}</span>
+              <span aria-hidden="true" style="font-size: 18px; color: #8b939f; flex: none;">{{ f.sign }}</span>
+            </button>
+            <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+              <p style="padding: 0 56px 20px 4px; font-size: 15px; line-height: 1.65; color: #4d5661; text-wrap: pretty;">{{ f.a }}</p>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <p style="margin-top: 22px; font-size: 14.5px; color: #4d5661;">More operational detail is on the <a href="DebutDeploy FAQ.dc.html" style="font-weight: 600;">full FAQ page</a>.</p>
+    </div>
+  </section>
+
+  <section style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap="" style="max-width: 1000px; margin: 0 auto; padding: 92px 32px; text-align: center;">
+      <h2 style="font-size: 40px; line-height: 1.08; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">{{ ctaHeading }}</h2>
+      <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; max-width: 38em; margin-left: auto; margin-right: auto; text-wrap: pretty;">{{ ctaBody }}</p>
+      <div style="margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
+        <a data-cta="" href="https://app.debutdeploy.com/new" style="padding: 15px 24px; min-height: 48px; display: grid; place-items: center; border-radius: 11px; background: #2563eb; color: #fff; font-size: 15.5px; font-weight: 600;" style-hover="background: #1b4ed1;">Deploy a test application</a>
+        <a data-cta="" href="DebutDeploy Homepage.dc.html#migrate" style="padding: 15px 24px; min-height: 48px; display: grid; place-items: center; border-radius: 11px; background: #fff; border: 1px solid #d8dde6; color: #0b0d12; font-size: 15.5px; font-weight: 600;" style-hover="border-color: #2563eb; color: #2563eb;">Speak to a migration engineer</a>
+      </div>
+      <p style="margin-top: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8b939f;">Keep your existing service online while you evaluate DebutDeploy.</p>
+    </div>
+  </section>
+
+  <footer style="background: #fff;">
+    <div data-wrap="" style="max-width: 1280px; margin: 0 auto; padding: 48px 32px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 18px 32px; justify-content: space-between; align-items: center;">
+        <div style="display: flex; flex-wrap: wrap; gap: 18px;">
+          <a href="DebutDeploy Homepage.dc.html" style="font-size: 13.5px; color: #4d5661;">Home</a>
+          <a href="DebutDeploy Homepage.dc.html#pricing" style="font-size: 13.5px; color: #4d5661;">Pricing</a>
+          <a href="DebutDeploy Landing Pages.dc.html" style="font-size: 13.5px; color: #4d5661;">Platform pages</a>
+          <a href="DebutDeploy FAQ.dc.html" style="font-size: 13.5px; color: #4d5661;">FAQ</a>
+          <a href="/security.html" style="font-size: 13.5px; color: #4d5661;">Security</a>
+          <a href="https://status.debutdeploy.com" style="font-size: 13.5px; color: #4d5661;">Status</a>
+        </div>
+        <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8b939f;">© 2026 DebutDeploy · EU data residency · billed via Stripe</p>
+      </div>
+      <p style="margin-top: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #b3bac5; line-height: 1.8;">Competitor names and trademarks belong to their respective owners. Comparisons use published list pricing on the date stated and are provided for evaluation, not as a warranty of future pricing.</p>
+    </div>
+  </footer>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440}}">
+class Component extends DCLogic {
+  state = { rival: 'render', faq: 0 };
+
+  data() {
+    return {
+      render: {
+        label: 'vs Render', name: 'Render', slug: '/render-alternative',
+        eyebrow: 'DebutDeploy vs Render',
+        headline: "Render's developer experience. Roughly half the bill.",
+        intro: 'Push-to-deploy from Git, managed Postgres, logs and rollbacks — the workflow you already know, on European hardware, with transfer included instead of metered and no per-seat workspace fee.',
+        ourTotal: '$57', theirTotal: '~$104', ourBar: '55%', saveMonth: '$47', saveYear: '$564',
+        workloadLabel: 'One production workload · 2 vCPU / 4 GB + small Postgres + ~100 GB traffic',
+        workloadNote: 'Our figure: Pro Plus compute ($45) + DB Starter ($12). Render: Pro instance ($85) + Postgres Basic-1GB ($19), single seat on the free workspace tier.',
+        verified: 'Verified 24 July 2026 · source render.com/pricing · USD, ex-VAT · shared vs dedicated CPU noted per row',
+        shortVersion: [
+          { label: 'Price', title: 'The same box, 40–51% cheaper', body: 'Every DebutDeploy plan is matched to a Render instance on CPU and memory. The gap widens as the box gets bigger.' },
+          { label: 'Transfer', title: '20 TB included, not metered', body: 'Render includes 500 GB and bills $0.10/GB beyond it. A single busy month of media delivery is where surprise invoices come from.' },
+          { label: 'Seats', title: 'No workspace or per-user fee', body: 'Render charges per user on Professional workspaces. Team members are included on every DebutDeploy plan.' }
+        ],
+        tableHeading: 'Plan for plan against Render',
+        planRows: [
+          { spec: '0.5 vCPU · 512 MB', ours: '$5', ourPlan: 'Hobby', theirs: '$7', theirPlan: 'Starter', delta: '29% less' },
+          { spec: '0.5 vCPU · 1 GB', ours: '$9', ourPlan: 'Starter', theirs: '$10', theirPlan: 'Starter (1 GB)', delta: '10% less' },
+          { spec: '1 vCPU · 2 GB', ours: '$15', ourPlan: 'Pro', theirs: '$25', theirPlan: 'Standard', delta: '40% less' },
+          { spec: '2 vCPU · 4 GB', ours: '$45', ourPlan: 'Pro Plus · dedicated', theirs: '$85', theirPlan: 'Pro', delta: '47% less' },
+          { spec: '4 vCPU · 8 GB', ours: '$85', ourPlan: 'Scale · dedicated', theirs: '$175', theirPlan: 'Pro Plus', delta: '51% less' }
+        ],
+        sourceNote: 'Prices in USD per month, ex-VAT, checked 24 July 2026 against render.com/pricing. Compute only — databases and transfer are listed separately below. DebutDeploy plans at 2 vCPU and above are dedicated CPU; Hobby, Starter and Pro are shared boxes, as are the equivalent Render Starter and Standard instances.',
+        lineItems: [
+          { label: 'Managed Postgres', ours: 'from $5 · DB Starter $12 (1 GB / 10 GB)', theirs: 'Render: from $19 for 1 GB' },
+          { label: 'Outbound transfer', ours: '20 TB included on every plan', theirs: 'Render: 500 GB then $0.10/GB' },
+          { label: 'Team seats', ours: 'included, unlimited members', theirs: 'Render: $19/user on Professional' },
+          { label: 'Cold starts', ours: 'none — services never sleep', theirs: 'Render: free instances sleep' }
+        ],
+        sameHeading: 'What stays exactly the same',
+        staysSame: [
+          'Deploy from a GitHub repository on push to your chosen branch',
+          'Framework auto-detection with editable build and start commands',
+          'Managed Postgres with connection strings and automated backups',
+          'Environment variables, deploy logs, health checks and rollbacks',
+          'Automatic TLS on custom domains you keep control of',
+          'Background workers and cron-style scheduled jobs'
+        ],
+        betterHeading: 'Where Render is still ahead',
+        theyWin: [
+          'US and Asia-Pacific regions — DebutDeploy is EU-only (Germany and Finland)',
+          'Preview environments per pull request are live on Render; ours are planned, not available',
+          'A larger public ecosystem of templates, blueprints and community answers',
+          'Longer public operating history as a platform business'
+        ],
+        moveHeading: 'Moving from Render',
+        faqHeading: 'Render migration questions',
+        faqs: [
+          ['Is this a Render clone?', 'The deployment workflow is deliberately familiar, because that is the part developers do not want to relearn. The infrastructure, regions and commercial model are ours: EU-only hardware, fixed monthly boxes, included transfer and no seat fees.'],
+          ['Will my render.yaml work?', 'It is not read directly. Services, build commands, environment groups and workers map across one-to-one during an assisted migration, and we reproduce the configuration for you before anything is switched.'],
+          ['What about Render Disks and persistent storage?', 'Persistent volumes are supported. Bring the volume size you need and we will size the equivalent disk; data is copied during the validated migration step.'],
+          ['Do you match Render on regions?', 'No. We run Frankfurt and Helsinki only. If you need US or APAC compute, Render is the better fit and we will tell you so.'],
+          ['How does the price gap hold as I grow?', 'It widens: 29% at the smallest box, 47% at 2 vCPU / 4 GB, 51% at 4 vCPU / 8 GB — before transfer and seats, where Render meters and we do not.'],
+          ['Can I run both while I evaluate?', 'Yes, and we recommend it. Deploy the same repository here, compare behaviour and cost for a billing cycle, and only move DNS when you are satisfied.']
+        ],
+        ctaHeading: 'Run the same repo on both. Compare the invoice.',
+        ctaBody: 'Deploy a test application on DebutDeploy while your Render service keeps serving traffic. No migration, no DNS change, no commitment.'
+      },
+
+      railway: {
+        label: 'vs Railway', name: 'Railway', slug: '/railway-alternative',
+        eyebrow: 'DebutDeploy vs Railway',
+        headline: 'A fixed monthly box instead of a usage meter.',
+        intro: 'Railway bills vCPU, memory and egress by consumption, so the invoice is only knowable after the fact. DebutDeploy sells you a defined box at a defined price — the same number every month, whatever your traffic does.',
+        ourTotal: '$57', theirTotal: '~$115 *', ourBar: '50%', saveMonth: '~$58', saveYear: '~$696',
+        workloadLabel: 'One production workload · 2 vCPU / 4 GB always-on + Postgres + ~100 GB traffic',
+        workloadNote: 'Railway figure computed always-on from published usage rates plus one Pro seat and 100 GB egress, and marked indicative (*) — actual usage-based bills vary with load.',
+        verified: 'Verified 24 July 2026 · source railway.com/pricing · USD, ex-VAT · usage-based figures are computed, not quoted',
+        shortVersion: [
+          { label: 'Predictability', title: 'A price you can budget', body: 'No vCPU-minute or GB-hour arithmetic. Choose CPU and memory, pay that amount monthly, and read the invoice before the month rather than after it.' },
+          { label: 'Egress', title: '20 TB included vs per-GB billing', body: 'Railway charges for outbound transfer per gigabyte. On media-heavy or API-heavy apps this is frequently the largest single line.' },
+          { label: 'Seats', title: 'Seats are free here', body: 'Railway bills per member on Pro. Every DebutDeploy plan includes unlimited team members.' }
+        ],
+        tableHeading: 'Fixed box versus metered usage',
+        planRows: [
+          { spec: '0.5 vCPU · 512 MB', ours: '$5', ourPlan: 'Hobby · fixed', theirs: '~$15 *', theirPlan: 'metered, always-on', delta: 'fixed vs metered' },
+          { spec: '1 vCPU · 2 GB', ours: '$15', ourPlan: 'Pro · fixed', theirs: '~$40 *', theirPlan: 'metered, always-on', delta: 'fixed vs metered' },
+          { spec: '2 vCPU · 4 GB', ours: '$45', ourPlan: 'Pro Plus · dedicated', theirs: '~$80 *', theirPlan: 'metered, always-on', delta: 'fixed vs metered' },
+          { spec: '4 vCPU · 8 GB', ours: '$85', ourPlan: 'Scale · dedicated', theirs: '~$160 *', theirPlan: 'metered, always-on', delta: 'fixed vs metered' },
+          { spec: 'Team seat', ours: '$0', ourPlan: 'included', theirs: '$20', theirPlan: 'per member, Pro', delta: '100% less' }
+        ],
+        sourceNote: 'Railway figures (*) are computed from published per-vCPU and per-GB usage rates for a service running continuously for one month, plus the applicable seat, and are indicative only — Railway does not publish a flat monthly price for a given box. Checked 24 July 2026 against railway.com/pricing. USD, ex-VAT.',
+        lineItems: [
+          { label: 'Billing model', ours: 'fixed monthly per service', theirs: 'Railway: usage-metered, post-billed' },
+          { label: 'Outbound transfer', ours: '20 TB included', theirs: 'Railway: billed per GB' },
+          { label: 'CPU', ours: 'dedicated at 2 vCPU and above', theirs: 'Railway: shared vCPU allocation' },
+          { label: 'Managed Postgres', ours: 'fixed from $5/mo', theirs: 'Railway: metered CPU, RAM and disk' }
+        ],
+        sameHeading: 'What you keep',
+        staysSame: [
+          'Deploy from GitHub on push, with build logs you can read',
+          'Dockerfile builds as well as automatic language detection',
+          'Managed Postgres provisioned in a couple of clicks',
+          'Background workers and scheduled jobs that stay resident',
+          'Environment variables, private service networking and health checks',
+          'Custom domains with certificates issued automatically'
+        ],
+        betterHeading: 'Where Railway is still ahead',
+        theyWin: [
+          'Scale-to-zero economics for genuinely idle side projects — a metered platform can be cheaper than any fixed box there',
+          'A wider template marketplace and one-click service catalogue',
+          'Multi-region deployment options beyond the EU',
+          'Fine-grained autoscaling on burst traffic without changing plan'
+        ],
+        moveHeading: 'Moving from Railway',
+        faqHeading: 'Railway migration questions',
+        faqs: [
+          ['Why is your comparison marked indicative?', 'Because Railway does not publish a flat price for "2 vCPU / 4 GB always-on". We compute it from their published usage rates for a month of continuous running and label it with an asterisk rather than presenting it as a quoted price.'],
+          ['My Railway bill swings month to month. Will yours?', 'No. The compute line is the same every month. Only deliberate changes — adding a service, resizing a box, adding a database — change it.'],
+          ['Does DebutDeploy scale to zero?', 'No, by design: services stay resident so there are no cold starts. If your workload is genuinely idle most of the month, a metered platform may cost less and we will say so.'],
+          ['Can I move my Railway Postgres?', 'Yes. We agree a migration plan, restore a dump into managed Postgres here, validate connectivity and application behaviour, then cut over with a rollback route retained.'],
+          ['What about private networking between services?', 'Service-to-service private networking is available in beta. If your architecture depends on it, tell us during the migration review and we will confirm your case.'],
+          ['Do you charge for build minutes?', 'No. Builds and deployments are part of the plan; there is no per-build or per-minute charge.']
+        ],
+        ctaHeading: 'Trade the meter for a number you can plan around.',
+        ctaBody: 'Deploy one service here for a billing cycle and compare it against the same workload on Railway. Your existing project stays untouched.'
+      },
+
+      heroku: {
+        label: 'vs Heroku', name: 'Heroku', slug: '/heroku-alternative',
+        eyebrow: 'DebutDeploy vs Heroku',
+        headline: 'The Heroku workflow, at a fraction of the dyno price.',
+        intro: 'Git deploys, managed Postgres and no server administration — the model Heroku defined — on current European hardware, with memory that is not rationed at 512 MB and databases that are not priced as premium add-ons.',
+        ourTotal: '$57', theirTotal: '~$259', ourBar: '22%', saveMonth: '~$202', saveYear: '~$2,424',
+        workloadLabel: 'One production workload · ~2 vCPU / 4 GB + production Postgres + ~100 GB traffic',
+        workloadNote: 'Heroku figure: Performance-M dyno ($250) plus Postgres Standard-0 ($50) is the nearest tier meeting the workload; Standard-2X ($50) offers only 1 GB RAM. Figures rounded from published list rates.',
+        verified: 'Verified 24 July 2026 · source heroku.com/pricing · USD, ex-VAT · dyno tiers matched on memory',
+        shortVersion: [
+          { label: 'Price', title: 'Dyno pricing has not aged well', body: 'Heroku charges premium rates for modest memory. The same 4 GB of RAM costs a small fraction here.' },
+          { label: 'Memory', title: 'No 512 MB ceiling', body: 'Standard dynos cap at 1 GB before a large jump to Performance tiers. Our plans step 512 MB → 1 → 2 → 4 → 8 GB at linear prices.' },
+          { label: 'Database', title: 'Postgres is not an add-on tax', body: 'Managed Postgres starts at $5/mo with nightly backups included rather than being priced as a separate premium product.' }
+        ],
+        tableHeading: 'Dyno for box against Heroku',
+        planRows: [
+          { spec: '0.5 vCPU · 512 MB', ours: '$5', ourPlan: 'Hobby', theirs: '$7', theirPlan: 'Eco/Basic dyno', delta: '29% less' },
+          { spec: '~1 vCPU · 1 GB', ours: '$9', ourPlan: 'Starter', theirs: '$50', theirPlan: 'Standard-2X', delta: '82% less' },
+          { spec: '~2 vCPU · 2.5–4 GB', ours: '$45', ourPlan: 'Pro Plus · dedicated', theirs: '$250', theirPlan: 'Performance-M', delta: '82% less' },
+          { spec: 'Production Postgres', ours: '$12', ourPlan: 'DB Starter · 10 GB', theirs: '$50', theirPlan: 'Standard-0', delta: '76% less' },
+          { spec: 'Outbound transfer', ours: '$0', ourPlan: '20 TB included', theirs: 'n/a', theirPlan: 'no published egress fee', delta: 'comparable' }
+        ],
+        sourceNote: 'Prices in USD per month, ex-VAT, checked 24 July 2026 against heroku.com/pricing. Dyno tiers are matched on available memory rather than tier name; Heroku does not publish vCPU counts per dyno in the same terms, so CPU equivalence is approximate and stated as such.',
+        lineItems: [
+          { label: 'Managed Postgres', ours: 'from $5, nightly backups', theirs: 'Heroku: Standard-0 from $50' },
+          { label: 'Sleeping services', ours: 'never sleep', theirs: 'Heroku: Eco dynos sleep' },
+          { label: 'Region', ours: 'Germany and Finland (EU)', theirs: 'Heroku: US and EU regions' },
+          { label: 'Add-on model', ours: 'no add-on marketplace markup', theirs: 'Heroku: paid add-ons per service' }
+        ],
+        sameHeading: 'What carries over',
+        staysSame: [
+          'Git-based deploys with a build step and release logs',
+          'Managed Postgres with credentials injected as environment variables',
+          'Config vars map directly to environment variables',
+          'Worker processes for queues and background jobs',
+          'Scheduled jobs replacing Heroku Scheduler',
+          'Rollback to the previous release after a bad deploy'
+        ],
+        betterHeading: 'Where Heroku is still ahead',
+        theyWin: [
+          'A mature add-on marketplace with dozens of one-click managed services',
+          'Long-standing enterprise procurement, compliance paperwork and support contracts',
+          'Salesforce ecosystem integration if that is part of your stack',
+          'Buildpack ecosystem breadth for unusual runtimes'
+        ],
+        moveHeading: 'Moving from Heroku',
+        faqHeading: 'Heroku migration questions',
+        faqs: [
+          ['Do buildpacks work here?', 'Not directly. Most Heroku applications build cleanly from automatic language detection or a Dockerfile. Unusual buildpacks are the one case worth checking in a migration review first.'],
+          ['What happens to my config vars?', 'They become environment variables, encrypted at rest and write-only after saving. We never ask you to send secrets by email.'],
+          ['Can you move Heroku Postgres?', 'Yes — a pg_dump restore into managed Postgres, validated before any DNS change. Large databases get a scheduled short write-freeze window rather than a vague promise of zero downtime.'],
+          ['Is there an equivalent of Heroku Scheduler?', 'Yes. Scheduled jobs run on a cron expression per service, with logs in the same place as your deploys.'],
+          ['Do you support review apps?', 'Not yet — preview environments are planned and not available. If review apps are central to your workflow, that is a genuine gap today.'],
+          ['We are on an enterprise Heroku contract. Can you match it?', 'Custom terms, larger boxes and specific SLA language are handled case by case. Speak to us rather than assuming the published plans are the ceiling.']
+        ],
+        ctaHeading: 'Deploy one dyno-equivalent and compare.',
+        ctaBody: 'Bring one service across, run it beside your Heroku app for a cycle, and look at both invoices before you decide anything.'
+      },
+
+      flyio: {
+        label: 'vs Fly.io', name: 'Fly.io', slug: '/flyio-alternative',
+        eyebrow: 'DebutDeploy vs Fly.io',
+        headline: 'Managed deployment instead of infrastructure homework.',
+        intro: 'Fly.io gives you machines, a global network and a CLI to orchestrate them. DebutDeploy gives you a control panel that runs the service for you — one region, fixed pricing, and no fly.toml to maintain.',
+        ourTotal: '$57', theirTotal: '~$105 *', ourBar: '54%', saveMonth: '~$48', saveYear: '~$576',
+        workloadLabel: 'One production workload · 2 vCPU / 4 GB always-on + managed Postgres + ~100 GB traffic',
+        workloadNote: 'Fly.io figure computed from published performance-2x machine rates running continuously, plus a managed Postgres equivalent and 100 GB egress at $0.02/GB. Marked indicative (*).',
+        verified: 'Verified 24 July 2026 · source fly.io/docs/about/pricing · USD, ex-VAT · computed always-on',
+        shortVersion: [
+          { label: 'Operating model', title: 'A panel, not a CLI and a config file', body: 'No fly.toml, no machine lifecycle to reason about. Connect a repo, set variables, deploy — and read logs and health in one place.' },
+          { label: 'Price', title: 'Around half, computed always-on', body: 'For a service that runs continuously, the fixed box is cheaper than metered machines plus volumes plus egress.' },
+          { label: 'Databases', title: 'Managed, not self-operated', body: 'Postgres here is a managed service with nightly backups, rather than a Postgres app you are responsible for running.' }
+        ],
+        tableHeading: 'Machines versus a managed box',
+        planRows: [
+          { spec: '1 vCPU · 2 GB', ours: '$15', ourPlan: 'Pro · fixed', theirs: '~$32 *', theirPlan: 'shared-cpu machine, always-on', delta: 'fixed vs metered' },
+          { spec: '2 vCPU · 4 GB', ours: '$45', ourPlan: 'Pro Plus · dedicated', theirs: '~$62 *', theirPlan: 'performance-2x, always-on', delta: 'fixed vs metered' },
+          { spec: '4 vCPU · 8 GB', ours: '$85', ourPlan: 'Scale · dedicated', theirs: '~$124 *', theirPlan: 'performance-4x, always-on', delta: 'fixed vs metered' },
+          { spec: 'Postgres', ours: '$12', ourPlan: 'DB Starter, managed', theirs: '~$30 *', theirPlan: 'machine + volume, self-run', delta: 'managed vs self-run' },
+          { spec: '100 GB egress', ours: '$0', ourPlan: 'inside 20 TB', theirs: '~$2', theirPlan: '$0.02/GB', delta: 'included' }
+        ],
+        sourceNote: 'Fly.io figures (*) are computed from published machine and volume rates for continuous monthly running and are indicative; Fly.io bills by the second, so an app that idles or scales to zero will cost less than shown. Checked 24 July 2026 against fly.io/docs/about/pricing. USD, ex-VAT.',
+        lineItems: [
+          { label: 'Configuration', ours: 'panel-driven, no config file', theirs: 'Fly.io: fly.toml + flyctl' },
+          { label: 'Postgres', ours: 'managed with nightly backups', theirs: 'Fly.io: you operate the cluster' },
+          { label: 'Egress', ours: '20 TB included', theirs: 'Fly.io: $0.02/GB' },
+          { label: 'Regions', ours: 'Germany and Finland', theirs: 'Fly.io: global edge regions' }
+        ],
+        sameHeading: 'What you keep',
+        staysSame: [
+          'Dockerfile-based deploys, exactly as you build them today',
+          'Deploy from Git on push instead of running a CLI command',
+          'Persistent volumes for services that need disk',
+          'Private networking between your own services (beta)',
+          'Health checks with automatic rollback on failure',
+          'Logs and resource metrics without adding an external vendor'
+        ],
+        betterHeading: 'Where Fly.io is still ahead',
+        theyWin: [
+          'Global anycast deployment across many regions — we run two EU regions only',
+          'Per-second billing and scale-to-zero for spiky or idle workloads',
+          'Low-level machine control, GPU options and edge placement',
+          'Multi-region Postgres read replicas for latency-sensitive reads'
+        ],
+        moveHeading: 'Moving from Fly.io',
+        faqHeading: 'Fly.io migration questions',
+        faqs: [
+          ['Will my Dockerfile work unchanged?', 'Almost always, yes. We build the same image; what changes is that the platform manages placement, TLS, health and restarts rather than you describing them in fly.toml.'],
+          ['Do you support multiple regions?', 'No. Two EU regions — Frankfurt and Helsinki. If you serve a genuinely global audience from the edge, Fly.io remains the better tool.'],
+          ['What about my Fly Postgres cluster?', 'It becomes a managed Postgres instance here: we restore a dump, validate it, and take over backups. You stop being the DBA for it.'],
+          ['Can I keep scale-to-zero behaviour?', 'No — services stay resident. That is the trade for having no cold starts, and it is why the fixed price is predictable.'],
+          ['Is per-second billing available?', 'No. Billing is monthly per service. For always-on workloads that works out cheaper; for intermittent ones it may not.'],
+          ['How do you handle volumes?', 'Persistent disks are supported and sized per service; data is copied and verified during the migration step before any traffic moves.']
+        ],
+        ctaHeading: 'Hand the machine management back.',
+        ctaBody: 'Deploy the same image here and see whether a managed EU box covers what your Fly machines are doing today.'
+      }
+    };
+  }
+
+  renderVals() {
+    const all = this.data();
+    const key = this.state.rival;
+    const d = all[key];
+    const order = ['render', 'railway', 'heroku', 'flyio'];
+
+    const tabs = order.map(k => ({
+      label: all[k].label, on: k === key,
+      bg: k === key ? '#0b0d12' : 'transparent',
+      color: k === key ? '#ffffff' : '#4d5661',
+      select: () => this.setState({ rival: k, faq: 0 })
+    }));
+
+    const faqs = d.faqs.map((f, i) => ({
+      q: f[0], a: f[1], open: this.state.faq === i, sign: this.state.faq === i ? '−' : '+',
+      toggle: () => this.setState({ faq: this.state.faq === i ? null : i })
+    }));
+
+    const moveSteps = [
+      { num: '01', title: 'Review', body: 'We list your services, databases, variables, volumes, domains and workers on ' + d.name + ' and flag anything that needs a decision.' },
+      { num: '02', title: 'Reproduce', body: 'Equivalent DebutDeploy services are configured and built, and the output is compared against your current deployment.' },
+      { num: '03', title: 'Validate', body: 'Application behaviour, database connectivity and performance are tested while ' + d.name + ' keeps serving live traffic.' },
+      { num: '04', title: 'Switch', body: 'DNS moves only once you sign off, with the ' + d.name + ' service kept warm as a rollback route.' }
+    ];
+
+    return {
+      tabs, faqs, moveSteps,
+      slug: d.slug,
+      rival: d.name,
+      eyebrow: d.eyebrow,
+      headline: d.headline,
+      intro: d.intro,
+      verified: d.verified,
+      workloadLabel: d.workloadLabel,
+      workloadNote: d.workloadNote,
+      ourTotal: d.ourTotal, theirTotal: d.theirTotal, ourBar: d.ourBar,
+      saveMonth: d.saveMonth, saveYear: d.saveYear,
+      shortVersion: d.shortVersion,
+      tableHeading: d.tableHeading,
+      planRows: d.planRows,
+      sourceNote: d.sourceNote,
+      lineItems: d.lineItems,
+      sameHeading: d.sameHeading,
+      staysSame: d.staysSame,
+      betterHeading: d.betterHeading,
+      theyWin: d.theyWin,
+      moveHeading: d.moveHeading,
+      faqHeading: d.faqHeading,
+      ctaHeading: d.ctaHeading,
+      ctaBody: d.ctaBody
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,11 +1,25 @@
 import { useEffect, useState } from "react";
-import { Cpu, MemoryStick, HardDrive, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Cpu, MemoryStick, HardDrive, RefreshCw, ExternalLink, Database, ChevronRight } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Button, Card, PageHeader, Spinner, StatusPill } from "../components/ui.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import { fmtMinor } from "../lib/money.js";
 
 const gb = (b) => (b == null ? "—" : `${(b / 1e9).toFixed(1)} GB`);
 const barColor = (v) => (v > 90 ? "var(--err)" : v > 75 ? "var(--warn)" : "var(--ok)");
+
+// Fleet-level counters. Leads with the numbers so the page answers "is anything wrong?"
+// before you start reading rows.
+function Stat({ label, value, sub, tone }) {
+  return (
+    <Card>
+      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</div>
+      <div className="mt-1 text-2xl font-bold" style={{ color: tone || "var(--text)" }}>{value}</div>
+      {sub && <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>{sub}</div>}
+    </Card>
+  );
+}
 
 function Gauge({ icon: Icon, label, pct, sub }) {
   return (
@@ -104,6 +118,25 @@ export default function Fleet() {
         <div className="flex h-40 items-center justify-center gap-2" style={{ color: "var(--text-muted)" }}><Spinner /> Loading…</div>
       ) : (
         <>
+          {data.totals && (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+              <Stat label="Services" value={data.totals.sites} sub={`across ${data.totals.hosts || 1} host${data.totals.hosts === 1 ? "" : "s"}`} />
+              <Stat label="Running" value={data.totals.running} tone="var(--ok)" sub={data.totals.notRunning ? `${data.totals.notRunning} not running` : "all up"} />
+              <Stat
+                label="Unhealthy"
+                value={data.totals.unhealthy}
+                tone={data.totals.unhealthy ? "var(--err)" : "var(--ok)"}
+                sub={data.totals.unhealthy ? "needs attention" : "none"}
+              />
+              <Stat
+                label="Attached storage"
+                value={`${data.totals.attachedDiskGb} GB`}
+                sub={`${fmtMinor(data.totals.attachedDiskMonthlyPence, "gbp")}/mo billed`}
+              />
+              <Stat label="Container disk" value={gb(data.totals.containerDiskBytes)} sub="images + writable layers" />
+            </div>
+          )}
+
           {hosts.map((h) => (
             <div key={h.name}>
               <div className="mb-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{hostLabel(h.name)}</div>
@@ -121,18 +154,61 @@ export default function Fleet() {
               <thead>
                 <tr style={{ color: "var(--text-muted)" }} className="text-left text-xs">
                   <th className="p-2">Site</th><th className="p-2">Status</th><th className="p-2">CPU</th>
-                  <th className="p-2">Memory</th><th className="p-2">Disk</th><th className="p-2"></th>
+                  <th className="p-2">Memory</th><th className="p-2">Container disk</th>
+                  <th className="p-2">Attached storage</th><th className="p-2"></th>
                 </tr>
               </thead>
               <tbody>
                 {/* ponytail: sort by disk desc — highest consumers first */}
                 {[...data.sites].sort((a, b) => (b.disk_bytes || 0) - (a.disk_bytes || 0)).map((s) => (
                   <tr key={s.uuid} style={{ borderTop: "1px solid var(--surface-2)" }}>
-                    <td className="p-2" style={{ color: "var(--text)" }}>{s.name || s.uuid}</td>
+                    <td className="p-2">
+                      {/* Straight through to the service's management page — the fleet view is
+                          where you notice a problem, so it should also be where you act on it. */}
+                      <Link
+                        to={`/services/${s.uuid}`}
+                        className="inline-flex items-center gap-1 hover:underline"
+                        style={{ color: "var(--text)", fontWeight: 500 }}
+                        title="Open this service's settings, logs and deploys"
+                      >
+                        {s.name || s.uuid}
+                        <ChevronRight className="h-3.5 w-3.5" style={{ color: "var(--text-muted)" }} />
+                      </Link>
+                      {s.domain && (
+                        <a
+                          href={`https://${s.domain}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ml-2 inline-flex items-center gap-1 text-xs hover:underline"
+                          style={{ color: "var(--text-muted)" }}
+                          title="Open the live site"
+                        >
+                          <ExternalLink className="h-3 w-3" />{s.domain}
+                        </a>
+                      )}
+                    </td>
                     <td className="p-2">{s.status ? <StatusPill status={s.status} /> : "—"}</td>
                     <td className="p-2">{s.cpu_pct != null ? `${s.cpu_pct}%` : "—"}</td>
                     <td className="p-2">{gb(s.mem_bytes)}{s.mem_pct != null ? ` (${s.mem_pct}%)` : ""}</td>
                     <td className="p-2">{gb(s.disk_bytes)}</td>
+                    <td className="p-2">
+                      {s.diskGb > 0 ? (
+                        <span
+                          className="inline-flex items-center gap-1"
+                          style={{ color: "var(--text)" }}
+                          title={s.disks.map((d) => `${d.mountPath} — ${d.sizeGb} GB`).join("\n")}
+                        >
+                          <Database className="h-3.5 w-3.5" style={{ color: "var(--text-muted)" }} />
+                          {s.diskGb} GB
+                          <span style={{ color: "var(--text-muted)" }}>
+                            · {fmtMinor(s.diskMonthlyPence, "gbp")}/mo
+                            {s.disks.length > 1 ? ` · ${s.disks.length} disks` : ""}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)" }}>none</span>
+                      )}
+                    </td>
                     <td className="p-2 text-right">
                       <Button variant="ghost" disabled={busy === s.uuid} onClick={() => restart(s.uuid)}>
                         {busy === s.uuid ? <Spinner /> : <RefreshCw className="h-3.5 w-3.5" />} Restart

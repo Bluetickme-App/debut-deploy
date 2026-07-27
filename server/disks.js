@@ -52,6 +52,14 @@ export const listDisksForOrg = (orgId) =>
       "FROM service_disks WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at"
   ).all(orgId);
 
+// Every attached disk across the fleet, for the Fleet page's storage column. One query
+// rather than N — the caller groups by coolify_uuid.
+export const listActiveDisks = () =>
+  db.prepare(
+    "SELECT coolify_uuid, volume_uuid, mount_path, size_gb FROM service_disks " +
+      "WHERE deleted_at IS NULL ORDER BY coolify_uuid, created_at"
+  ).all();
+
 // Backfill the owning org on disks recorded before ownership was known (defensive:
 // keeps an unowned disk from silently billing nobody forever).
 export function claimOrphanDisks(appUuid, orgId) {

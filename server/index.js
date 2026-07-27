@@ -119,7 +119,7 @@ import { evaluateSituations, reconcileSituations, collectSituationInputs, listSi
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
 import { buildProjectDetail } from "./projectview.js";
-import { renderStatusHtml } from "./status.js";
+import { renderStatusHtml, buildHistory, uptimePct, worst } from "./status.js";
 import * as mailreset from "./mailreset.js";
 import * as mailer from "./mailer.js";
 import { renderForgotPage, renderResetPage } from "./mailresetpage.js";
@@ -293,58 +293,78 @@ app.get("/api/health", (_req, res) =>
 // registered below. Overall status = the worst of the live component checks.
 // buildStatus never throws — a status page that 500s is worse than useless.
 async function buildStatus() {
-  const RANK = { operational: 0, degraded: 1, unknown: 2, outage: 3 };
-  // Platform infrastructure only — NOT individual customer apps. A customer
-  // stopping their own service is not a DebutDeploy incident, so nothing here
-  // rolls up per-app running state.
+  // PUBLIC PAGE. Components are named for the CAPABILITY a customer loses, never for
+  // the software or vendor behind it, and no note carries a count of servers, hosts or
+  // customers — that tells a stranger the size and weak point of the estate. See the
+  // rules at the top of status.js before adding a row here.
+  //
+  // Platform infrastructure only — NOT individual customer apps. A customer stopping
+  // their own service is not a DebutDeploy incident.
   const components = [
-    // This handler is running, so the panel API is up by definition.
-    { name: "Control Panel API", status: "operational", note: "Dashboard & API" },
+    // This handler is running, so the dashboard/API is up by definition.
+    { name: "Dashboard & API", status: "operational", note: "Control panel and public API" },
   ];
 
-  // One live Coolify fetch backs both the orchestrator-API row and the servers row.
+  // One live fetch backs both the deployment row and the hosting row.
   let servers = null;
   try {
     servers = await Promise.race([
       coolify.listServers(),
       new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
     ]);
-  } catch { /* servers stays null → Coolify unreachable */ }
+  } catch { /* servers stays null → deployment control plane unreachable */ }
 
   components.push({
-    name: "Coolify Orchestrator",
+    name: "Builds & Deployments",
     status: servers ? "operational" : "outage",
-    note: "Deployment API",
+    note: "Building and releasing your services",
   });
 
   if (servers) {
-    // Every registered server counts — an attached host that's unreachable (incl.
-    // a customer's own server) is a real degradation, not something to hide.
+    // Reported as a PROPORTION, never as "n/m reachable".
     const total = servers.length;
     const reachable = servers.filter((s) => s.reachable !== false).length;
     const critical = servers.filter((s) => (s.disk ?? 0) >= 90 || (s.memory ?? 0) >= 90).length;
     components.push({
-      name: "Servers",
+      name: "Hosting Infrastructure",
       status: total === 0 ? "unknown"
         : reachable === 0 ? "outage"
         : reachable < total || critical > 0 ? "degraded"
         : "operational",
-      note: total
-        ? `${reachable}/${total} reachable${critical ? ` · ${critical} resource-critical` : ""}`
-        : "no servers",
+      note: "Compute, storage and networking",
     });
   } else {
-    components.push({ name: "Servers", status: "unknown", note: "orchestrator unreachable" });
+    components.push({ name: "Hosting Infrastructure", status: "unknown", note: "Compute, storage and networking" });
   }
 
-  // Platform data store (the panel's own DB) — a running API with an unreachable
-  // store is still an outage, so probe it directly.
+  // Platform data store — a running API with an unreachable store is still an outage.
   let dbOk = true;
   try { db.prepare("SELECT 1").get(); } catch { dbOk = false; }
-  components.push({ name: "Database", status: dbOk ? "operational" : "outage", note: "Control-plane store" });
+  components.push({ name: "Platform Data", status: dbOk ? "operational" : "outage", note: "Account, project and billing records" });
 
-  const overall = components.reduce((w, c) => (RANK[c.status] > RANK[w] ? c.status : w), "operational");
-  return { overall, components, mode: demoMode ? "demo" : "live", checkedAt: Date.now() };
+  // 90-day history + incident log, derived from the situation record. buildHistory maps
+  // internal situation types onto these public component names and drops anything
+  // unmapped, so a new alert type can't leak its raw wording onto a public page.
+  let situationRows = [];
+  try {
+    situationRows = listSituations({ includeResolved: true }).map((s) => ({
+      type: s.type, severity: s.severity, opened_at: s.opened_at, resolved_at: s.resolved_at,
+    }));
+  } catch { /* history is a nice-to-have; the live status must still render */ }
+
+  const { history, incidents } = buildHistory(situationRows, {
+    componentNames: components.map((c) => c.name),
+  });
+
+  for (const c of components) {
+    c.history = history[c.name] || [];
+    c.uptime = uptimePct(c.history);
+    // Today's live check is authoritative — it outranks a stale row in the log.
+    if (c.history.length) c.history[c.history.length - 1].status = c.status;
+  }
+
+  const overall = components.reduce((w, c) => worst(w, c.status), "operational");
+  return { overall, components, incidents, checkedAt: Date.now() };
 }
 
 async function serveStatus(res) {
@@ -555,7 +575,41 @@ app.get(
     // enrich uuids with names/status from the services list (falls back gracefully if Coolify unavailable)
     const svcs = await coolify.listServices().then((all) => filterByOwnership(all, req.user, "application")).catch(() => []);
     const byId = Object.fromEntries(svcs.map((s) => [s.uuid, s]));
-    o.sites = o.sites.map((s) => ({ ...s, name: byId[s.uuid]?.name || s.uuid, status: byId[s.uuid]?.status, health: byId[s.uuid]?.health }));
+
+    // Attached persistent disks per service — the storage a site is actually BILLED for,
+    // which container disk usage (disk_bytes) doesn't show: that's the image+writable layer,
+    // not the volume mounted into it.
+    const disksByApp = {};
+    for (const d of disks.listActiveDisks()) (disksByApp[d.coolify_uuid] ||= []).push(d);
+
+    o.sites = o.sites.map((s) => {
+      const attached = disksByApp[s.uuid] || [];
+      const gb = attached.reduce((n, d) => n + d.size_gb, 0);
+      return {
+        ...s,
+        name: byId[s.uuid]?.name || s.uuid,
+        status: byId[s.uuid]?.status,
+        health: byId[s.uuid]?.health,
+        server: byId[s.uuid]?.server ?? null,   // which host it runs on (multi-host fleet)
+        domain: byId[s.uuid]?.domain ?? null,   // so the row can link to the live site
+        disks: attached.map((d) => ({ mountPath: d.mount_path, sizeGb: d.size_gb })),
+        diskGb: gb,
+        diskMonthlyPence: diskPencePerGb() * gb,
+      };
+    });
+
+    // Fleet-level rollup so the page leads with the numbers instead of making you count rows.
+    const running = o.sites.filter((s) => String(s.status || "").startsWith("running")).length;
+    o.totals = {
+      sites: o.sites.length,
+      running,
+      notRunning: o.sites.length - running,
+      unhealthy: o.sites.filter((s) => s.health && s.health !== "healthy").length,
+      hosts: (o.hosts || []).length,
+      attachedDiskGb: o.sites.reduce((n, s) => n + s.diskGb, 0),
+      attachedDiskMonthlyPence: o.sites.reduce((n, s) => n + s.diskMonthlyPence, 0),
+      containerDiskBytes: o.sites.reduce((n, s) => n + (s.disk_bytes || 0), 0),
+    };
     return o;
   })
 );

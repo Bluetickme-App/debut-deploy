@@ -1,0 +1,479 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - link "Skip to content" [ref=e4] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=e5]:
+      - generic [ref=e7]:
+        - link "Debut Web Consultants — home" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Debut Web Consultants" [ref=e9]
+        - navigation [ref=e10]:
+          - button "Services" [ref=e12] [cursor=pointer]
+          - link "Live Demos" [ref=e16] [cursor=pointer]:
+            - /url: /demos/audi-london
+          - link "Industries" [ref=e18] [cursor=pointer]:
+            - /url: /industries
+          - link "Marketing" [ref=e19] [cursor=pointer]:
+            - /url: /services/debut-web-marketing
+          - link "AI Solutions" [ref=e20] [cursor=pointer]:
+            - /url: /projects
+          - link "Pricing" [ref=e21] [cursor=pointer]:
+            - /url: /pricing
+          - link "About" [ref=e22] [cursor=pointer]:
+            - /url: /about
+          - link "Contact" [ref=e23] [cursor=pointer]:
+            - /url: /contact
+          - link "Marketing Genius" [ref=e24] [cursor=pointer]:
+            - /url: https://marketing.debutwebconsultants.co.uk
+          - link "Book a call" [ref=e28] [cursor=pointer]:
+            - /url: /quiz
+    - main [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - generic [ref=e36]:
+              - generic [ref=e37]: AI systems · built in Manchester · shipped UK-wide
+              - heading "We advise. We architect. We ship." [level=1] [ref=e38]: We advise.We architect.We ship.
+              - paragraph [ref=e39]: Debut Web Consultants designs and deploys production AI — the agents, automations and systems your business actually runs on. Not pilots that stall in a slide deck. Working software, in your stack, earning its keep.
+              - generic [ref=e40]:
+                - link "Book a discovery call" [ref=e41] [cursor=pointer]:
+                  - /url: /quiz
+                - link "See it working" [ref=e44] [cursor=pointer]:
+                  - /url: "#build"
+              - paragraph [ref=e46]: Production systems shipped acrossfitness · hospitality · fintech · automotive · the creator economy
+            - generic [ref=e49]:
+              - generic [ref=e54]:
+                - img "Graham" [ref=e55]
+                - generic [ref=e56]: Live
+                - generic:
+                  - generic: Graham
+                  - generic: Debut Web Consultants assistant
+              - generic [ref=e59]:
+                - generic [ref=e62]:
+                  - generic [ref=e63]: Graham
+                  - generic [ref=e64]: Debut Web Consultants assistant
+                - generic [ref=e65]:
+                  - button "Talk to Graham" [ref=e66] [cursor=pointer]
+                  - button "Message" [ref=e72] [cursor=pointer]
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - generic [ref=e81]: Free 60-second AI opportunity scan
+              - heading "What can AI do for your business?" [level=2] [ref=e82]
+              - paragraph [ref=e83]: Drop in your website or business type. We map where AI actually pays off — the builds, the hours saved and the cost — in plain numbers.
+            - generic [ref=e84]:
+              - generic [ref=e85]:
+                - textbox "Your website or business type" [ref=e86]:
+                  - /placeholder: yourbusiness.co.uk   ·   or a business type
+                - button "Analyse my business" [ref=e87] [cursor=pointer]
+              - generic [ref=e90]:
+                - generic [ref=e91]:
+                  - generic [ref=e92]: Recently analysed
+                  - button "Estate agency" [ref=e93] [cursor=pointer]
+                  - button "Corporate law firm" [ref=e94] [cursor=pointer]
+                  - button "Dental practice" [ref=e95] [cursor=pointer]
+                  - button "Recruitment agency" [ref=e96] [cursor=pointer]
+                - button "See a sample report" [ref=e97] [cursor=pointer]
+        - generic [ref=e101]:
+          - generic [ref=e102]:
+            - generic [ref=e103]: What we build
+            - heading "The AI most businesses are actually asking for" [level=2] [ref=e104]
+            - paragraph [ref=e105]: We focus on the systems with the clearest return — the ones buyers are deploying right now — and build them properly for your business, not as another demo.
+          - generic [ref=e106]:
+            - link "Customer support agents Resolve the repetitive queries instantly, around the clock — and route everything else to the right human with full context. Resolution path Always on Triage Reads intent and urgency across chat, email and web — unified in one place. Resolve Answers instantly from your own knowledge base, around the clock. Escalate Routes the rest to the right human, with the full thread attached." [ref=e107] [cursor=pointer]:
+              - /url: /services/chatbot-customer-support
+              - heading "Customer support agents" [level=3] [ref=e114]
+              - paragraph [ref=e115]: Resolve the repetitive queries instantly, around the clock — and route everything else to the right human with full context.
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]: Resolution path
+                  - generic [ref=e119]: Always on
+                - generic [ref=e121]:
+                  - generic [ref=e124]:
+                    - generic [ref=e125]: Triage
+                    - generic [ref=e126]: Reads intent and urgency across chat, email and web — unified in one place.
+                  - generic [ref=e129]:
+                    - generic [ref=e130]: Resolve
+                    - generic [ref=e131]: Answers instantly from your own knowledge base, around the clock.
+                  - generic [ref=e134]:
+                    - generic [ref=e135]: Escalate
+                    - generic [ref=e136]: Routes the rest to the right human, with the full thread attached.
+            - link "Voice agents Answer every call, qualify the caller and book the appointment — even at 2am. Natural conversation, your tone, no missed leads. Inbound Picks up every call the moment it rings, day or night, with no hold music. Outbound Calls back, confirms and chases — in your tone, at the right moment. Booking Checks live availability and drops the appointment straight in the diary." [ref=e137] [cursor=pointer]:
+              - /url: /services/ai-voice-agents
+              - heading "Voice agents" [level=3] [ref=e141]
+              - paragraph [ref=e142]: Answer every call, qualify the caller and book the appointment — even at 2am. Natural conversation, your tone, no missed leads.
+              - generic [ref=e143]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]: Inbound
+                  - generic [ref=e148]: Picks up every call the moment it rings, day or night, with no hold music.
+                - generic [ref=e151]:
+                  - generic [ref=e152]: Outbound
+                  - generic [ref=e153]: Calls back, confirms and chases — in your tone, at the right moment.
+                - generic [ref=e156]:
+                  - generic [ref=e157]: Booking
+                  - generic [ref=e158]: Checks live availability and drops the appointment straight in the diary.
+            - link "Sales & lead agents Enrich, score and follow up on every lead while your team sleeps — so the hot ones reach a human at exactly the right moment. Enrichment Fills in the missing detail on every lead from public and first-party data. Scoring Ranks each one on fit and intent so the team works the hottest first. Outreach Opens the conversation and nurtures until a human needs to take over." [ref=e159] [cursor=pointer]:
+              - /url: /services/chatbot-lead-generation
+              - heading "Sales & lead agents" [level=3] [ref=e163]
+              - paragraph [ref=e164]: Enrich, score and follow up on every lead while your team sleeps — so the hot ones reach a human at exactly the right moment.
+              - generic [ref=e165]:
+                - generic [ref=e168]:
+                  - generic [ref=e169]: Enrichment
+                  - generic [ref=e170]: Fills in the missing detail on every lead from public and first-party data.
+                - generic [ref=e173]:
+                  - generic [ref=e174]: Scoring
+                  - generic [ref=e175]: Ranks each one on fit and intent so the team works the hottest first.
+                - generic [ref=e178]:
+                  - generic [ref=e179]: Outreach
+                  - generic [ref=e180]: Opens the conversation and nurtures until a human needs to take over.
+            - link "Workflow & process automation Connect your tools and hand the admin to a system that doesn't get tired or make mistakes — across the apps you already run. Integrations Connects the tools you already run so data moves without copy-paste. Documents Reads, drafts and files the paperwork that quietly eats your week. Operations Runs the repetitive back-office steps on schedule, never dropping one." [ref=e181] [cursor=pointer]:
+              - /url: /services/ai-automation
+              - heading "Workflow & process automation" [level=3] [ref=e188]
+              - paragraph [ref=e189]: Connect your tools and hand the admin to a system that doesn't get tired or make mistakes — across the apps you already run.
+              - generic [ref=e190]:
+                - generic [ref=e193]:
+                  - generic [ref=e194]: Integrations
+                  - generic [ref=e195]: Connects the tools you already run so data moves without copy-paste.
+                - generic [ref=e198]:
+                  - generic [ref=e199]: Documents
+                  - generic [ref=e200]: Reads, drafts and files the paperwork that quietly eats your week.
+                - generic [ref=e203]:
+                  - generic [ref=e204]: Operations
+                  - generic [ref=e205]: Runs the repetitive back-office steps on schedule, never dropping one.
+            - link "Multi-agent systems A coordinated team of agents for work that's too complex for one — they research, draft, check and act, each doing its part. Orchestration A planner splits the work and routes each part to the right agent. Tool use Agents call your APIs, search and systems to actually get things done. Memory Shared context persists across steps so nothing gets lost mid-task." [ref=e206] [cursor=pointer]:
+              - /url: /services/mcp-systems
+              - heading "Multi-agent systems" [level=3] [ref=e214]
+              - paragraph [ref=e215]: A coordinated team of agents for work that's too complex for one — they research, draft, check and act, each doing its part.
+              - generic [ref=e216]:
+                - generic [ref=e219]:
+                  - generic [ref=e220]: Orchestration
+                  - generic [ref=e221]: A planner splits the work and routes each part to the right agent.
+                - generic [ref=e224]:
+                  - generic [ref=e225]: Tool use
+                  - generic [ref=e226]: Agents call your APIs, search and systems to actually get things done.
+                - generic [ref=e229]:
+                  - generic [ref=e230]: Memory
+                  - generic [ref=e231]: Shared context persists across steps so nothing gets lost mid-task.
+            - link "Knowledge & document AI Straight answers from your own documents, contracts and data — with sources you can check. Retrieval done properly (RAG). Retrieval (RAG) Answers grounded in your own content, with the source cited every time. Search Finds the right passage across thousands of files in plain language. Extraction Pulls structured fields out of messy contracts and PDFs reliably." [ref=e232] [cursor=pointer]:
+              - /url: /services/rag-systems
+              - heading "Knowledge & document AI" [level=3] [ref=e238]
+              - paragraph [ref=e239]: Straight answers from your own documents, contracts and data — with sources you can check. Retrieval done properly (RAG).
+              - generic [ref=e240]:
+                - generic [ref=e243]:
+                  - generic [ref=e244]: Retrieval (RAG)
+                  - generic [ref=e245]: Answers grounded in your own content, with the source cited every time.
+                - generic [ref=e248]:
+                  - generic [ref=e249]: Search
+                  - generic [ref=e250]: Finds the right passage across thousands of files in plain language.
+                - generic [ref=e253]:
+                  - generic [ref=e254]: Extraction
+                  - generic [ref=e255]: Pulls structured fields out of messy contracts and PDFs reliably.
+            - article [ref=e256]:
+              - generic [ref=e262]:
+                - heading "Not sure where AI pays off? Start with a Strategy & Readiness Sprint" [level=3] [ref=e263]
+                - paragraph [ref=e264]: A fixed-scope, fixed-price assessment that maps your workflows and tells you exactly where AI returns the most — and where it won't. You walk away with a costed roadmap, whether or not you build it with us.
+                - generic [ref=e265]:
+                  - generic [ref=e266]: 2 weeks
+                  - generic [ref=e267]: fixed price from £1,500
+                  - generic [ref=e268]: costed roadmap
+              - link "Start here" [ref=e270] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e275]:
+          - generic [ref=e276]:
+            - generic [ref=e277]: See it live
+            - heading "Not a mock-up. A working assistant." [level=2] [ref=e278]
+            - paragraph [ref=e279]: Meet Alex — an AI car sales assistant we built for Audi London. It holds a real conversation by voice or text, searches live vehicle stock, shows the actual cars and books test drives. Try it yourself.
+            - list [ref=e280]:
+              - listitem [ref=e281]:
+                - generic [ref=e285]: Voice & text. Talk to it like a person, or type — your choice.
+              - listitem [ref=e286]:
+                - generic [ref=e290]: Live stock search. It pulls real vehicles and images, not canned answers.
+              - listitem [ref=e291]:
+                - generic [ref=e295]: Books test drives. Qualifies the buyer and puts the appointment in the diary.
+              - listitem [ref=e296]:
+                - generic [ref=e299]: Any industry. Swap the brand and stock — the same engine fits property, recruitment and hospitality.
+            - generic [ref=e300]:
+              - link "Open the live demo" [ref=e301] [cursor=pointer]:
+                - /url: /demos/audi-london
+              - link "Want this for your business?" [ref=e304] [cursor=pointer]:
+                - /url: /contact
+            - paragraph [ref=e305]: Technology demonstration · not affiliated with Audi AG.
+          - generic [ref=e306]:
+            - generic [ref=e307]: debutwebconsultants.co.uk/demos/audi-london
+            - generic [ref=e312]:
+              - generic [ref=e313]:
+                - generic [ref=e325]:
+                  - generic [ref=e326]: Alex
+                  - generic [ref=e327]: Audi AI sales assistant
+                - link "Call Alex" [ref=e328] [cursor=pointer]:
+                  - /url: /demos/audi-london
+              - generic [ref=e331]: Welcome to Audi London. I'm Alex, your AI sales assistant. I can help you find the right Audi from our current stock, answer questions on specs, or book a test drive. What are you looking for today?
+              - generic [ref=e333]:
+                - generic [ref=e334]: Audi A1
+                - generic [ref=e335]: Audi A4
+                - generic [ref=e336]: Audi Q2
+                - generic [ref=e337]: e-tron
+                - generic [ref=e338]: Q4 e-tron
+                - generic [ref=e339]: SUVs
+                - generic [ref=e340]: Under £12k
+              - generic [ref=e341]: Ask Alex about a model…
+        - generic [ref=e347]:
+          - generic [ref=e348]:
+            - generic [ref=e349]: How we work
+            - heading "From a problem to a system that runs" [level=2] [ref=e350]
+            - paragraph [ref=e351]: A straight line from your bottleneck to working software. You see progress at every step — no black boxes, no disappearing for three months.
+          - generic [ref=e352]:
+            - generic [ref=e353]:
+              - generic [ref=e354]: 01 / Assess
+              - heading "Find the leverage" [level=3] [ref=e356]
+              - paragraph [ref=e357]: We map your workflows and pinpoint where AI returns the most, fastest — and rule out where it doesn't.
+            - generic [ref=e358]:
+              - generic [ref=e359]: 02 / Architect
+              - heading "Design before code" [level=3] [ref=e361]
+              - paragraph [ref=e362]: Models, data, tools and guardrails — the whole system designed and agreed before a line is written.
+            - generic [ref=e363]:
+              - generic [ref=e364]: 03 / Build
+              - heading "Engineer it properly" [level=3] [ref=e366]
+              - paragraph [ref=e367]: Built full-stack, tested hard and reviewed with you in the loop the entire way through.
+            - generic [ref=e368]:
+              - generic [ref=e369]: 04 / Deploy
+              - heading "Ship & tune" [level=3] [ref=e371]
+              - paragraph [ref=e372]: Into your stack, measured against real numbers, and tuned in the open until it's earning its keep.
+        - generic [ref=e374]:
+          - generic [ref=e375]:
+            - generic [ref=e376]: Shipped
+            - heading "Systems we've built from the ground up" [level=2] [ref=e377]
+            - paragraph [ref=e378]: These aren't case studies borrowed from a deck — they're our own products, in production. We build as founders, not just contractors, which means we understand the cost of getting it wrong.
+          - generic [ref=e379]:
+            - article [ref=e380]:
+              - generic [ref=e381]: Creator economy · multi-agent
+              - heading "MFLH / FansAutomations" [level=3] [ref=e382]
+              - paragraph [ref=e383]: "A full creator-agency automation platform: six social OAuth integrations, per-creator AI personas with voice cloning, avatar video pipelines and a multi-agent marketing orchestrator running it all."
+              - generic [ref=e384]:
+                - generic [ref=e385]: LangGraph
+                - generic [ref=e386]: OAuth ×6
+                - generic [ref=e387]: HeyGen
+                - generic [ref=e388]: Voice clone
+            - article [ref=e389]:
+              - generic [ref=e390]: Fintech · algorithmic trading
+              - heading "CryptoPilot" [level=3] [ref=e391]
+              - paragraph [ref=e392]: A stacked machine-learning trading ensemble — gradient-boosted and deep sequence models under a meta-learner, an LLM decision council and a live exchange execution layer.
+              - generic [ref=e393]:
+                - generic [ref=e394]: XGBoost
+                - generic [ref=e395]: LSTM / GRU
+                - generic [ref=e396]: TimescaleDB
+                - generic [ref=e397]: SHAP
+            - article [ref=e398]:
+              - generic [ref=e399]: Fitness · AI SaaS
+              - heading "BAM — Be A Machine" [level=3] [ref=e400]
+              - paragraph [ref=e401]: AI-powered coaching platform with personalised programmes and an LLM coaching layer.
+              - generic [ref=e402]:
+                - generic [ref=e403]: React
+                - generic [ref=e404]: FastAPI
+                - generic [ref=e405]: PostgreSQL
+            - article [ref=e406]:
+              - generic [ref=e407]: Hospitality · EPOS
+              - heading "Sentinel EPOS" [level=3] [ref=e408]
+              - paragraph [ref=e409]: Next-gen hospitality POS with loss-prevention AI and processor-neutral payments.
+              - generic [ref=e410]:
+                - generic [ref=e411]: Node.js
+                - generic [ref=e412]: AI analytics
+                - generic [ref=e413]: Realtime
+            - article [ref=e414]:
+              - generic [ref=e415]: B2B SaaS · AI assistant
+              - heading "Context6 / Aurora" [level=3] [ref=e416]
+              - paragraph [ref=e417]: An AI business assistant on a multi-node pipeline spanning fifteen specialist domains.
+              - generic [ref=e418]:
+                - generic [ref=e419]: LangGraph
+                - generic [ref=e420]: RAG
+                - generic [ref=e421]: Multi-agent
+        - generic [ref=e423]:
+          - generic [ref=e424]:
+            - generic [ref=e425]: Why DWC
+            - heading "A builder, not just an adviser" [level=2] [ref=e426]
+            - paragraph [ref=e427]: Most consultancies stop at the recommendation. We stay in the room and ship the thing — which is why our advice is grounded in what actually works in production.
+          - generic [ref=e428]:
+            - generic [ref=e432]:
+              - heading "We've shipped real AI products" [level=3] [ref=e433]
+              - paragraph [ref=e434]: Live platforms across five sectors — not prototypes that never left the lab.
+            - generic [ref=e438]:
+              - heading "Advice from the workshop floor" [level=3] [ref=e439]
+              - paragraph [ref=e440]: Every recommendation is grounded in systems we've actually put into production.
+            - generic [ref=e444]:
+              - heading "Agentic & MCP-native" [level=3] [ref=e445]
+              - paragraph [ref=e446]: We design systems where agents orchestrate tools and data — not just a chat box bolted on.
+            - generic [ref=e450]:
+              - heading "Fractional CTO, no full-time cost" [level=3] [ref=e451]
+              - paragraph [ref=e452]: Engage us as a strategy partner or as your embedded AI engineering team — your call.
+            - generic [ref=e456]:
+              - heading "UK-based, pragmatic pricing" [level=3] [ref=e457]
+              - paragraph [ref=e458]: Entry engagements from £1,500 — clarity and ROI without a six-figure commitment.
+            - generic [ref=e462]:
+              - heading "We speak both languages" [level=3] [ref=e463]
+              - paragraph [ref=e464]: Business and engineering, fluently. No translation layer between you and the build.
+        - generic [ref=e473]:
+          - generic [ref=e474]:
+            - generic [ref=e475]: Let's talk
+            - heading "Tell us the job you'd hand to a machine." [level=2] [ref=e476]
+            - paragraph [ref=e477]: Bring a workflow, a bottleneck or a half-formed idea. We'll tell you straight whether AI is the answer — and if it is, we'll build it.
+          - generic [ref=e478]:
+            - link "Book a discovery call" [ref=e479] [cursor=pointer]:
+              - /url: /quiz
+            - link "Try the live demo" [ref=e482] [cursor=pointer]:
+              - /url: "#demo"
+            - paragraph [ref=e483]:
+              - text: or email
+              - link "hello@debutwebconsultants.co.uk" [ref=e484] [cursor=pointer]:
+                - /url: mailto:hello@debutwebconsultants.co.uk
+    - contentinfo [ref=e485]:
+      - generic [ref=e486]:
+        - generic [ref=e487]:
+          - generic [ref=e488]:
+            - link "Debut Web Consultants — home" [ref=e489] [cursor=pointer]:
+              - /url: /
+              - img "Debut Web Consultants" [ref=e490]
+            - paragraph [ref=e491]: Manchester AI development agency. Transforming businesses through innovative AI-powered web solutions and strategic digital consulting.
+          - generic [ref=e492]:
+            - heading "Quick Links" [level=3] [ref=e493]
+            - list [ref=e494]:
+              - listitem [ref=e495]:
+                - link "Home" [ref=e496] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e497]:
+                - link "About Us" [ref=e498] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e499]:
+                - link "AI Solutions" [ref=e500] [cursor=pointer]:
+                  - /url: /projects
+              - listitem [ref=e501]:
+                - link "AI Chatbot Development" [ref=e502] [cursor=pointer]:
+                  - /url: /ai-chatbot-development-manchester
+              - listitem [ref=e503]:
+                - link "2-Minute AI Fit Quiz" [ref=e504] [cursor=pointer]:
+                  - /url: /quiz
+              - listitem [ref=e505]:
+                - link "Blog" [ref=e506] [cursor=pointer]:
+                  - /url: /blog
+              - listitem [ref=e507]:
+                - link "Insights" [ref=e508] [cursor=pointer]:
+                  - /url: /insights
+              - listitem [ref=e509]:
+                - link "FAQ" [ref=e510] [cursor=pointer]:
+                  - /url: /faq
+              - listitem [ref=e511]:
+                - link "Case Studies" [ref=e512] [cursor=pointer]:
+                  - /url: /case-studies
+              - listitem [ref=e513]:
+                - link "Pricing" [ref=e514] [cursor=pointer]:
+                  - /url: /pricing
+              - listitem [ref=e515]:
+                - link "Contact" [ref=e516] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=e517]:
+                - link "Client Support" [ref=e518] [cursor=pointer]:
+                  - /url: /support
+              - listitem [ref=e519]:
+                - link "AI Car Sales Demo" [ref=e520] [cursor=pointer]:
+                  - /url: /demos/audi-london
+              - listitem [ref=e521]:
+                - link "AI Finance Bot Demo" [ref=e522] [cursor=pointer]:
+                  - /url: /demos/finance-bot
+          - generic [ref=e523]:
+            - heading "Services" [level=3] [ref=e524]
+            - list [ref=e525]:
+              - listitem [ref=e526]:
+                - link "AI Voice Agents" [ref=e527] [cursor=pointer]:
+                  - /url: /services/ai-voice-agents
+              - listitem [ref=e528]:
+                - link "AI Chatbot Development" [ref=e529] [cursor=pointer]:
+                  - /url: /ai-chatbot-development-manchester
+              - listitem [ref=e530]:
+                - link "AI Consulting" [ref=e531] [cursor=pointer]:
+                  - /url: /services/ai-consulting
+              - listitem [ref=e532]:
+                - link "AI Automation" [ref=e533] [cursor=pointer]:
+                  - /url: /services/ai-automation
+              - listitem [ref=e534]:
+                - link "Debut Web Marketing" [ref=e535] [cursor=pointer]:
+                  - /url: /services/debut-web-marketing
+              - listitem [ref=e536]:
+                - link "Marketing Genius Signup" [ref=e537] [cursor=pointer]:
+                  - /url: /signup
+              - listitem [ref=e538]:
+                - link "MCP Systems" [ref=e539] [cursor=pointer]:
+                  - /url: /services/mcp-systems
+              - listitem [ref=e540]:
+                - link "RAG Systems" [ref=e541] [cursor=pointer]:
+                  - /url: /services/rag-systems
+              - listitem [ref=e542]:
+                - link "ML Systems" [ref=e543] [cursor=pointer]:
+                  - /url: /services/ml-systems
+              - listitem [ref=e544]:
+                - link "AI Web Development" [ref=e545] [cursor=pointer]:
+                  - /url: /services/ai-web-development
+              - listitem [ref=e546]:
+                - link "MCP Server Development" [ref=e547] [cursor=pointer]:
+                  - /url: /services/mcp-server-development
+              - listitem [ref=e548]:
+                - link "AI Telesales" [ref=e549] [cursor=pointer]:
+                  - /url: /services/ai-telesales
+              - listitem [ref=e550]:
+                - link "Computer Vision" [ref=e551] [cursor=pointer]:
+                  - /url: /computer-vision
+              - listitem [ref=e552]:
+                - link "Chatbots for Estate Agents" [ref=e553] [cursor=pointer]:
+                  - /url: /sectors/chatbots-for-estate-agents
+              - listitem [ref=e554]:
+                - link "Chatbots for Legal Firms" [ref=e555] [cursor=pointer]:
+                  - /url: /sectors/chatbots-for-legal
+              - listitem [ref=e556]:
+                - link "Chatbots for Recruitment" [ref=e557] [cursor=pointer]:
+                  - /url: /sectors/chatbots-for-recruitment
+          - generic [ref=e558]:
+            - heading "Contact Us" [level=3] [ref=e559]
+            - list [ref=e560]:
+              - listitem [ref=e561]:
+                - link "hello@debutwebconsultants.co.uk" [ref=e565] [cursor=pointer]:
+                  - /url: mailto:hello@debutwebconsultants.co.uk
+              - listitem [ref=e566]:
+                - link "+44 7526 275 973" [ref=e569] [cursor=pointer]:
+                  - /url: tel:+447526275973
+              - listitem [ref=e570]:
+                - generic [ref=e574]: Manchester, United Kingdom
+            - generic [ref=e575]:
+              - link "Instagram" [ref=e576] [cursor=pointer]:
+                - /url: https://www.instagram.com/debutwebconsultants
+              - link "Facebook" [ref=e580] [cursor=pointer]:
+                - /url: https://www.facebook.com/1069025536293652
+              - link "GitHub" [ref=e583] [cursor=pointer]:
+                - /url: https://github.com/Bluetickme-App
+              - link "LinkedIn" [ref=e587] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/debut-web-consultants
+              - link "Twitter" [ref=e592] [cursor=pointer]:
+                - /url: https://x.com/DebutWebConsult
+        - generic [ref=e596]:
+          - paragraph [ref=e597]: © 2026 Debut Web Consultants. All rights reserved.
+          - generic [ref=e598]:
+            - link "Privacy Policy" [ref=e599] [cursor=pointer]:
+              - /url: /privacy-policy
+            - link "Terms of Service" [ref=e600] [cursor=pointer]:
+              - /url: /terms
+            - link "Cookie Policy" [ref=e601] [cursor=pointer]:
+              - /url: /cookie-policy
+    - generic [ref=e602]:
+      - button "Talk to Ava (voice call)" [ref=e603] [cursor=pointer]
+      - button "Open AI chat" [ref=e606] [cursor=pointer]
+    - dialog "Cookie consent" [ref=e609]:
+      - generic [ref=e613]:
+        - paragraph [ref=e614]:
+          - text: We use cookies to run this site and understand how visitors use it. See our
+          - link "cookie policy" [ref=e615] [cursor=pointer]:
+            - /url: /cookie-policy
+          - text: and
+          - link "privacy policy" [ref=e616] [cursor=pointer]:
+            - /url: /privacy-policy
+          - text: .
+        - generic [ref=e617]:
+          - button "Accept cookies" [ref=e618] [cursor=pointer]
+          - button "Decline" [ref=e619] [cursor=pointer]
+  - region "Notifications (F8)":
+    - list
