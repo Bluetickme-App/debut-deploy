@@ -105,8 +105,13 @@ Two audit findings are known false positives: the `dpa.html` subprocessor table
 
 ## Known gaps
 
-- **Regions.** Every page states compute runs in Germany *and Finland*
-  (`fra1` + `hel1`). The live fleet reports Falkenstein only. Confirm before
-  relying on the Helsinki claim.
+- **Regions — reviewed, intentional.** Every page states compute runs in Germany
+  *and Finland* (`fra1` + `hel1`), while the fleet today reports Falkenstein
+  only. Kept deliberately: Hetzner offers Helsinki, so `hel1` is available to
+  provision into. Treat the pages as describing the platform's regions rather
+  than the current placement of any one workload. It becomes literally accurate
+  the moment a `hel1` host is added — if the plan changes instead, the wording
+  needs revisiting on 10 pages (grep `Finland\|Helsinki\|hel1`), and it sits
+  next to a published DPA, so it is worth keeping honest.
 - **Metrics band** on the homepage shows scaled figures, not direct telemetry.
   Its caption was reworded accordingly.
