@@ -17,6 +17,7 @@ import BillingGateModal from "../components/BillingGateModal.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import ResourceChangeModal from "../components/ResourceChangeModal.jsx";
 import AddDiskModal from "../components/AddDiskModal.jsx";
+import GitSourcePicker from "../components/GitSourcePicker.jsx";
 import DnsSetup from "../components/DnsSetup.jsx";
 
 const TABS = ["Deployments", "Logs", "Metrics", "Environment", "Events", "Settings"];
@@ -1448,6 +1449,7 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename, o
 
   // build & deploy (wired to /build; backend may 404 until added)
   const [branch, setBranch] = useState(svc.branch || "main");
+  const [repo, setRepo] = useState(svc.repo || "");
   const [rootDir, setRootDir] = useState(svc.rootDirectory || "");
   const [buildCmd, setBuildCmd] = useState(svc.buildCommand || "");
   const [startCmd, setStartCmd] = useState(svc.startCommand || "");
@@ -1508,6 +1510,9 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename, o
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           branch: branch.trim() || undefined,
+          // Only sent when actually repointed — the server rejects a malformed URL, and
+          // an unchanged value has no business being rewritten on every build save.
+          repo: repo.trim() && repo.trim() !== (svc.repo || "") ? repo.trim() : undefined,
           rootDirectory: rootDir.trim() || undefined,
           buildCommand: buildCmd.trim(),
           startCommand: startCmd.trim(),
@@ -1587,12 +1592,23 @@ function SettingsTab({ svc, serviceId, region, onDeploy, deployBusy, onRename, o
 
         {/* 2 · Build */}
         <SettingsSection id="build" title="Build">
-          <SettingsRow label="Source" desc="Repository this service builds from.">
-            <ReadOnly mono value={svc.repo || "—"} />
-          </SettingsRow>
-          <SettingsRow label="Branch" desc="Branch used for deploys. Change to deploy a test branch, then redeploy.">
+          <SettingsRow label="Source" desc="Repository and branch this service builds from. Both are read from your connected GitHub account — switch to a test branch here, then redeploy.">
             <div className="flex flex-col gap-2">
-              <TextInput mono value={branch} onChange={setBranch} placeholder="main" />
+              <GitSourcePicker
+                repo={repo}
+                branch={branch}
+                disabled={buildBusy}
+                onChange={(next) => {
+                  if (next.repo !== undefined) setRepo(next.repo);
+                  if (next.branch !== undefined) setBranch(next.branch);
+                }}
+              />
+              {repo !== (svc.repo || "") && (
+                <p className="text-[11.5px]" style={{ color: "var(--warn)" }}>
+                  Repointing this service at a different repository. If it authenticates with a deploy
+                  key bound to the old repo, add the key to the new one or the next deploy will fail.
+                </p>
+              )}
               <SaveInline busy={buildBusy} msg={buildMsg} onSave={saveBuild} />
             </div>
           </SettingsRow>

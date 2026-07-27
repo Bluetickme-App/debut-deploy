@@ -28,6 +28,7 @@ import {
   deleteApiToken,
   addUserInstallation,
   listUserInstallations,
+  findUserInstallationByLogin,
   getMembership,
   listOrgMembers,
   countOrgOwners,
@@ -2088,8 +2089,13 @@ app.get("/api/github/repos", requireAuth, h(async (req, res) => {
   return out;
 }));
 
+// Branches for one repo. The installation is resolved from the repo's OWNER, not from
+// the user's default install: with several installations (personal + org accounts) the
+// default one has no token for another account's repo, so every branch lookup outside
+// it 409'd. Falls back to the default install for back-compat.
 app.get("/api/github/repos/:owner/:repo/branches", requireAuth, h(async (req, res) => {
-  const inst = await ensureInstallation(req.user);
+  const owned = findUserInstallationByLogin(req.user.id, req.params.owner);
+  const inst = owned || (await ensureInstallation(req.user));
   if (!inst) return res.status(409).json({ needsConnect: true });
   return githubApp.githubApp.listBranches(inst.installation_id, req.params.owner, req.params.repo);
 }));
@@ -2262,7 +2268,17 @@ app.patch(
   requireCapability("deploy"),
   h(async (req) => {
     assertOwns(req.user, "application", req.params.id);
-    const { rootDirectory, buildCommand, startCommand, preDeployCommand, healthCheckPath, branch } = req.body || {};
+    const { rootDirectory, buildCommand, startCommand, preDeployCommand, healthCheckPath, branch, repo } = req.body || {};
+    // `repo` is optional and validated: a malformed value would leave the app pointing at
+    // a URL Coolify can't clone, and the failure only surfaces at the next deploy.
+    let gitRepository;
+    if (repo !== undefined && repo !== null && String(repo).trim() !== "") {
+      const r = String(repo).trim();
+      if (!/^(git@[\w.-]+:[\w.-]+\/[\w.-]+?(\.git)?|https?:\/\/[\w.-]+\/[\w.-]+\/[\w.-]+?(\.git)?)$/.test(r)) {
+        throw Object.assign(new Error("repo must be a git SSH or HTTPS URL, e.g. git@github.com:owner/name.git"), { status: 400 });
+      }
+      gitRepository = r;
+    }
     await coolify.patchApp(req.params.id, {
       base_directory: rootDirectory,
       build_command: buildCommand,
@@ -2270,8 +2286,12 @@ app.patch(
       pre_deployment_command: preDeployCommand,
       health_check_path: healthCheckPath,
       git_branch: branch,  // deploy a test branch — applied on next deploy
+      ...(gitRepository ? { git_repository: gitRepository } : {}),
     });
-    record(req, "app.build", { resourceType: "application", resourceUuid: req.params.id });
+    record(req, "app.build", {
+      resourceType: "application", resourceUuid: req.params.id,
+      metadata: { branch: branch ?? null, repo: gitRepository ?? null },
+    });
     return { ok: true };
   })
 );
