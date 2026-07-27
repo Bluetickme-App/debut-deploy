@@ -54,6 +54,42 @@
   var FIELD_LABEL = MONO + ' font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #6c7480; margin-bottom: 7px;';
   var INPUT = 'width: 100%; min-height: 44px; padding: 11px 12px; border: 1px solid #d8dde6; border-radius: 10px; background: #fff; font-size: 14px;';
 
+  /* Responsive refinements for the calculator's own inner grids.
+   *
+   * The outer two-up already rides the site-wide [data-2col] hook and the manual
+   * form rides [data-grid="2"] — both collapse in assets/dd.css. The grids INSIDE
+   * the result panel had no hook, so they stayed 2-up / 3-up all the way down to
+   * 320px and pushed the third saving tile off-screen. They are nested inside a
+   * hook that has already collapsed, so their available width depends on the
+   * column they land in rather than on the viewport; auto-fit tracks size them
+   * from the space they actually get, which no viewport media query can know.
+   * Everything else here reuses the site's existing breakpoints (1140/900/760).
+   */
+  var CSS = [
+    '[data-dd-calculator] [data-dd-head]{flex-wrap:wrap;}',
+    '[data-dd-calculator] [data-dd-tiles]>div,[data-dd-calculator] [data-dd-pair]>div{min-width:0;}',
+    '@media (max-width:1140px){',
+    /* 10–10.5px micro labels are under the 12px readable floor on touch screens */
+    '[data-dd-calculator] [data-dd-micro]{font-size:12px !important;letter-spacing:0.06em !important;}',
+    /* tap targets: standalone text button gets a real 44px box */
+    '[data-dd-calculator] [data-dd-tap]{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}',
+    /* mid-sentence text button: 44px hit box, pulled back so the line box keeps its rhythm */
+    '[data-dd-calculator] [data-dd-tap-inline]{min-height:44px;display:inline-flex;align-items:center;vertical-align:middle;margin-top:-12px;margin-bottom:-12px;}',
+    '[data-dd-calculator] [data-dd-check]{min-height:44px;}',
+    /* the 44px tap target is the label row above; the box itself clears the
+       24x24 WCAG 2.5.8 minimum without becoming a comically large checkbox */
+    '[data-dd-calculator] [data-dd-check] input{width:26px !important;height:26px !important;flex:none;}',
+    '}'
+  ].join('');
+
+  function injectCss() {
+    if (document.getElementById('dd-calc-css')) return;
+    var s = document.createElement('style');
+    s.id = 'dd-calc-css';
+    s.textContent = CSS;
+    (document.head || document.documentElement).appendChild(s);
+  }
+
   var FIELDS = [
     { key: 'services', label: 'Number of services',      min: '1',   step: '1' },
     { key: 'cpu',      label: 'vCPU per service',        min: '0.5', step: '0.5' },
@@ -81,51 +117,56 @@
             '<p style="margin-top: 14px; font-size: 15px; font-weight: 600;">Drop your monthly bill here</p>' +
             '<p style="margin-top: 6px; font-size: 13px; color: #6c7480;">PDF, CSV or a screenshot &mdash; Render, Railway, Fly, Heroku, DigitalOcean&hellip;</p>' +
             '<button type="button" data-browse style="margin-top: 16px; padding: 12px 20px; min-height: 44px; border-radius: 10px; border: 0; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" class="h-primary">Browse files</button>' +
-            '<input type="file" data-file accept=".pdf,.csv,.png,.jpg,.jpeg,.webp" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;" />' +
-            '<p style="margin-top: 14px;' + MONO + ' font-size: 12px;"><button type="button" data-sample style="background: none; border: 0; padding: 0; color: #2563eb; font-size: 12px; text-decoration: underline; cursor: pointer;">or start from a typical Render bill &rarr;</button></p>' +
+            '<input type="file" data-file accept=".pdf,.csv,.png,.jpg,.jpeg,.webp" style="position: absolute; width: 1px; height: 1px; opacity: 0; visibility: hidden; pointer-events: none;" />' +
+            '<p style="margin-top: 14px;' + MONO + ' font-size: 12px;"><button type="button" data-sample data-dd-tap style="background: none; border: 0; padding: 0; color: #2563eb; font-size: 12px; text-decoration: underline; cursor: pointer;">or start from a typical Render bill &rarr;</button></p>' +
             '<p data-filename style="margin-top: 12px;' + MONO + ' font-size: 12px; color: #15803d; display: none;"></p>' +
           '</div>' +
           '<p style="margin-top: 14px;' + MONO + ' font-size: 12px; color: #8b939f; line-height: 1.7;">&#128274; Your file never leaves this page &mdash; nothing is uploaded, read or stored. It sets a typical starting configuration that you then confirm.</p>' +
-          '<p style="margin-top: 8px; font-size: 12.5px; color: #6c7480; line-height: 1.6;">Switch to <button type="button" data-tab="manual" style="background: none; border: 0; padding: 0; color: #2563eb; font: inherit; text-decoration: underline; cursor: pointer;">enter manually</button> for a figure based on your own numbers. <a href="/privacy.html">Privacy policy</a></p>' +
+          '<p style="margin-top: 8px; font-size: 12.5px; color: #6c7480; line-height: 1.6;">Switch to <button type="button" data-tab="manual" data-dd-tap-inline style="background: none; border: 0; padding: 0; color: #2563eb; font: inherit; text-decoration: underline; cursor: pointer;">enter manually</button> for a figure based on your own numbers. <a href="/privacy.html">Privacy policy</a></p>' +
         '</div>' +
 
-        '<div data-panel="manual" data-grid="2" style="margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">' +
-          '<label style="display: block;"><span style="display: block;' + FIELD_LABEL + '">Current provider</span>' +
+        '<div data-panel="manual" data-grid="2" style="margin-top: 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">' +
+          '<label style="display: block;"><span data-dd-micro style="display: block;' + FIELD_LABEL + '">Current provider</span>' +
             '<select data-provider style="' + INPUT + '">' +
               PROVIDERS.map(function (p) { return '<option value="' + esc(p) + '">' + esc(p) + '</option>'; }).join('') +
             '</select></label>' +
           FIELDS.map(function (f) {
-            return '<label style="display: block;"><span style="display: block;' + FIELD_LABEL + '">' + esc(f.label) + '</span>' +
+            return '<label style="display: block;"><span data-dd-micro style="display: block;' + FIELD_LABEL + '">' + esc(f.label) + '</span>' +
               '<input type="number" data-field="' + f.key + '" min="' + f.min + '" step="' + f.step + '" ' +
               'style="' + INPUT + MONO + '" /></label>';
           }).join('') +
-          '<label style="display: flex; align-items: center; gap: 10px; grid-column: span 2; font-size: 14px; color: #2b323c;">' +
+          // 1 / -1 spans the explicit grid whatever its column count. "span 2" would
+          // conjure a phantom implicit column once dd.css collapses this to one.
+          '<label data-dd-check style="display: flex; align-items: center; gap: 10px; grid-column: 1 / -1; font-size: 14px; color: #2b323c;">' +
             '<input type="checkbox" data-db style="width: 18px; height: 18px; accent-color: #2563eb;" />Include a managed Postgres instance</label>' +
         '</div>' +
       '</div>' +
 
       '<div style="border: 1px solid #d3e0ff; background: #fff; border-radius: 16px; padding: 26px; box-shadow: 0 24px 50px -34px rgba(37,99,235,0.4);">' +
-        '<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">' +
-          '<p style="' + MONO + ' font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">Estimated result</p>' +
-          '<span data-confidence style="' + MONO + ' font-size: 10.5px; color: #15803d; background: #eafaf0; padding: 5px 9px; border-radius: 7px;"></span>' +
+        '<div data-dd-head style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">' +
+          '<p data-dd-micro style="' + MONO + ' font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">Estimated result</p>' +
+          '<span data-confidence data-dd-micro style="' + MONO + ' font-size: 10.5px; color: #15803d; background: #eafaf0; padding: 5px 9px; border-radius: 7px;"></span>' +
         '</div>' +
-        '<div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">' +
+        // auto-fit + a fluid track floor: these grids live inside a column whose
+        // width the viewport alone can't predict, so they drop to fewer columns
+        // exactly when a tile would stop fitting. Desktop still resolves to 2-up.
+        '<div data-dd-pair style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 12px;">' +
           '<div style="border: 1px solid #eceff4; border-radius: 12px; padding: 16px; background: #fbfcfe;">' +
-            '<p style="' + LABEL + '">Current monthly</p>' +
+            '<p data-dd-micro style="' + LABEL + '">Current monthly</p>' +
             '<p data-current style="font-size: 27px; font-weight: 700; letter-spacing: -0.03em; margin-top: 7px; color: #4d5661;"></p>' +
           '</div>' +
           '<div style="border: 1px solid #d3e0ff; border-radius: 12px; padding: 16px; background: #f5f8ff;">' +
-            '<p style="' + MONO + ' font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">On DebutDeploy</p>' +
+            '<p data-dd-micro style="' + MONO + ' font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">On DebutDeploy</p>' +
             '<p data-est style="font-size: 27px; font-weight: 800; letter-spacing: -0.03em; margin-top: 7px; color: #2563eb;"></p>' +
           '</div>' +
         '</div>' +
-        '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">' +
-          '<div style="border: 1px solid #eceff4; border-radius: 12px; padding: 14px; background: #fbfcfe;"><p style="' + LABEL + '">Monthly saving</p><p data-save-m style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; color: #15803d;"></p></div>' +
-          '<div style="border: 1px solid #eceff4; border-radius: 12px; padding: 14px; background: #fbfcfe;"><p style="' + LABEL + '">Annual saving</p><p data-save-y style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; color: #15803d;"></p></div>' +
-          '<div style="border: 1px solid #eceff4; border-radius: 12px; padding: 14px; background: #fbfcfe;"><p style="' + LABEL + '">Percentage</p><p data-save-p style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; color: #15803d;"></p></div>' +
+        '<div data-dd-tiles style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(112px, 100%), 1fr)); gap: 12px;">' +
+          '<div style="border: 1px solid #eceff4; border-radius: 12px; padding: 14px; background: #fbfcfe;"><p data-dd-micro style="' + LABEL + '">Monthly saving</p><p data-save-m style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; color: #15803d;"></p></div>' +
+          '<div style="border: 1px solid #eceff4; border-radius: 12px; padding: 14px; background: #fbfcfe;"><p data-dd-micro style="' + LABEL + '">Annual saving</p><p data-save-y style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; color: #15803d;"></p></div>' +
+          '<div style="border: 1px solid #eceff4; border-radius: 12px; padding: 14px; background: #fbfcfe;"><p data-dd-micro style="' + LABEL + '">Percentage</p><p data-save-p style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; color: #15803d;"></p></div>' +
         '</div>' +
         '<div style="margin-top: 18px; border-top: 1px solid #eceff4; padding-top: 16px;">' +
-          '<p style="' + MONO + ' font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Equivalent configuration</p>' +
+          '<p data-dd-micro style="' + MONO + ' font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Equivalent configuration</p>' +
           '<p data-equiv style="' + MONO + ' font-size: 12.5px; color: #2b323c; margin-top: 8px; line-height: 1.7;"></p>' +
           '<p data-assume style="margin-top: 12px; font-size: 12px; color: #8b939f; line-height: 1.6;"></p>' +
         '</div>' +
@@ -248,7 +289,10 @@
   }
 
   function init() {
-    Array.prototype.slice.call(document.querySelectorAll('[data-dd-calculator]')).forEach(mount);
+    var roots = Array.prototype.slice.call(document.querySelectorAll('[data-dd-calculator]'));
+    if (!roots.length) return;
+    injectCss();
+    roots.forEach(mount);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

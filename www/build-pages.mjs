@@ -23,6 +23,45 @@ import { APP, STATUS, SITE, esc, head, header, pageClose } from './_chrome.mjs';
 
 const OUT = dirname(fileURLToPath(import.meta.url));
 
+/* ------------------------------------------------------- responsive polish */
+
+/* Small-screen corrections for the generated pages only. Everything lives
+ * behind the breakpoints assets/dd.css already uses (1140 / 980 / 900 / 760),
+ * so the desktop design at 1141px and above is byte-for-byte the design's.
+ * dd.css is not ours to edit, hence a page-scoped block injected into <head>.
+ *
+ * Hooks:
+ *   [data-fine]     — a mono micro-label the design sets at 10–11.5px. Floored
+ *                     at 12px on phones and tablets; untouched on desktop.
+ *   [data-tap]      — a standalone link that is only ~18–20px tall; grown to a
+ *                     44px touch target without moving it on desktop.
+ *   [data-toc-link] — the FAQ table-of-contents entries.
+ */
+const PAGE_CSS = `<style>
+/* --- generated-page responsive corrections (see www/build-pages.mjs) --- */
+@media (max-width: 1140px) {
+  /* dd.css forces h2 { font-size: 26px !important } at <=900px for real
+     headings. The FAQ group labels are eyebrow-sized <h2 class="mono">, so
+     they were being blown up to 26px and pushing the column ~30px past the
+     viewport. [data-fine] outranks the bare h2 rule and floors them instead. */
+  [data-fine] { font-size: 12px !important; }
+  [data-tap] { display: inline-flex !important; align-items: center; min-height: 44px; }
+  [data-toc-link] { display: flex !important; align-items: center; min-height: 44px; font-size: 12.5px !important; padding: 10px 12px !important; }
+  /* The plan table scrolls inside its own wrapper; make that obvious and keep
+     the scroll off the document. */
+  [data-table-scroll] { overflow-x: auto !important; max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 760px) {
+  /* Two small stat tiles side by side inside a 272px card leave ~76px each. */
+  [data-save-tiles] { grid-template-columns: minmax(0, 1fr) !important; }
+  /* 860px of table inside a 320px phone is a long drag; trim the floor so the
+     same columns fit in roughly one and a half screens instead of three. */
+  [data-plan-table] { min-width: 640px !important; }
+}
+</style>`;
+
+const headCss = (...args) => head(...args).replace('</head>', `${PAGE_CSS}\n</head>`);
+
 /* ------------------------------------------------------------------ chrome */
 
 /* The bill comparison — identical markup hook on every page, so the one
@@ -330,29 +369,29 @@ function comparePage(d) {
     ['04', 'Switch', `DNS moves only once you sign off, with the ${d.name} service kept warm as a rollback route.`]
   ];
 
-  return `${head(d.title, d.desc, d.slug.slice(1))}
+  return `${headCss(d.title, d.desc, d.slug.slice(1))}
 ${header('compare')}
 
 <main style="display: block;">
   <section style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);">
     <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 40px 32px 88px;">
       ${tabs(COMPARE_TABS, d.key)}
-      <p class="mono" style="margin-top: 18px; font-size: 11.5px; color: #8b939f;">${esc(d.slug)}</p>
+      <p data-fine class="mono" style="margin-top: 18px; font-size: 11.5px; color: #8b939f;">${esc(d.slug)}</p>
 
       <div data-hero style="margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: start;">
         <div>
-          <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>${esc(d.eyebrow)}</p>
+          <p data-fine class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>${esc(d.eyebrow)}</p>
           <h1 style="margin-top: 20px; font-size: 54px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">${esc(d.headline)}</h1>
           <p style="margin-top: 22px; font-size: 18px; line-height: 1.6; color: #4d5661; max-width: 34em; text-wrap: pretty;">${esc(d.intro)}</p>
           <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px;">
             <a data-cta href="${APP}" class="h-primary" style="padding: 14px 22px; min-height: 48px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 11px; box-shadow: 0 6px 18px -8px rgba(37,99,235,0.7);">Deploy a test application</a>
             <a data-cta href="#calculator" class="h-ghost" style="padding: 14px 22px; min-height: 48px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #0b0d12; background: #fff; border: 1px solid #d8dde6; border-radius: 11px;">Compare my current bill</a>
           </div>
-          <p class="mono" style="margin-top: 24px; font-size: 11.5px; color: #8b939f; line-height: 1.8;">${esc(d.verified)}</p>
+          <p data-fine class="mono" style="margin-top: 24px; font-size: 11.5px; color: #8b939f; line-height: 1.8;">${esc(d.verified)}</p>
         </div>
 
         <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; padding: 26px; box-shadow: 0 26px 54px -34px rgba(11,13,18,0.26);">
-          <p class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">${esc(d.workloadLabel)}</p>
+          <p data-fine class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">${esc(d.workloadLabel)}</p>
           <div style="margin-top: 20px; display: grid; gap: 16px;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px;"><span class="mono" style="font-size: 12.5px; font-weight: 600; color: #2563eb;">DebutDeploy</span><span style="font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: #15803d;">${esc(d.ourTotal)}</span></div>
@@ -363,13 +402,13 @@ ${header('compare')}
               <div style="height: 10px; border-radius: 999px; background: #eceff4; margin-top: 8px; overflow: hidden;"><div style="height: 10px; border-radius: 999px; background: #c3cad6; width: 100%;"></div></div>
             </div>
           </div>
-          <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid #eceff4; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div data-save-tiles style="margin-top: 22px; padding-top: 18px; border-top: 1px solid #eceff4; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div style="border: 1px solid #d3e0ff; background: #f5f8ff; border-radius: 11px; padding: 14px;">
-              <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">You save / mo</p>
+              <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">You save / mo</p>
               <p style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 6px; color: #15803d;">${esc(d.saveMonth)}</p>
             </div>
             <div style="border: 1px solid #eceff4; background: #fbfcfe; border-radius: 11px; padding: 14px;">
-              <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Over 12 months</p>
+              <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Over 12 months</p>
               <p style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 6px; color: #0b0d12;">${esc(d.saveYear)}</p>
             </div>
           </div>
@@ -384,7 +423,7 @@ ${header('compare')}
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">The short version</h2>
       <div data-grid="3" style="margin-top: 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
         ${d.shortVersion.map(sv => `<article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 24px; background: #fbfcfe;">
-          <p class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">${esc(sv.label)}</p>
+          <p data-fine class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">${esc(sv.label)}</p>
           <h3 style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 12px;">${esc(sv.title)}</h3>
           <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">${esc(sv.body)}</p>
         </article>`).join('\n        ')}
@@ -397,34 +436,34 @@ ${header('compare')}
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">${esc(d.tableHeading)}</h2>
       <p style="margin-top: 14px; font-size: 16.5px; line-height: 1.6; color: #4d5661; max-width: 46em; text-wrap: pretty;">Plans are matched on CPU and memory, not on marketing tier names. Where a provider has no exact match, the nearest plan that meets the workload is used and the difference is stated.</p>
       <div style="margin-top: 28px; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden;">
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; min-width: 860px;">
+        <div data-table-scroll style="overflow-x: auto;">
+          <table data-plan-table style="width: 100%; border-collapse: collapse; min-width: 860px;">
             <thead>
               <tr style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
-                <th scope="col" class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Resources</th>
+                <th scope="col" data-fine class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Resources</th>
                 <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 13px; font-weight: 700; color: #2563eb;">DebutDeploy</th>
                 <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 13px; font-weight: 600; color: #4d5661;">${esc(d.name)}</th>
-                <th scope="col" class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Difference</th>
+                <th scope="col" data-fine class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Difference</th>
               </tr>
             </thead>
             <tbody>
               ${d.planRows.map(r => `<tr style="border-bottom: 1px solid #f2f4f8;">
                 <th scope="row" class="mono" style="text-align: left; padding: 15px 22px; font-size: 12.5px; font-weight: 500; color: #2b323c; white-space: nowrap;">${esc(r.spec)}</th>
-                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">${esc(r.ours)}</span> <span class="mono" style="font-size: 11px; color: #8b939f;">${esc(r.ourPlan)}</span></td>
-                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">${esc(r.theirs)}</span> <span class="mono" style="font-size: 11px; color: #8b939f;">${esc(r.theirPlan)}</span></td>
+                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">${esc(r.ours)}</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">${esc(r.ourPlan)}</span></td>
+                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">${esc(r.theirs)}</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">${esc(r.theirPlan)}</span></td>
                 <td class="mono" style="padding: 15px 22px; font-size: 12px; color: #1b4ed1;">${esc(r.delta)}</td>
               </tr>`).join('\n              ')}
             </tbody>
           </table>
         </div>
         <div style="padding: 18px 22px; background: #fbfcfe; border-top: 1px solid #eceff4;">
-          <p class="mono" style="font-size: 11.5px; color: #8b939f; line-height: 1.85;">${esc(d.sourceNote)}</p>
+          <p data-fine class="mono" style="font-size: 11.5px; color: #8b939f; line-height: 1.85;">${esc(d.sourceNote)}</p>
         </div>
       </div>
 
       <div data-grid="4" style="margin-top: 20px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
         ${d.lineItems.map(li => `<div style="border: 1px solid #e5e8ee; border-radius: 13px; background: #fff; padding: 18px;">
-          <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">${esc(li.label)}</p>
+          <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">${esc(li.label)}</p>
           <p style="font-size: 14.5px; font-weight: 650; margin-top: 9px; color: #15803d;">${esc(li.ours)}</p>
           <p style="font-size: 13.5px; margin-top: 5px; color: #dc2626;">${esc(li.theirs)}</p>
         </div>`).join('\n        ')}
@@ -457,7 +496,7 @@ ${header('compare')}
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">${esc(d.moveHeading)}</h2>
       <div data-grid="4" style="margin-top: 32px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
         ${moveSteps.map(([num, title, body]) => `<article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fff;">
-          <span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">${num}</span>
+          <span data-fine class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">${num}</span>
           <h3 style="font-size: 17px; font-weight: 700; letter-spacing: -0.018em; margin-top: 11px;">${esc(title)}</h3>
           <p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">${esc(body)}</p>
         </article>`).join('\n        ')}
@@ -773,18 +812,18 @@ const LANDING_ORDER = ['postgres', 'nodejs', 'python', 'docker', 'europe'];
 const LANDING_TABS = LANDING_ORDER.map(k => ({ key: k, label: LANDING[k].label, slug: LANDING[k].slug }));
 
 function landingPage(d) {
-  return `${head(d.title, d.desc, d.slug.slice(1))}
+  return `${headCss(d.title, d.desc, d.slug.slice(1))}
 ${header('platform')}
 
 <main style="display: block;">
   <section style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);">
     <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 40px 32px 84px;">
       ${tabs(LANDING_TABS, d.key)}
-      <p class="mono" style="margin-top: 18px; font-size: 11.5px; color: #8b939f;">${esc(d.slug)}</p>
+      <p data-fine class="mono" style="margin-top: 18px; font-size: 11.5px; color: #8b939f;">${esc(d.slug)}</p>
 
       <div data-hero style="margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: start;">
         <div>
-          <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>${esc(d.eyebrow)}</p>
+          <p data-fine class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>${esc(d.eyebrow)}</p>
           <h1 style="margin-top: 20px; font-size: 52px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">${esc(d.headline)}</h1>
           <p style="margin-top: 22px; font-size: 18px; line-height: 1.6; color: #4d5661; max-width: 34em; text-wrap: pretty;">${esc(d.intro)}</p>
           <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px;">
@@ -795,8 +834,8 @@ ${header('platform')}
         </div>
 
         <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; overflow: hidden; box-shadow: 0 26px 54px -34px rgba(11,13,18,0.26);">
-          <div class="mono" style="padding: 11px 16px; border-bottom: 1px solid #eceff4; background: #fbfcfe; font-size: 11.5px; color: #8b939f;">${esc(d.codeTitle)}</div>
-          <div class="mono" style="background: #0e1117; padding: 18px; font-size: 12px; line-height: 1.95; overflow-x: auto;">
+          <div data-fine class="mono" style="padding: 11px 16px; border-bottom: 1px solid #eceff4; background: #fbfcfe; font-size: 11.5px; color: #8b939f;">${esc(d.codeTitle)}</div>
+          <div data-table-scroll class="mono" style="background: #0e1117; padding: 18px; font-size: 12px; line-height: 1.95; overflow-x: auto;">
             ${d.codeLines.map(c => `<div style="white-space: pre; color: #cbd5e3;">${esc(c) || '&nbsp;'}</div>`).join('\n            ')}
           </div>
           <div style="padding: 16px 18px; display: grid; gap: 10px;">
@@ -812,7 +851,7 @@ ${header('platform')}
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">${esc(d.includedHeading)}</h2>
       <div data-grid="3" style="margin-top: 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
         ${d.included.map(([fl, fv, title, body]) => `<article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 22px; background: #fbfcfe;">
-          <div class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fff; padding: 11px 12px; font-size: 11.5px; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">${esc(fl)}</span><span style="color: #2563eb; font-weight: 600;">${esc(fv)}</span></div>
+          <div data-fine class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fff; padding: 11px 12px; font-size: 11.5px; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">${esc(fl)}</span><span style="color: #2563eb; font-weight: 600;">${esc(fv)}</span></div>
           <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-top: 16px;">${esc(title)}</h3>
           <p style="margin-top: 8px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">${esc(body)}</p>
         </article>`).join('\n        ')}
@@ -826,14 +865,14 @@ ${header('platform')}
         <div>
           <h2 style="font-size: 34px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">${esc(d.pricingHeading)}</h2>
           <p style="margin-top: 14px; font-size: 16.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">${esc(d.pricingBody)}</p>
-          <a href="/#pricing" style="display: inline-block; margin-top: 20px; font-size: 14.5px; font-weight: 600;">See all plans and what is included →</a>
+          <a data-tap href="/#pricing" style="display: inline-block; margin-top: 20px; font-size: 14.5px; font-weight: 600;">See all plans and what is included →</a>
         </div>
         <div style="border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden;">
           ${d.priceRows.map(([name, spec, price]) => `<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid #f2f4f8;">
-            <span><span style="display: block; font-size: 15px; font-weight: 700;">${esc(name)}</span><span class="mono" style="display: block; font-size: 11.5px; color: #8b939f; margin-top: 4px;">${esc(spec)}</span></span>
-            <span style="text-align: right; white-space: nowrap;"><span style="font-size: 21px; font-weight: 800; letter-spacing: -0.03em;">${esc(price)}</span> <span class="mono" style="font-size: 11px; color: #8b939f;">/mo</span></span>
+            <span><span style="display: block; font-size: 15px; font-weight: 700;">${esc(name)}</span><span data-fine class="mono" style="display: block; font-size: 11.5px; color: #8b939f; margin-top: 4px;">${esc(spec)}</span></span>
+            <span style="text-align: right; white-space: nowrap;"><span style="font-size: 21px; font-weight: 800; letter-spacing: -0.03em;">${esc(price)}</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">/mo</span></span>
           </div>`).join('\n          ')}
-          <p class="mono" style="padding: 14px 20px; font-size: 11px; color: #8b939f; line-height: 1.8;">${esc(d.priceNote)}</p>
+          <p data-fine class="mono" style="padding: 14px 20px; font-size: 11px; color: #8b939f; line-height: 1.8;">${esc(d.priceNote)}</p>
         </div>
       </div>
     </div>
@@ -844,10 +883,10 @@ ${header('platform')}
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">${esc(d.quickstartHeading)}</h2>
       <div data-grid="3" style="margin-top: 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
         ${d.quickstart.map(([num, title, body, code]) => `<article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 22px; background: #fbfcfe;">
-          <span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">${num}</span>
+          <span data-fine class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">${num}</span>
           <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-top: 11px;">${esc(title)}</h3>
           <p style="margin-top: 8px; font-size: 14px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">${esc(body)}</p>
-          <p class="mono" style="margin-top: 14px; padding: 10px 12px; border-radius: 9px; background: #0e1117; color: #cbd5e3; font-size: 11.5px; overflow-x: auto; white-space: pre;">${esc(code)}</p>
+          <p data-fine data-table-scroll class="mono" style="margin-top: 14px; padding: 10px 12px; border-radius: 9px; background: #0e1117; color: #cbd5e3; font-size: 11.5px; overflow-x: auto; white-space: pre;">${esc(code)}</p>
         </article>`).join('\n        ')}
       </div>
     </div>
@@ -915,7 +954,7 @@ const FAQ_GROUPS = [
 ];
 
 function faqPage() {
-  return `${head(
+  return `${headCss(
     'Frequently asked questions — DebutDeploy',
     'Thirty operational questions about DebutDeploy answered precisely: hosting regions, isolation, Docker, databases, backups, transfer, migration, billing, VAT, API and platform status.',
     'faq.html')}
@@ -924,7 +963,7 @@ ${header('faq')}
 <main style="display: block;">
   <section style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);">
     <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 72px 32px;">
-      <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Reference</p>
+      <p data-fine class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Reference</p>
       <h1 style="margin-top: 20px; font-size: 50px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800; max-width: 20em;">Everything worth asking before you trust a platform with production.</h1>
       <p style="margin-top: 20px; font-size: 18px; line-height: 1.6; color: #4d5661; max-width: 40em; text-wrap: pretty;">Thirty questions, answered precisely. Where the answer is no, it says no.</p>
     </div>
@@ -934,19 +973,19 @@ ${header('faq')}
     <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 72px 32px;">
       <div data-faq-layout style="display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 48px; align-items: start;">
         <nav data-toc aria-label="Sections" style="position: sticky; top: 100px; display: grid; gap: 6px;">
-          ${FAQ_GROUPS.map(g => `<a href="#${g.id}" class="h-menu mono" style="font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #6c7480; padding: 8px 10px; border-radius: 8px;">${esc(g.label)}</a>`).join('\n          ')}
+          ${FAQ_GROUPS.map(g => `<a data-toc-link data-fine href="#${g.id}" class="h-menu mono" style="font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #6c7480; padding: 8px 10px; border-radius: 8px;">${esc(g.label)}</a>`).join('\n          ')}
           <div style="margin-top: 14px; border: 1px solid #d3e0ff; background: #f7f9ff; border-radius: 12px; padding: 16px;">
             <p style="font-size: 13.5px; line-height: 1.6; color: #2b323c;">Not answered here? Ask an engineer directly rather than a sales queue.</p>
-            <a href="/contact.html" style="display: inline-block; margin-top: 10px; font-size: 13.5px; font-weight: 600;">Contact support →</a>
+            <a data-tap href="/contact.html" style="display: inline-block; margin-top: 10px; font-size: 13.5px; font-weight: 600;">Contact support →</a>
           </div>
         </nav>
 
         <div style="display: grid; gap: 40px;">
           ${FAQ_GROUPS.map(g => `<section id="${g.id}" style="display: block;">
             <div style="display: flex; align-items: center; gap: 12px;">
-              <h2 class="mono" style="font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #0b0d12;">${esc(g.label)}</h2>
+              <h2 data-fine class="mono" style="font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #0b0d12;">${esc(g.label)}</h2>
               <span style="flex: 1; height: 1px; background: #e0e4ec;"></span>
-              <span class="mono" style="font-size: 11px; color: #9aa2ae;">${g.items.length} questions</span>
+              <span data-fine class="mono" style="font-size: 11px; color: #9aa2ae; white-space: nowrap;">${g.items.length} questions</span>
             </div>
             ${accordion(g.items, { openFirst: false, pad: '48px' })}
           </section>`).join('\n          ')}

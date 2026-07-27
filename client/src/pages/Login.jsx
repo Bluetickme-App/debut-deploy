@@ -66,6 +66,7 @@ function BrandPanel() {
       />
 
       <div
+        className="login-brand-inner"
         style={{
           position: "relative",
           height: "100%",
@@ -77,6 +78,7 @@ function BrandPanel() {
         }}
       >
         <h2
+          className="login-brand-h2"
           style={{
             margin: "0 0 16px",
             fontFamily: "'Inter', sans-serif",
@@ -107,7 +109,10 @@ function BrandPanel() {
             display: "inline-flex",
             flexDirection: "column",
             gap: 14,
-            width: 312,
+            // 312px is the design width; below ~900px the panel's content box is
+            // narrower than that and the card punched 21px into the right padding.
+            width: "min(312px, 100%)",
+            boxSizing: "border-box",
             padding: 18,
             borderRadius: 8,
             background: "rgba(255,255,255,.1)",
@@ -148,7 +153,7 @@ function BrandPanel() {
         </div>
 
         {/* Feature pills */}
-        <div style={{ display: "flex", gap: 9, marginTop: 30 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 30 }}>
           <span
             style={{
               display: "inline-flex",
@@ -254,13 +259,14 @@ export default function Login() {
                 height={76}
                 style={{ display: "block", margin: -9, flexShrink: 0, filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
               />
-              <span className="login-wordmark" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: "-0.015em", color: "var(--text)", whiteSpace: "nowrap" }}>
+              <span className="login-wordmark" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: "-0.015em", color: "var(--text)" }}>
                 Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
               </span>
             </div>
 
             {/* Sign-in card */}
             <div
+              className="login-card"
               style={{
                 width: "100%",
                 background: "var(--surface)",
@@ -313,7 +319,7 @@ export default function Login() {
                 <OAuthButton href={authLink("/auth/github", from)} icon={<GitHubMark />} label="Continue with GitHub" />
               </div>
 
-              <p style={{ margin: "20px 0 0", fontSize: 11.5, textAlign: "center", color: "var(--text-muted)", lineHeight: 1.55 }}>
+              <p className="login-legal" style={{ margin: "20px 0 0", fontSize: 11.5, textAlign: "center", color: "var(--text-muted)", lineHeight: 1.55 }}>
                 By continuing you agree to the{" "}
                 <span style={{ color: "var(--accent-text)", cursor: "pointer" }}>Terms</span>
                 {" "}&amp;{" "}
@@ -333,10 +339,41 @@ export default function Login() {
           <BrandPanel />
         </div>
 
-        {/* ponytail: inline style rather than a new CSS file — single-screen component, no reuse */}
+        {/* ponytail: inline style rather than a new CSS file — single-screen component, no reuse.
+            Inline styles win the cascade, so the responsive overrides need !important.
+            Breakpoints match the ones already in use: 767px (this file) and 479px (index.css). */}
         <style>{`
           @media (max-width: 767px) { .login-brand-panel { display: none !important; } }
           .login-brand-panel { display: contents; }
+
+          /* Use the small-viewport unit where supported so mobile browser chrome
+             doesn't push the centred card under the URL bar. */
+          @supports (min-height: 100svh) {
+            .login-root { min-height: 100svh !important; }
+          }
+
+          /* Tablet: the 52% brand panel gets a narrow content box, so pull the
+             generous desktop padding in rather than clipping the mock card. */
+          @media (max-width: 899px) {
+            .login-brand-inner { padding: 40px 32px !important; }
+            .login-brand-h2 { font-size: 28px !important; }
+          }
+
+          /* Phones: 40px of column padding costs 80px of a 320px screen, which
+             squeezed the card to 240px and wrapped the OAuth labels. */
+          @media (max-width: 767px) {
+            .login-left { padding: 32px 20px !important; }
+          }
+          @media (max-width: 479px) {
+            .login-left { padding: 24px 16px !important; }
+            .login-card { padding: 26px 20px 20px !important; }
+          }
+
+          /* Real legal copy at 11.5px is under the 12px legibility floor. Lift it
+             on every touch-sized viewport; 1280px+ keeps the original 11.5px. */
+          @media (max-width: 1024px) {
+            .login-legal { font-size: 12px !important; }
+          }
         `}</style>
       </div>
     </>
@@ -347,9 +384,11 @@ export default function Login() {
 function OAuthButton({ href, icon, label }) {
   return (
     <a
+      className="login-oauth-btn"
       href={href}
       style={{
         width: "100%",
+        minHeight: 44,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -376,7 +415,7 @@ function OAuthButton({ href, icon, label }) {
         e.currentTarget.style.borderColor = "var(--border-strong)";
       }}
     >
-      {icon}
+      <span style={{ display: "flex", flexShrink: 0 }}>{icon}</span>
       {label}
     </a>
   );

@@ -12,16 +12,66 @@
 <link rel="icon" type="image/svg+xml" href="/assets/brand/debutdeploy-favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/debutdeploy-favicon-32.png">
 <link rel="apple-touch-icon" href="/assets/brand/debutdeploy-app-icon.svg">
-<link rel="stylesheet" href="/assets/dd.css"><!--/dd:head-->
+<link rel="stylesheet" href="/assets/dd.css">
+<style>
+@media (max-width: 1140px) {
+  /* Brand and header CTA are real touch targets on every screen the nav collapses on. */
+  [data-head-brand] { min-height: 44px; }
+  [data-head-cta] { min-height: 44px; display: inline-grid; place-items: center; }
+}
+@media (max-width: 760px) {
+  /* 32px of side padding is a quarter of a 320px screen — claw it back. */
+  [data-head] { padding-left: 20px !important; padding-right: 20px !important; gap: 14px !important; }
+  /* The "/ crumb" is desktop wayfinding; the page title already says where you are. */
+  [data-head-crumb] { display: none !important; }
+  [data-head-brand] { min-width: 0; }
+  [data-head-actions] { gap: 8px !important; }
+  [data-head-cta] { padding-left: 12px !important; padding-right: 12px !important; font-size: 13.5px !important; }
+}
+@media (max-width: 400px) {
+  [data-head] { padding-left: 16px !important; padding-right: 16px !important; }
+  /* Below ~400px the brand + CTA + toggle cannot coexist. The drawer carries
+     the CTA (and the whole nav), so the toggle is what has to survive. */
+  [data-head-cta] { display: none !important; }
+}
+[data-head-toggle] { flex: none; }
+@media (max-width: 1140px) {
+  /* Footer link rows are the last thing people tap on a touch screen. */
+  [data-foot-links] { gap: 4px 18px !important; }
+  [data-foot-links] a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+</style><!--/dd:head-->
+<style>
+/* --- generated-page responsive corrections (see www/build-pages.mjs) --- */
+@media (max-width: 1140px) {
+  /* dd.css forces h2 { font-size: 26px !important } at <=900px for real
+     headings. The FAQ group labels are eyebrow-sized <h2 class="mono">, so
+     they were being blown up to 26px and pushing the column ~30px past the
+     viewport. [data-fine] outranks the bare h2 rule and floors them instead. */
+  [data-fine] { font-size: 12px !important; }
+  [data-tap] { display: inline-flex !important; align-items: center; min-height: 44px; }
+  [data-toc-link] { display: flex !important; align-items: center; min-height: 44px; font-size: 12.5px !important; padding: 10px 12px !important; }
+  /* The plan table scrolls inside its own wrapper; make that obvious and keep
+     the scroll off the document. */
+  [data-table-scroll] { overflow-x: auto !important; max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 760px) {
+  /* Two small stat tiles side by side inside a 272px card leave ~76px each. */
+  [data-save-tiles] { grid-template-columns: minmax(0, 1fr) !important; }
+  /* 860px of table inside a 320px phone is a long drag; trim the floor so the
+     same columns fit in roughly one and a half screens instead of three. */
+  [data-plan-table] { min-width: 640px !important; }
+}
+</style>
 </head>
 <body>
 <!--dd:header-->
 <header style="position: sticky; top: 0; z-index: 60; background: rgba(255,255,255,0.9); backdrop-filter: blur(14px); border-bottom: 1px solid #e5e8ee;">
-  <div style="max-width: 1280px; margin: 0 auto; padding: 0 32px; height: 68px; display: flex; align-items: center; gap: 28px;">
-    <a href="/" style="display: flex; align-items: center; gap: 7px; color: #0b0d12; flex: none;">
+  <div data-head style="max-width: 1280px; margin: 0 auto; padding: 0 32px; height: 68px; display: flex; align-items: center; gap: 28px;">
+    <a data-head-brand href="/" style="display: flex; align-items: center; gap: 7px; color: #0b0d12; flex: none;">
       <img src="/assets/brand/animated/debutdeploy-mark-pulse-animated.svg" alt="" width="40" height="40" style="display: block; flex: none; margin: -4px;">
-      <span style="font-weight: 700; font-size: 17px; letter-spacing: -0.02em;">Debut<span style="color: #2563eb;">Deploy</span></span>
-      <span class="mono" style="font-size: 12px; color: #9aa2ae;">/ compare</span>
+      <span style="font-weight: 700; font-size: 17px; letter-spacing: -0.02em; white-space: nowrap;">Debut<span style="color: #2563eb;">Deploy</span></span>
+      <span class="mono" data-head-crumb style="font-size: 12px; color: #9aa2ae;">/ compare</span>
     </a>
     <nav data-nav aria-label="Main" style="display: flex; align-items: center; gap: 4px; margin-left: 8px;">
       <a href="/#pricing" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">Pricing</a>
@@ -31,12 +81,12 @@
       <a href="/faq.html" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">FAQ</a>
       <a href="https://status.debutdepoly.com" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">Status</a>
     </nav>
-    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none;">
-      <a href="https://app.debutdepoly.com" class="h-primary" style="padding: 10px 16px; font-size: 14px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 9px;">Deploy an app</a>
-      <button type="button" data-nav-toggle aria-label="Open menu" aria-expanded="false" style="width: 44px; height: 44px; place-items: center; border: 1px solid #d8dde6; background: #fff; border-radius: 10px; cursor: pointer; font-size: 15px;">☰</button>
+    <div data-head-actions style="margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none;">
+      <a data-head-cta href="https://app.debutdepoly.com" class="h-primary" style="padding: 10px 16px; font-size: 14px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 9px;">Deploy an app</a>
+      <button type="button" data-nav-toggle data-head-toggle aria-label="Open menu" aria-expanded="false" style="width: 44px; height: 44px; place-items: center; border: 1px solid #d8dde6; background: #fff; border-radius: 10px; cursor: pointer; font-size: 15px;">☰</button>
     </div>
   </div>
-  <div data-mobile-nav style="display: none; border-top: 1px solid #e5e8ee; background: #fff; padding: 12px 24px 20px;">
+  <div data-mobile-nav style="display: none; border-top: 1px solid #e5e8ee; background: #fff; padding: 12px 20px 20px; max-height: 70vh; overflow-y: auto;">
     <a href="/" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Home</a>
     <a href="/#pricing" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Pricing</a>
     <a href="/render-alternative.html" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Compare providers</a>
@@ -45,6 +95,7 @@
     <a href="/faq.html" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">FAQ</a>
     <a href="https://status.debutdepoly.com" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Status</a>
     <a href="/#calculator" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Compare my bill</a>
+    <a href="https://app.debutdepoly.com" class="h-primary" style="display: grid; place-items: center; min-height: 48px; margin-top: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; color: #fff; background: #2563eb;">Deploy an app</a>
   </div>
 </header><!--/dd:header-->
 
@@ -57,22 +108,22 @@
         <a role="tab" aria-selected="true" href="/heroku-alternative.html" style="padding: 10px 16px; min-height: 44px; display: grid; place-items: center; border-radius: 9px; font-size: 14px; font-weight: 600; background: #0b0d12; color: #ffffff;">vs Heroku</a>
         <a role="tab" aria-selected="false" href="/flyio-alternative.html" style="padding: 10px 16px; min-height: 44px; display: grid; place-items: center; border-radius: 9px; font-size: 14px; font-weight: 600; background: transparent; color: #4d5661;">vs Fly.io</a>
       </div>
-      <p class="mono" style="margin-top: 18px; font-size: 11.5px; color: #8b939f;">/heroku-alternative.html</p>
+      <p data-fine class="mono" style="margin-top: 18px; font-size: 11.5px; color: #8b939f;">/heroku-alternative.html</p>
 
       <div data-hero style="margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: start;">
         <div>
-          <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>DebutDeploy vs Heroku</p>
+          <p data-fine class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>DebutDeploy vs Heroku</p>
           <h1 style="margin-top: 20px; font-size: 54px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">The Heroku workflow, at a fraction of the dyno price.</h1>
           <p style="margin-top: 22px; font-size: 18px; line-height: 1.6; color: #4d5661; max-width: 34em; text-wrap: pretty;">Git deploys, managed Postgres and no server administration — the model Heroku defined — on current European hardware, with memory that is not rationed at 512 MB and databases that are not priced as premium add-ons.</p>
           <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px;">
             <a data-cta href="https://app.debutdepoly.com" class="h-primary" style="padding: 14px 22px; min-height: 48px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 11px; box-shadow: 0 6px 18px -8px rgba(37,99,235,0.7);">Deploy a test application</a>
             <a data-cta href="#calculator" class="h-ghost" style="padding: 14px 22px; min-height: 48px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #0b0d12; background: #fff; border: 1px solid #d8dde6; border-radius: 11px;">Compare my current bill</a>
           </div>
-          <p class="mono" style="margin-top: 24px; font-size: 11.5px; color: #8b939f; line-height: 1.8;">Verified 24 July 2026 · source heroku.com/pricing · USD, ex-VAT · dyno tiers matched on memory</p>
+          <p data-fine class="mono" style="margin-top: 24px; font-size: 11.5px; color: #8b939f; line-height: 1.8;">Verified 24 July 2026 · source heroku.com/pricing · USD, ex-VAT · dyno tiers matched on memory</p>
         </div>
 
         <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; padding: 26px; box-shadow: 0 26px 54px -34px rgba(11,13,18,0.26);">
-          <p class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">One production workload · ~2 vCPU / 4 GB + production Postgres + ~100 GB traffic</p>
+          <p data-fine class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b939f;">One production workload · ~2 vCPU / 4 GB + production Postgres + ~100 GB traffic</p>
           <div style="margin-top: 20px; display: grid; gap: 16px;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px;"><span class="mono" style="font-size: 12.5px; font-weight: 600; color: #2563eb;">DebutDeploy</span><span style="font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: #15803d;">$57</span></div>
@@ -83,13 +134,13 @@
               <div style="height: 10px; border-radius: 999px; background: #eceff4; margin-top: 8px; overflow: hidden;"><div style="height: 10px; border-radius: 999px; background: #c3cad6; width: 100%;"></div></div>
             </div>
           </div>
-          <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid #eceff4; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div data-save-tiles style="margin-top: 22px; padding-top: 18px; border-top: 1px solid #eceff4; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div style="border: 1px solid #d3e0ff; background: #f5f8ff; border-radius: 11px; padding: 14px;">
-              <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">You save / mo</p>
+              <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">You save / mo</p>
               <p style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 6px; color: #15803d;">~$202</p>
             </div>
             <div style="border: 1px solid #eceff4; background: #fbfcfe; border-radius: 11px; padding: 14px;">
-              <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Over 12 months</p>
+              <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Over 12 months</p>
               <p style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-top: 6px; color: #0b0d12;">~$2,424</p>
             </div>
           </div>
@@ -104,17 +155,17 @@
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">The short version</h2>
       <div data-grid="3" style="margin-top: 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
         <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 24px; background: #fbfcfe;">
-          <p class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">Price</p>
+          <p data-fine class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">Price</p>
           <h3 style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 12px;">Dyno pricing has not aged well</h3>
           <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Heroku charges premium rates for modest memory. The same 4 GB of RAM costs a small fraction here.</p>
         </article>
         <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 24px; background: #fbfcfe;">
-          <p class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">Memory</p>
+          <p data-fine class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">Memory</p>
           <h3 style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 12px;">No 512 MB ceiling</h3>
           <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Standard dynos cap at 1 GB before a large jump to Performance tiers. Our plans step 512 MB → 1 → 2 → 4 → 8 GB at linear prices.</p>
         </article>
         <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 24px; background: #fbfcfe;">
-          <p class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">Database</p>
+          <p data-fine class="mono" style="font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f;">Database</p>
           <h3 style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 12px;">Postgres is not an add-on tax</h3>
           <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Managed Postgres starts at $5/mo with nightly backups included rather than being priced as a separate premium product.</p>
         </article>
@@ -127,73 +178,73 @@
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">Dyno for box against Heroku</h2>
       <p style="margin-top: 14px; font-size: 16.5px; line-height: 1.6; color: #4d5661; max-width: 46em; text-wrap: pretty;">Plans are matched on CPU and memory, not on marketing tier names. Where a provider has no exact match, the nearest plan that meets the workload is used and the difference is stated.</p>
       <div style="margin-top: 28px; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden;">
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; min-width: 860px;">
+        <div data-table-scroll style="overflow-x: auto;">
+          <table data-plan-table style="width: 100%; border-collapse: collapse; min-width: 860px;">
             <thead>
               <tr style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
-                <th scope="col" class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Resources</th>
+                <th scope="col" data-fine class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Resources</th>
                 <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 13px; font-weight: 700; color: #2563eb;">DebutDeploy</th>
                 <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 13px; font-weight: 600; color: #4d5661;">Heroku</th>
-                <th scope="col" class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Difference</th>
+                <th scope="col" data-fine class="mono" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Difference</th>
               </tr>
             </thead>
             <tbody>
               <tr style="border-bottom: 1px solid #f2f4f8;">
                 <th scope="row" class="mono" style="text-align: left; padding: 15px 22px; font-size: 12.5px; font-weight: 500; color: #2b323c; white-space: nowrap;">0.5 vCPU · 512 MB</th>
-                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$5</span> <span class="mono" style="font-size: 11px; color: #8b939f;">Hobby</span></td>
-                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$7</span> <span class="mono" style="font-size: 11px; color: #8b939f;">Eco/Basic dyno</span></td>
+                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$5</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">Hobby</span></td>
+                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$7</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">Eco/Basic dyno</span></td>
                 <td class="mono" style="padding: 15px 22px; font-size: 12px; color: #1b4ed1;">29% less</td>
               </tr>
               <tr style="border-bottom: 1px solid #f2f4f8;">
                 <th scope="row" class="mono" style="text-align: left; padding: 15px 22px; font-size: 12.5px; font-weight: 500; color: #2b323c; white-space: nowrap;">~1 vCPU · 1 GB</th>
-                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$9</span> <span class="mono" style="font-size: 11px; color: #8b939f;">Starter</span></td>
-                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$50</span> <span class="mono" style="font-size: 11px; color: #8b939f;">Standard-2X</span></td>
+                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$9</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">Starter</span></td>
+                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$50</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">Standard-2X</span></td>
                 <td class="mono" style="padding: 15px 22px; font-size: 12px; color: #1b4ed1;">82% less</td>
               </tr>
               <tr style="border-bottom: 1px solid #f2f4f8;">
                 <th scope="row" class="mono" style="text-align: left; padding: 15px 22px; font-size: 12.5px; font-weight: 500; color: #2b323c; white-space: nowrap;">~2 vCPU · 2.5–4 GB</th>
-                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$45</span> <span class="mono" style="font-size: 11px; color: #8b939f;">Pro Plus · dedicated</span></td>
-                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$250</span> <span class="mono" style="font-size: 11px; color: #8b939f;">Performance-M</span></td>
+                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$45</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">Pro Plus · dedicated</span></td>
+                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$250</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">Performance-M</span></td>
                 <td class="mono" style="padding: 15px 22px; font-size: 12px; color: #1b4ed1;">82% less</td>
               </tr>
               <tr style="border-bottom: 1px solid #f2f4f8;">
                 <th scope="row" class="mono" style="text-align: left; padding: 15px 22px; font-size: 12.5px; font-weight: 500; color: #2b323c; white-space: nowrap;">Production Postgres</th>
-                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$12</span> <span class="mono" style="font-size: 11px; color: #8b939f;">DB Starter · 10 GB</span></td>
-                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$50</span> <span class="mono" style="font-size: 11px; color: #8b939f;">Standard-0</span></td>
+                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$12</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">DB Starter · 10 GB</span></td>
+                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">$50</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">Standard-0</span></td>
                 <td class="mono" style="padding: 15px 22px; font-size: 12px; color: #1b4ed1;">76% less</td>
               </tr>
               <tr style="border-bottom: 1px solid #f2f4f8;">
                 <th scope="row" class="mono" style="text-align: left; padding: 15px 22px; font-size: 12.5px; font-weight: 500; color: #2b323c; white-space: nowrap;">Outbound transfer</th>
-                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$0</span> <span class="mono" style="font-size: 11px; color: #8b939f;">20 TB included</span></td>
-                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">n/a</span> <span class="mono" style="font-size: 11px; color: #8b939f;">no published egress fee</span></td>
+                <td style="padding: 15px 16px; background: #f7f9ff;"><span style="font-size: 17px; font-weight: 700; color: #15803d;">$0</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">20 TB included</span></td>
+                <td style="padding: 15px 16px;"><span style="font-size: 17px; font-weight: 700; color: #dc2626;">n/a</span> <span data-fine class="mono" style="font-size: 11px; color: #8b939f;">no published egress fee</span></td>
                 <td class="mono" style="padding: 15px 22px; font-size: 12px; color: #1b4ed1;">comparable</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div style="padding: 18px 22px; background: #fbfcfe; border-top: 1px solid #eceff4;">
-          <p class="mono" style="font-size: 11.5px; color: #8b939f; line-height: 1.85;">Prices in USD per month, ex-VAT, checked 24 July 2026 against heroku.com/pricing. Dyno tiers are matched on available memory rather than tier name; Heroku does not publish vCPU counts per dyno in the same terms, so CPU equivalence is approximate and stated as such.</p>
+          <p data-fine class="mono" style="font-size: 11.5px; color: #8b939f; line-height: 1.85;">Prices in USD per month, ex-VAT, checked 24 July 2026 against heroku.com/pricing. Dyno tiers are matched on available memory rather than tier name; Heroku does not publish vCPU counts per dyno in the same terms, so CPU equivalence is approximate and stated as such.</p>
         </div>
       </div>
 
       <div data-grid="4" style="margin-top: 20px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
         <div style="border: 1px solid #e5e8ee; border-radius: 13px; background: #fff; padding: 18px;">
-          <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Managed Postgres</p>
+          <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Managed Postgres</p>
           <p style="font-size: 14.5px; font-weight: 650; margin-top: 9px; color: #15803d;">from $5, nightly backups</p>
           <p style="font-size: 13.5px; margin-top: 5px; color: #dc2626;">Heroku: Standard-0 from $50</p>
         </div>
         <div style="border: 1px solid #e5e8ee; border-radius: 13px; background: #fff; padding: 18px;">
-          <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Sleeping services</p>
+          <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Sleeping services</p>
           <p style="font-size: 14.5px; font-weight: 650; margin-top: 9px; color: #15803d;">never sleep</p>
           <p style="font-size: 13.5px; margin-top: 5px; color: #dc2626;">Heroku: Eco dynos sleep</p>
         </div>
         <div style="border: 1px solid #e5e8ee; border-radius: 13px; background: #fff; padding: 18px;">
-          <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Region</p>
+          <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Region</p>
           <p style="font-size: 14.5px; font-weight: 650; margin-top: 9px; color: #15803d;">Germany and Finland (EU)</p>
           <p style="font-size: 13.5px; margin-top: 5px; color: #dc2626;">Heroku: US and EU regions</p>
         </div>
         <div style="border: 1px solid #e5e8ee; border-radius: 13px; background: #fff; padding: 18px;">
-          <p class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Add-on model</p>
+          <p data-fine class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Add-on model</p>
           <p style="font-size: 14.5px; font-weight: 650; margin-top: 9px; color: #15803d;">no add-on marketplace markup</p>
           <p style="font-size: 13.5px; margin-top: 5px; color: #dc2626;">Heroku: paid add-ons per service</p>
         </div>
@@ -234,22 +285,22 @@
       <h2 style="font-size: 36px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 800;">Moving from Heroku</h2>
       <div data-grid="4" style="margin-top: 32px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
         <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fff;">
-          <span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">01</span>
+          <span data-fine class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">01</span>
           <h3 style="font-size: 17px; font-weight: 700; letter-spacing: -0.018em; margin-top: 11px;">Review</h3>
           <p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">We list your services, databases, variables, volumes, domains and workers on Heroku and flag anything that needs a decision.</p>
         </article>
         <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fff;">
-          <span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">02</span>
+          <span data-fine class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">02</span>
           <h3 style="font-size: 17px; font-weight: 700; letter-spacing: -0.018em; margin-top: 11px;">Reproduce</h3>
           <p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Equivalent DebutDeploy services are configured and built, and the output is compared against your current deployment.</p>
         </article>
         <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fff;">
-          <span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">03</span>
+          <span data-fine class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">03</span>
           <h3 style="font-size: 17px; font-weight: 700; letter-spacing: -0.018em; margin-top: 11px;">Validate</h3>
           <p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Application behaviour, database connectivity and performance are tested while Heroku keeps serving live traffic.</p>
         </article>
         <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fff;">
-          <span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">04</span>
+          <span data-fine class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">04</span>
           <h3 style="font-size: 17px; font-weight: 700; letter-spacing: -0.018em; margin-top: 11px;">Switch</h3>
           <p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">DNS moves only once you sign off, with the Heroku service kept warm as a rollback route.</p>
         </article>
@@ -314,7 +365,7 @@
   <footer style="background: #fff; border-top: 1px solid #e5e8ee;">
     <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 48px 32px;">
       <div style="display: flex; flex-wrap: wrap; gap: 18px 32px; justify-content: space-between; align-items: center;">
-        <div style="display: flex; flex-wrap: wrap; gap: 18px;">
+        <div data-foot-links style="display: flex; flex-wrap: wrap; gap: 18px;">
           <a href="/" style="font-size: 13.5px; color: #4d5661;">Home</a> <a href="/#pricing" style="font-size: 13.5px; color: #4d5661;">Pricing</a> <a href="/render-alternative.html" style="font-size: 13.5px; color: #4d5661;">Compare</a>
           <a href="/managed-postgres.html" style="font-size: 13.5px; color: #4d5661;">Platform</a> <a href="/faq.html" style="font-size: 13.5px; color: #4d5661;">FAQ</a> <a href="/about.html" style="font-size: 13.5px; color: #4d5661;">About</a>
           <a href="/contact.html" style="font-size: 13.5px; color: #4d5661;">Contact</a> <a href="/security.html" style="font-size: 13.5px; color: #4d5661;">Security</a> <a href="/legal.html" style="font-size: 13.5px; color: #4d5661;">Legal</a>

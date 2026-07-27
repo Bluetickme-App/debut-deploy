@@ -118,6 +118,61 @@ img { max-width: 100%; }
   h2 { font-size: 26px !important; }
 }
 
+/* ============================================================================
+   Touch ergonomics and the small-text floor.
+
+   The design ships its element styling inline, so nothing here can be a plain
+   declaration and expect to win — the rules below either use a property the
+   inline styles never set (`min-height`, `align-content`, `overflow-wrap`) or
+   carry `!important` where they must override an inline `font-size`.
+
+   Everything is behind `max-width: 1140px` — the same breakpoint the design
+   already collapses the nav at — so the desktop composition above 1140px is
+   untouched. Page-level blocks (`_chrome.mjs` CHROME_CSS, `build-pages.mjs`
+   PAGE_CSS, the block in index.html) add per-component hooks on top of this
+   with the same 44px / 12px targets; these are the site-wide safety net for
+   everything that has no hook.
+   ========================================================================== */
+
+@media (max-width: 1140px) {
+  /* ---- 1. interactive elements are at least 44px tall (WCAG 2.5.8) ----
+     `min-height` is inert on a `display: inline` box, so links flowing inside
+     a sentence keep their natural line box and prose is unchanged. Only the
+     block / inline-block / flex / grid links and buttons the design uses as
+     standalone controls grow. `align-content` re-centres the label in the
+     taller box; where it does not apply the target is still a valid 44px. */
+  a, button, summary, [role="tab"], [role="button"] {
+    min-height: 44px;
+    align-content: center;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select, textarea { min-height: 44px; }
+
+  /* ---- 2. no body text under 12px on a phone or tablet ----
+     The sub-12px sizes in this design are all inline `font-size` declarations
+     (9.5 / 10 / 10.5 / 11 / 11.5px on `.mono` micro-labels). Matching the
+     declaration itself is the only way to floor them generically, and it can
+     only ever hit an element that really is under 12px. Elements whose size is
+     inherited are covered because the ancestor that set it is matched. */
+  [style*="font-size: 9.5px"],  [style*="font-size:9.5px"],
+  [style*="font-size: 10px"],   [style*="font-size:10px"],
+  [style*="font-size: 10.5px"], [style*="font-size:10.5px"],
+  [style*="font-size: 11px"],   [style*="font-size:11px"],
+  [style*="font-size: 11.5px"], [style*="font-size:11.5px"] {
+    font-size: 12px !important;
+  }
+  .shot { font-size: 12px; }
+
+  /* ---- 3. defensive: nothing unbreakable may widen the document ----
+     Long URLs, slugs, container ids and email addresses are the usual cause.
+     This wraps them instead of letting them set a floor on the layout. It is
+     deliberately not `overflow-x: hidden` on the body — that would hide real
+     layout bugs rather than fix them. */
+  body { overflow-wrap: break-word; }
+  pre, code, kbd, samp, .mono { overflow-wrap: anywhere; }
+  svg, video, canvas, iframe { max-width: 100%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }

@@ -328,14 +328,16 @@ function Topbar({ onMenuClick }) {
     : (user?.email?.[0] ?? "?").toUpperCase();
 
   return (
-    <header style={{
+    <header className="topbar" style={{
       height: 56, flexShrink: 0,
       borderBottom: "1px solid var(--border)", background: "var(--surface)",
       display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: "0 18px 0 24px",
     }}>
-      {/* Left: hamburger (mobile/tablet) + breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+      {/* Left: hamburger (mobile/tablet) + breadcrumb.
+          minWidth:0 lets this cluster shrink so a long crumb ellipsises instead of
+          pushing the right cluster off-screen (320px leaves it only ~65px). */}
+      <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, flex: 1 }}>
         <button
           className="topbar-menu-btn"
           onClick={onMenuClick}
@@ -351,13 +353,21 @@ function Topbar({ onMenuClick }) {
         >
           <Menu size={20} />
         </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--text-muted)", fontSize: 13 }}>
-          <span style={{ fontWeight: 500, color: "var(--text)" }}>{crumb}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--text-muted)", fontSize: 13, minWidth: 0 }}>
+          <span
+            title={crumb}
+            style={{
+              fontWeight: 500, color: "var(--text)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}
+          >
+            {crumb}
+          </span>
         </div>
       </div>
 
-      {/* Right cluster */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* Right cluster — never shrinks; the crumb yields instead */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         {/* Env pill */}
         {envLabel && (
           <div className="topbar-env-pill" style={{
@@ -405,6 +415,9 @@ function Topbar({ onMenuClick }) {
             style={{
               display: "flex", alignItems: "center", gap: 9,
               padding: "4px 8px 4px 5px", borderRadius: 6, cursor: "pointer",
+              // matches the 40px floor index.css gives the other topbar buttons;
+              // without it this collapses to 36px once the name is hidden <640px
+              minHeight: 40, flexShrink: 0,
               border: "1px solid transparent", background: menuOpen ? "var(--surface-2)" : "transparent",
               transition: "background .15s",
             }}
@@ -417,8 +430,8 @@ function Topbar({ onMenuClick }) {
             }}>
               {initials}
             </span>
-            <div className="topbar-user-name" style={{ display: "flex", flexDirection: "column", lineHeight: 1.25, textAlign: "left" }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
+            <div className="topbar-user-name" style={{ display: "flex", flexDirection: "column", lineHeight: 1.25, textAlign: "left", minWidth: 0 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {user?.name || user?.email || "User"}
               </span>
               <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>
@@ -503,8 +516,23 @@ function AppShell() {
   // Close drawer on route change (nav link tapped on mobile)
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
+  // Escape closes the drawer — the backdrop is the only other way out on touch
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setDrawerOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
   return (
     <div style={{ display: "flex", height: "100%", background: "var(--bg)" }}>
+      {/* Topbar padding is generous for desktop; at 320px it was eating the
+          breadcrumb's remaining ~65px. Scoped here rather than index.css. */}
+      <style>{`
+        @media (max-width: 479px) {
+          .topbar { padding: 0 10px 0 12px !important; }
+        }
+      `}</style>
       {/* Backdrop — mobile/tablet only, shown when drawer open */}
       {drawerOpen && (
         <div
