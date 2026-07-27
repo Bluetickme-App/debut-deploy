@@ -14,10 +14,12 @@ export const esc = (s) =>
 
 /** <head> contents shared by every page. */
 export function headLinks(extraCss = []) {
-  return `<link rel="preconnect" href="https://fonts.googleapis.com">
+  return `<!--dd:head--><link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/dd.css">${extraCss.map(c => `\n<link rel="stylesheet" href="${c}">`).join('')}`;
+<link rel="icon" type="image/svg+xml" href="/assets/brand/debutdeploy-favicon.svg">
+<link rel="apple-touch-icon" href="/assets/brand/debutdeploy-app-icon.svg">
+<link rel="stylesheet" href="/assets/dd.css">${extraCss.map(c => `\n<link rel="stylesheet" href="${c}">`).join('')}<!--/dd:head-->`;
 }
 
 export function head(title, desc, slug, extraCss = []) {
@@ -37,11 +39,11 @@ ${headLinks(extraCss)}
 export function header(crumb) {
   const link = (href, label) =>
     `<a href="${href}" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">${esc(label)}</a>`;
-  return `
+  return `<!--dd:header-->
 <header style="position: sticky; top: 0; z-index: 60; background: rgba(255,255,255,0.9); backdrop-filter: blur(14px); border-bottom: 1px solid #e5e8ee;">
   <div style="max-width: 1280px; margin: 0 auto; padding: 0 32px; height: 68px; display: flex; align-items: center; gap: 28px;">
     <a href="/" style="display: flex; align-items: center; gap: 10px; color: #0b0d12; flex: none;">
-      <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" style="filter: drop-shadow(0 3px 8px rgba(37,99,235,0.45)); flex: none;"><path d="M12 1.4l9.09 5.25v10.5L12 22.6 2.91 17.15V6.65z" fill="#2563eb"></path><text x="12" y="16.2" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="10.5" font-weight="800" fill="#ffffff">D</text></svg>
+      <img src="/assets/brand/animated/debutdeploy-mark-pulse-animated.svg" alt="" width="34" height="34" style="display: block; flex: none;">
       <span style="font-weight: 700; font-size: 17px; letter-spacing: -0.02em;">DebutDeploy</span>
       <span class="mono" style="font-size: 12px; color: #9aa2ae;">/ ${esc(crumb)}</span>
     </a>
@@ -64,12 +66,12 @@ export function header(crumb) {
        [STATUS, 'Status'], ['/#calculator', 'Compare my bill']]
       .map(([h, l]) => `<a href="${h}" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">${esc(l)}</a>`).join('\n    ')}
   </div>
-</header>`;
+</header><!--/dd:header-->`;
 }
 
 export function footer(note) {
   const link = (href, label) => `<a href="${href}" style="font-size: 13.5px; color: #4d5661;">${esc(label)}</a>`;
-  return `
+  return `<!--dd:footer-->
   <footer style="background: #fff; border-top: 1px solid #e5e8ee;">
     <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 48px 32px;">
       <div style="display: flex; flex-wrap: wrap; gap: 18px 32px; justify-content: space-between; align-items: center;">
@@ -83,7 +85,7 @@ export function footer(note) {
       </div>
       ${note ? `<p class="mono" style="margin-top: 16px; font-size: 11.5px; color: #b3bac5; line-height: 1.8;">${esc(note)}</p>` : ''}
     </div>
-  </footer>`;
+  </footer><!--/dd:footer-->`;
 }
 
 export const SCRIPTS = `<script src="/assets/dd-site.js" defer></script>

@@ -243,9 +243,9 @@ export default function Login() {
               <img
                 src="/icon.svg"
                 alt=""
-                width={38}
-                height={38}
-                style={{ display: "block", filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
+                width={46}
+                height={46}
+                style={{ display: "block", margin: -4, filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
               />
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "-0.01em", color: "var(--text)" }}>
                 Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>

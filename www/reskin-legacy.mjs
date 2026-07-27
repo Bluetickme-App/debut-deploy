@@ -34,15 +34,18 @@ for (const [file, crumb] of PAGES) {
   let html = readFileSync(path, 'utf8');
   const before = html;
 
-  // 1. head assets: preconnects + Geist → shared links, keeping site.css last
-  html = html.replace(
-    /<link rel="preconnect" href="https:\/\/fonts\.googleapis\.com">[\s\S]*?<link rel="stylesheet" href="\/assets\/site\.css">/,
-    headLinks(['/assets/site.css'])
-  );
+  // Each pattern matches EITHER the original hand-written markup (first run)
+  // OR this script's own previous output, marked with <!--dd:*--> comments, so
+  // a chrome change can be re-applied to every page by re-running.
+  const HEAD = /<!--dd:head-->[\s\S]*?<!--\/dd:head-->|<link rel="preconnect" href="https:\/\/fonts\.googleapis\.com">[\s\S]*?<link rel="stylesheet" href="\/assets\/site\.css">/;
+  // The third alternative catches chrome written by an earlier version of this
+  // script, before the markers existed.
+  const HEADER = /<!--dd:header-->[\s\S]*?<!--\/dd:header-->|<header class="site-head">[\s\S]*?<\/header>|<header style="position: sticky[\s\S]*?<\/header>/;
+  const FOOTER = /<!--dd:footer-->[\s\S]*?<!--\/dd:footer-->|<footer class="site-foot">[\s\S]*?<\/footer>|<footer style="background: #fff[\s\S]*?<\/footer>/;
 
-  // 2 & 3. chrome
-  html = html.replace(/<header class="site-head">[\s\S]*?<\/header>/, () => header(crumb).trim());
-  html = html.replace(/<footer class="site-foot">[\s\S]*?<\/footer>/, () => footer('').trim());
+  html = html.replace(HEAD, () => headLinks(['/assets/site.css']));
+  html = html.replace(HEADER, () => header(crumb).trim());
+  html = html.replace(FOOTER, () => footer('').trim());
 
   // 4. shared scripts, once
   if (!html.includes('/assets/dd-site.js')) {

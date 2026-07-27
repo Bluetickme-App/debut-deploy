@@ -191,7 +191,9 @@ function Sidebar({ drawerOpen, onClose }) {
     >
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 18px 14px" }}>
-        <img src="/icon.svg" alt="" width={30} height={30} style={{ display: "block" }} />
+        {/* 36 not 30: the brand mark's viewBox carries ~20% padding so the
+            pulse rings have room to expand into. */}
+        <img src="/icon.svg" alt="" width={36} height={36} style={{ display: "block", margin: -3 }} />
         <span style={{ fontFamily: "'Inter',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--text)" }}>
           Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
         </span>

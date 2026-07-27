@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 80 80" width="80" height="80">
+<style>
+  /* The scale lives inside the keyframes: a CSS transform replaces the
+     presentation attribute wholesale, so rotating alone would drop it. With
+     transform-box:fill-box the shape scales about its own centre and the
+     old translate(-4.4,-4.4) recentring is no longer needed. */
+  @keyframes dd-spin {
+    from { transform: scale(1.16) rotate(0deg); }
+    to   { transform: scale(1.16) rotate(360deg); }
+  }
+  .sp {
+    stroke-dasharray: 26 132;
+    transform-box: fill-box; transform-origin: center;
+    animation: dd-spin 1.15s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .sp { animation-duration: 3.4s; } }
+</style>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4d7bff"></stop><stop offset="0.55" stop-color="#2563eb"></stop><stop offset="1" stop-color="#1a48cc"></stop></linearGradient></defs>
+<path class="sp" d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="none" stroke="#2563eb" stroke-width="2.6" stroke-linecap="round"></path>
+<path d="M32 4.5 L56.5 19 L56.5 47 L32 60.5 L7.5 47 L7.5 19 Z" fill="url(#g)" stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round"></path>
+<g stroke="#fff" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".94"><path d="M32 19.5 V14.6 L37.2 9.4"></path><path d="M32 45 V49.9 L26.8 55.1"></path><path d="M21.5 32.4 H13.6"></path><path d="M21.5 25.6 H17.8 L14.4 22.2"></path><path d="M21.5 39.2 H17.8 L14.4 42.6"></path><path d="M43.4 32.4 H50.4"></path><path d="M43.4 25.6 H46.2 L49.6 22.2"></path><path d="M43.4 39.2 H46.2 L49.6 42.6"></path></g>
+<g fill="#fff" opacity=".96"><circle cx="38.4" cy="9.4" r="1.25"></circle><circle cx="25.6" cy="55.1" r="1.25"></circle><circle cx="12.4" cy="32.4" r="1.25"></circle><circle cx="13.2" cy="22.2" r="1.25"></circle><circle cx="13.2" cy="42.6" r="1.25"></circle><circle cx="51.6" cy="32.4" r="1.25"></circle><circle cx="50.8" cy="22.2" r="1.25"></circle><circle cx="50.8" cy="42.6" r="1.25"></circle></g>
+<path d="M21.5 19.5 H31.6 C39.8 19.5 43.4 25.2 43.4 32.5 C43.4 39.8 39.8 45 31.6 45 H21.5 Z M27 24.6 V39.9 H31 C35.2 39.9 37.6 36.9 37.6 32.4 C37.6 27.8 35.2 24.6 31 24.6 Z" fill="#fff" fill-rule="evenodd"></path></svg>
