@@ -72,11 +72,6 @@ img { max-width: 100%; }
   object-fit: cover;
   object-position: center top;
 }
-.showcase-media-dark { background: #060912; }
-.showcase-media-dark video {
-  object-fit: contain;
-  object-position: center;
-}
 
 /* Logo tiles fall back to a monogram until the real artwork is dropped in. */
 .logo-fallback {
