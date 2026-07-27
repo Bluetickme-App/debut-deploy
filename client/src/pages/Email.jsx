@@ -311,8 +311,13 @@ Leave blank and press OK to remove it.`
               {m.address}
               <button
                 onClick={() => setRecovery(m.address)}
-                title="Set the recovery email — lets this user reset their own password"
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 0, color: "var(--text-muted)" }}
+                title={m.hasRecovery
+                  ? "Backup email set — this user can reset their own password"
+                  : "No backup email — this user CANNOT reset their own password"}
+                style={{
+                  background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 0,
+                  color: m.hasRecovery ? "var(--ok-text)" : "var(--err-text)",
+                }}
               >
                 <LifeBuoy size={12} />
               </button>
@@ -388,6 +393,7 @@ function NewMailbox({ domain, onDone }) {
   const [local, setLocal] = useState("");
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [recovery, setRecovery] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   // generate=true submits WITHOUT a password; the server makes one and returns it once,
@@ -397,7 +403,15 @@ function NewMailbox({ domain, onDone }) {
     e.preventDefault();
     setBusy(true); setErr(null);
     try {
-      const r = await api.createMailbox({ address: `${local}@${domain}`, quotaMb: 2048, ...(generate ? {} : { password: pw }) });
+      const address = `${local}@${domain}`;
+      const r = await api.createMailbox({ address, quotaMb: 2048, ...(generate ? {} : { password: pw }) });
+      // Collected at creation ON PURPOSE: without a backup address the user can never reset
+      // their own password, and chasing it later never happens. Non-fatal — the mailbox is
+      // already made, so a bad recovery address must not read as "creation failed".
+      if (recovery.trim()) {
+        try { await api.setMailboxRecovery(address, recovery.trim()); }
+        catch (e) { alert(`Mailbox created, but the backup address was rejected: ${e.message}`); }
+      }
       onDone(r);
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
@@ -415,6 +429,15 @@ function NewMailbox({ domain, onDone }) {
             {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
+      </Field>
+      <Field label="Backup email">
+        <Input
+          type="email"
+          placeholder="their personal address"
+          value={recovery}
+          onChange={(e) => setRecovery(e.target.value)}
+          title="Where a password-reset link is sent. Without one this user can't reset their own password."
+        />
       </Field>
       <Button type="submit" variant="primary" disabled={busy || !local || pw.length < 8}>{busy ? <Spinner /> : "Create"}</Button>
       <Button

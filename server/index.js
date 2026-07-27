@@ -1201,7 +1201,10 @@ app.get("/api/mail/domains", requireAuth, attachOrgContext, h(async (req) => {
       ...d,
       org_id: getMailDomainOrg(d.domain),
       records: [...mail.dnsRecords(d.domain), await mail.getDkimRecord(d.domain)].filter(Boolean),
-      mailboxes: await mail.listMailboxes(d.domain).catch(() => []),
+      // hasRecovery (never the address itself — that's the user's personal email) so the
+      // panel can flag mailboxes that CANNOT self-serve a password reset.
+      mailboxes: (await mail.listMailboxes(d.domain).catch(() => []))
+        .map((m) => ({ ...m, hasRecovery: !!mailreset.getRecoveryEmail(m.address) })),
       dnsChecks: cached?.checks ?? null,
       dnsCheckedAt: cached?.checkedAt ?? null,
     };
