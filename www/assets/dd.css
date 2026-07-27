@@ -67,10 +67,10 @@ img { max-width: 100%; }
   background-position: center top;
 }
 #showcase [data-card]:nth-child(1) .shot { background-image: url('/assets/img/marketing-genius.png'); }
+#showcase [data-card]:nth-child(2) .shot { background-image: url('/assets/img/fully-informed.png'); }
 #showcase [data-card]:nth-child(2) .shot,
 #showcase [data-card]:nth-child(3) .shot {
   color: #9aa2ae;
-  background-image: none;
 }
 #showcase [data-card]:nth-child(1) > div:nth-child(2) img { display: none; }
 #showcase [data-card]:nth-child(1) > div:nth-child(2) span:first-child::after {
