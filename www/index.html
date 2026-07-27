@@ -3,364 +3,990 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pricing — DebutDeploy</title>
-<meta name="description" content="Enterprise-grade developer experience at a fraction of the price. Same power, EU data residency, 20 TB traffic included, no cold starts.">
+<title>DebutDeploy — European PaaS Hosting Without Egress Surprises</title>
+<meta name="description" content="Deploy web applications, workers and managed Postgres from Git on European infrastructure. Predictable monthly pricing, no cold starts and assisted migration.">
+<link rel="canonical" href="https://debutdepoly.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  :root{
-    --paper:#F7F8FA;--card:#FFFFFF;--ink:#14181F;--ink-2:#586170;--ink-3:#8A94A0;
-    --line:#E5E9EE;--line-2:#D4DAE1;--track:#EDF1F5;--accent:#2563EB;--accent-hover:#1D4ED8;
-    --accent-soft:#EAF0FE;--accent-line:#C3D4F7;--accent-ink:#1D4ED8;--them:#9AA6B4;--ok:#16A34A;
-  }
-  body{background:var(--paper);color:var(--ink);font-family:'Geist',system-ui,sans-serif;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-  .mono{font-family:'Geist Mono',monospace}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
-  section{border-bottom:1px solid var(--line)}
-  h2{font-weight:700;letter-spacing:-.03em;font-size:clamp(27px,3.4vw,36px);line-height:1.05}
-  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:32px;flex-wrap:wrap}
-  .sec-head p{color:var(--ink-2);max-width:46ch;font-size:15px}
-  .track{flex:1;height:11px;background:var(--track);border-radius:999px;overflow:hidden}
-  .fill{height:100%;width:0;border-radius:999px;transition:width 1s cubic-bezier(.16,1,.3,1)}
-  .btn{font-family:'Geist',sans-serif;font-weight:600;font-size:14px;padding:11px 22px;border-radius:9px;text-decoration:none;cursor:pointer;transition:.18s;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--accent);background:var(--accent);color:#fff}
-  .btn:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
-  .btn-ghost{border:1px solid var(--line-2);background:var(--card);color:var(--ink)}
-  .btn-ghost:hover{border-color:var(--ink);background:var(--ink);color:#fff}
-  .chip{display:inline-block;font-family:'Geist Mono',monospace;font-size:11.5px;font-weight:500;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:3px 9px;border-radius:6px}
-  @keyframes dd-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-  @media (prefers-reduced-motion:reduce){svg[aria-hidden]{animation:none!important}}
-  @keyframes dd-spin{to{transform:rotate(360deg)}}
-  @keyframes dd-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .plan-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-  .bundle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  .incl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-  .plan-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 20px 24px;display:flex;flex-direction:column;position:relative;transition:transform .22s,border-color .22s,box-shadow .22s}
-  .plan-card:hover{transform:translateY(-4px);border-color:var(--line-2);box-shadow:0 26px 44px -34px rgba(20,24,31,.4)}
-  .plan-card.feat{border-color:var(--accent-line);background:linear-gradient(180deg,var(--accent-soft),var(--card) 120px)}
-  .db-row,.db-head{display:grid;grid-template-columns:1.3fr 1.6fr 1fr 1.1fr 118px;gap:18px;align-items:center;padding:17px 22px}
-  .db-row{border-top:1px solid var(--line)}
-  @media(max-width:960px){.plan-grid{grid-template-columns:repeat(2,1fr)}.bundle-grid,.incl-grid{grid-template-columns:repeat(2,1fr)}.ai-done{grid-template-columns:1fr!important}.db-scroll{overflow-x:auto}.db-row,.db-head{min-width:640px}}
-  @media(max-width:560px){.plan-grid,.bundle-grid,.incl-grid{grid-template-columns:1fr}}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/dd.css">
 </head>
 <body>
 
-<!-- TOP BAR -->
-<header style="position:sticky;top:0;z-index:50;background:rgba(247,248,250,.82);backdrop-filter:saturate(150%) blur(10px);-webkit-backdrop-filter:saturate(150%) blur(10px);border-bottom:1px solid var(--line)">
-  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;height:64px">
-    <div style="display:flex;align-items:center;gap:11px;font-weight:700;font-size:19px;letter-spacing:-.02em">
-      <svg viewBox="0 0 512 512" width="29" height="29" style="display:block;animation:dd-pulse 2.6s ease-in-out infinite;filter:drop-shadow(0 2px 7px rgba(68,96,238,.5))" aria-hidden="true">
-        <defs><linearGradient id="ddg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6274f5"/><stop offset="1" stop-color="#4460ee"/></linearGradient></defs>
-        <polygon points="256,20 460,138 460,374 256,492 52,374 52,138" fill="url(#ddg)"/>
-        <path fill="#fff" fill-rule="evenodd" d="M180 150 H288 C356 150 402 196 402 256 C402 316 356 362 288 362 H180 Z M238 202 H286 C320 202 344 223 344 256 C344 289 320 310 286 310 H238 Z"/>
-        <g stroke="#fff" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M180 196 H132 V160"/><path d="M180 256 H108"/><path d="M180 316 H132 V352"/><path d="M300 150 V100 H340"/><path d="M402 220 H436 V185"/><path d="M402 292 H424"/><path d="M250 362 V420 H206"/></g>
-        <g fill="#fff"><circle cx="132" cy="148" r="13"/><circle cx="96" cy="256" r="13"/><circle cx="132" cy="364" r="13"/><circle cx="352" cy="100" r="13"/><circle cx="436" cy="173" r="13"/><circle cx="437" cy="292" r="13"/><circle cx="194" cy="420" r="13"/></g>
-      </svg>
-      DebutDeploy<span class="mono" style="font-weight:400;font-size:11px;color:var(--ink-3);margin-left:1px">/ pricing</span>
+<header style="position: sticky; top: 0; z-index: 60; background: rgba(255,255,255,0.86); backdrop-filter: blur(14px); border-bottom: 1px solid transparent;">
+  <div data-shrink-nav style="max-width: 1280px; margin: 0 auto; padding: 0 32px; height: 72px; display: flex; align-items: center; gap: 28px; transition: height .2s ease;">
+    <a href="#top" style="display: flex; align-items: center; gap: 10px; color: #0b0d12; flex: none;">
+      <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" style="filter: drop-shadow(0 3px 8px rgba(37,99,235,0.45)); flex: none;"><path d="M12 1.4l9.09 5.25v10.5L12 22.6 2.91 17.15V6.65z" fill="#2563eb"></path><text x="12" y="16.2" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="10.5" font-weight="800" fill="#ffffff">D</text></svg>
+      <span style="font-weight: 700; font-size: 17px; letter-spacing: -0.02em;">DebutDeploy</span>
+    </a>
+    <nav data-nav aria-label="Main" style="display: flex; align-items: center; gap: 4px; margin-left: 8px;">
+      <div style="position: relative;">
+        <button type="button" data-menu="platform" aria-haspopup="true" aria-expanded="false" class="h-nav" style="background: none; border: 0; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661; cursor: pointer; display: flex; align-items: center; gap: 6px;">Platform <span aria-hidden="true" style="font-size: 9px; color: #8b939f;">▼</span></button>
+        <div data-menu-panel="platform" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; width: 232px; background: #fff; border: 1px solid #e5e8ee; border-radius: 12px; box-shadow: 0 16px 40px -12px rgba(11,13,18,0.18); padding: 8px;">
+          <a href="/nodejs-hosting.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">Node.js hosting</a>
+          <a href="/python-hosting.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">Python hosting</a>
+          <a href="/docker-hosting.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">Docker hosting</a>
+          <a href="/managed-postgres.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">Managed Postgres</a>
+          <a href="/european-paas.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">European PaaS</a>
+          <a href="#capabilities" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">Background workers</a>
+          <a href="#capabilities" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">All capabilities</a>
+        </div>
+      </div>
+      <a href="#pricing" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">Pricing</a>
+      <div style="position: relative;">
+        <button type="button" data-menu="compare" aria-haspopup="true" aria-expanded="false" class="h-nav" style="background: none; border: 0; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661; cursor: pointer; display: flex; align-items: center; gap: 6px;">Compare <span aria-hidden="true" style="font-size: 9px; color: #8b939f;">▼</span></button>
+        <div data-menu-panel="compare" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; width: 252px; background: #fff; border: 1px solid #e5e8ee; border-radius: 12px; box-shadow: 0 16px 40px -12px rgba(11,13,18,0.18); padding: 8px;">
+          <a href="/render-alternative.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">DebutDeploy vs Render</a>
+          <a href="/railway-alternative.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">DebutDeploy vs Railway</a>
+          <a href="/heroku-alternative.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">DebutDeploy vs Heroku</a>
+          <a href="/flyio-alternative.html" class="h-menu" style="display: block; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: #2b323c; font-weight: 500;">DebutDeploy vs Fly.io</a>
+        </div>
+      </div>
+      <a href="#migrate" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">Migrate</a>
+      <a href="#security" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">Security</a>
+      <a href="/faq.html" class="h-nav" style="padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661;">FAQ</a>
+      <a href="https://status.debutdepoly.com" class="h-nav" style="padding: 8px 10px 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #4d5661; display: flex; align-items: center; gap: 7px;">Status <span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.14);"></span></a>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none;">
+      <a data-signin href="https://app.debutdepoly.com" class="h-signin" style="padding: 9px 14px; font-size: 14px; font-weight: 600; color: #2b323c; border-radius: 9px;">Sign in</a>
+      <a href="https://app.debutdepoly.com" class="h-primary" style="padding: 10px 16px; font-size: 14px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 9px; box-shadow: 0 1px 2px rgba(11,13,18,0.16);">Deploy an app</a>
+      <button type="button" data-nav-toggle aria-label="Open menu" aria-expanded="false" style="width: 44px; height: 44px; place-items: center; border: 1px solid #d8dde6; background: #fff; border-radius: 10px; cursor: pointer; font-size: 15px;">☰</button>
     </div>
-    <div style="display:flex;background:var(--track);border-radius:999px;padding:3px;border:1px solid var(--line)">
-      <button id="usdBtn" data-cur="usd" class="cur-btn mono">USD $</button>
-      <button id="gbpBtn" data-cur="gbp" class="cur-btn mono">GBP £</button>
-    </div>
+  </div>
+  <div data-mobile-nav style="display: none; border-top: 1px solid #e5e8ee; background: #fff; padding: 12px 24px 20px; max-height: 70vh; overflow-y: auto;">
+    <a href="#platform" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Platform</a>
+    <a href="#pricing" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Pricing</a>
+    <a href="#comparison" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Compare providers</a>
+    <a href="#migrate" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Migrate</a>
+    <a href="#security" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Security</a>
+    <a href="/faq.html" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">FAQ</a>
+    <a href="https://status.debutdepoly.com" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Status</a>
+    <a href="#calculator" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Compare my bill</a>
+    <a href="#showcase" class="h-link" style="display: flex; align-items: center; min-height: 48px; font-size: 16px; font-weight: 600; color: #2b323c; border-bottom: 1px solid #f2f4f8;">Running in production</a>
+    <a href="https://app.debutdepoly.com" style="display: grid; place-items: center; min-height: 48px; margin-top: 14px; border: 1px solid #d8dde6; border-radius: 10px; font-size: 15px; font-weight: 600; color: #0b0d12;">Sign in</a>
   </div>
 </header>
 
-<!-- HERO -->
-<section>
-  <div class="wrap" style="padding:74px 24px 60px">
-    <span class="mono" style="display:inline-flex;align-items:center;gap:9px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)"><span style="width:22px;height:1.5px;background:var(--accent)"></span>Deploy like Render · priced for builders</span>
-    <h1 style="font-weight:700;letter-spacing:-.035em;line-height:1.03;font-size:clamp(38px,6vw,64px);margin:20px 0 0;max-width:17ch">The same app costs <em style="font-style:normal;color:var(--accent)"><span data-price="85">$85</span></em> on Render. Here it's <em style="font-style:normal;color:var(--accent)"><span data-price="45">$45</span></em>.</h1>
-    <p style="font-size:clamp(16px,2vw,19px);color:var(--ink-2);max-width:54ch;margin-top:22px;line-height:1.55">Your apps run on fast, enterprise-grade European hardware. Every plan matches — or beats — Render and Railway on CPU and memory, at a fraction of the price. 20 TB of traffic included. No egress fees. No cold starts.</p>
-    <div style="margin-top:42px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px 26px;max-width:680px;box-shadow:0 1px 0 rgba(20,24,31,.02),0 22px 40px -30px rgba(20,24,31,.28)">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px">
-        <span style="font-weight:600;font-size:15px;letter-spacing:-.01em">Pro Plus · 4 GB dedicated</span>
-        <span class="mono" style="font-size:12px;color:var(--ink-3)">vs Render Pro</span>
-      </div>
-      <div id="heroMetrics"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:16px;padding-top:15px">
-        <span class="mono" style="font-size:13px;color:var(--ink-2)">You pay <b style="color:var(--ink);font-weight:600"><span data-price="45">$45</span></b> /mo</span>
-        <span class="mono" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-line);padding:5px 12px;border-radius:999px">Save 47% · <span data-price="40">$40</span>/mo</span>
-      </div>
-    </div>
-  </div>
-</section>
+<main id="top" style="display: block;">
 
-<!-- COMPUTE -->
-<section>
-  <div class="wrap" style="padding:70px 24px">
-    <div class="sec-head"><h2>Compute</h2><p>One app per plan. Each pair of bars is what you pay against the same box on Render — same power, same memory, a fraction of the price.</p></div>
-    <div class="plan-grid" id="planGrid"></div>
-  </div>
-</section>
-
-<!-- AI BILL ANALYZER -->
-<section style="background:linear-gradient(180deg,var(--accent-soft),var(--paper) 220px)">
-  <div class="wrap" style="padding:70px 24px">
-    <div class="sec-head"><h2 style="max-width:16ch">Not sure what you'd pay? <span style="color:var(--accent)">Upload your bill.</span></h2><p style="max-width:44ch">Drop in your current hosting invoice — our AI reads the line items and estimates the same workload on DebutDeploy, Render and Railway.</p></div>
-    <div id="billIdle" style="max-width:720px;margin:0 auto">
-      <label id="drop" for="billInput" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:44px 30px;border-radius:16px;border:2px dashed var(--line-2);background:var(--card);cursor:pointer;transition:border-color .18s,background .18s">
-        <input id="billInput" type="file" accept=".pdf,.csv,.png,.jpg,.jpeg" style="display:none">
-        <span style="width:52px;height:52px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--accent-line);display:flex;align-items:center;justify-content:center;margin-bottom:16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span>
-        <div style="font-weight:600;font-size:17px">Drop your monthly bill here</div>
-        <div style="font-size:13.5px;color:var(--ink-2);margin-top:6px">PDF, CSV or a screenshot — Render, Railway, Fly, Heroku, DigitalOcean…</div>
-        <span class="btn" style="margin-top:18px">Browse files</span>
-        <div style="margin-top:12px"><span id="sample" class="mono" style="font-size:12.5px;color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px;cursor:pointer">or try a sample Render bill →</span></div>
-      </label>
-      <p class="mono" style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:11.5px;color:var(--ink-3);margin-top:14px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Read once to estimate your savings, then discarded. We never store your bill.</p>
-    </div>
-    <div id="billAnalyzing" style="display:none;max-width:720px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:34px 30px;box-shadow:0 22px 40px -30px rgba(20,24,31,.28);text-align:center">
-      <span style="display:inline-block;width:34px;height:34px;border-radius:50%;border:3px solid var(--accent-soft);border-top-color:var(--accent);animation:dd-spin .8s linear infinite"></span>
-      <div style="font-weight:600;font-size:16px;margin-top:16px">Analyzing <span class="mono" id="fileLabel" style="color:var(--accent-ink)">your bill</span> …</div>
-    </div>
-    <div id="billDone" class="ai-done" style="display:none;grid-template-columns:0.9fr 1.1fr;gap:16px;align-items:start;animation:dd-fade .4s ease both">
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px">
-        <span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">Detected from your bill</span>
-        <div style="display:flex;align-items:baseline;gap:9px;margin:8px 0 16px"><span class="mono" data-price="412" style="font-weight:600;font-size:30px;letter-spacing:-.02em">$412</span><span class="mono" style="font-size:12.5px;color:var(--ink-3)">/mo on Render today</span></div>
-        <div id="lineItems"></div>
+  <section style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);">
+    <div data-wrap data-hero style="max-width: 1280px; margin: 0 auto; padding: 88px 32px 96px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr); gap: 64px; align-items: start;">
+      <div>
+        <p class="mono" style="font-size: 11.5px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; margin-bottom: 22px; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>European application deployment platform</p>
+        <h1 style="font-size: 60px; line-height: 1.03; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance;">Deploy from Git. Stay always on. Pay a predictable monthly price.</h1>
+        <p style="margin-top: 24px; font-size: 18.5px; line-height: 1.55; color: #4d5661; max-width: 34em; text-wrap: pretty;">Deploy production applications, workers and managed Postgres on fast European infrastructure. No cold starts, no unexpected egress bills and no infrastructure administration.</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px;">
+          <a data-cta href="https://app.debutdepoly.com" class="h-primary" style="padding: 14px 22px; font-size: 15px; font-weight: 600; color: #fff; background: #2563eb; border-radius: 11px; box-shadow: 0 6px 18px -8px rgba(37,99,235,0.7);">Deploy a test application</a>
+          <a data-cta href="#calculator" class="h-ghost" style="padding: 14px 22px; font-size: 15px; font-weight: 600; color: #0b0d12; background: #fff; border: 1px solid #d8dde6; border-radius: 11px;">Compare my current hosting bill</a>
+        </div>
+        <div style="margin-top: 30px; padding: 18px 20px; border: 1px solid #e5e8ee; background: #fff; border-radius: 14px; max-width: 460px;">
+          <p class="mono" style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Typical 2 vCPU / 4 GB application</p>
+          <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; align-items: center; margin-top: 14px;">
+            <span class="mono" style="font-size: 12.5px; color: #4d5661;">Render</span>
+            <span style="height: 8px; border-radius: 999px; background: #e5e8ee;"><span style="display: block; width: 100%; height: 8px; border-radius: 999px; background: #c3cad6; transform-origin: left; animation: dd-bar .9s ease .1s both;"></span></span>
+            <span class="mono" style="font-size: 13px; font-weight: 600; color: #4d5661;">$85/mo</span>
+            <span class="mono" style="font-size: 12.5px; color: #0b0d12; font-weight: 600;">DebutDeploy</span>
+            <span style="height: 8px; border-radius: 999px; background: #e5e8ee;"><span style="display: block; width: 53%; height: 8px; border-radius: 999px; background: #2563eb; transform-origin: left; animation: dd-bar .9s ease .25s both;"></span></span>
+            <span class="mono" style="font-size: 13px; font-weight: 700; color: #2563eb;">$45/mo</span>
+          </div>
+          <div style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <span class="mono" style="font-size: 12px; color: #4d5661;">You pay <strong style="color: #0b0d12; font-weight: 700;">$45</strong> /mo</span>
+            <span class="mono" style="font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 6px 12px;">Save 47% · $40 /mo</span>
+          </div>
+          <p style="margin-top: 12px; font-size: 12px; color: #8b939f; line-height: 1.5;">Comparison verified July 2026 on equivalent configuration assumptions. <a href="#comparison" style="font-weight: 600;">See the full breakdown</a></p>
+        </div>
+        <p class="mono" style="margin-top: 26px; font-size: 12px; color: #6c7480; line-height: 1.9;">European infrastructure · Git deployments · Automated TLS · Managed backups · Assisted migration</p>
       </div>
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:0 22px 40px -34px rgba(20,24,31,.3)">
-        <span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">Same workload, priced 3 ways</span>
-        <div id="aiPlatforms" style="display:flex;flex-direction:column;gap:15px;margin-top:18px"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:18px;padding-top:16px">
-          <div><div style="font-weight:700;font-size:19px;letter-spacing:-.01em;color:var(--accent-ink)">Save <span data-price="224">$224</span>/mo</div><div class="mono" style="font-size:11.5px;color:var(--ink-3)">54% less than Render · <span data-price="2688">$2688</span>/yr</div></div>
-          <div style="display:flex;gap:9px"><button id="reset" class="btn btn-ghost" style="padding:10px 15px;font-size:13.5px">Analyze another</button><a href="https://app.debutdepoly.com" class="btn" style="padding:10px 16px;font-size:13.5px">Start migrating →</a></div>
+
+      <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; box-shadow: 0 30px 60px -34px rgba(11,13,18,0.28); overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eceff4; background: #fbfcfe;">
+          <span style="display: flex; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #e3e6ec;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #e3e6ec;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #e3e6ec;"></span></span>
+          <span class="mono" style="font-size: 11.5px; color: #8b939f; margin-left: 6px;">app.debutdepoly.com/services/marketing-genius</span>
+        </div>
+        <div style="padding: 20px 22px 24px;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">marketing-genius</h2>
+                <span class="mono" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: #eafaf0; color: #15803d; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+              </div>
+              <p class="mono" style="font-size: 11.5px; color: #8b939f; margin-top: 7px;">github.com/debutweb/marketing-genius · main · fra1</p>
+            </div>
+            <span class="mono" style="font-size: 11px; color: #2563eb; border: 1px solid #d3e0ff; background: #f2f6ff; padding: 5px 9px; border-radius: 7px;">Web service</span>
+          </div>
+
+          <div data-grid="4s" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px;">
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 11px 12px; background: #fbfcfe;"><p class="mono" style="font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Plan</p><p class="mono" style="font-size: 14px; font-weight: 600; margin-top: 6px; color: #0b0d12;">Pro Plus</p></div>
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 11px 12px; background: #fbfcfe;"><p class="mono" style="font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">vCPU</p><p class="mono" style="font-size: 14px; font-weight: 600; margin-top: 6px; color: #0b0d12;">2 dedicated</p></div>
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 11px 12px; background: #fbfcfe;"><p class="mono" style="font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Memory</p><p class="mono" style="font-size: 14px; font-weight: 600; margin-top: 6px; color: #0b0d12;">4 GB</p></div>
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 11px 12px; background: #fbfcfe;"><p class="mono" style="font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Region</p><p class="mono" style="font-size: 14px; font-weight: 600; margin-top: 6px; color: #0b0d12;">fra1 · DE</p></div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 12px; background: #fbfcfe;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><p class="mono" style="font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">CPU</p><p class="mono" style="font-size: 11.5px; color: #4d5661;">38%</p></div>
+              <div style="height: 6px; border-radius: 999px; background: #e9ecf2; margin-top: 9px; overflow: hidden;"><div style="height: 6px; border-radius: 999px; background: #2563eb; width: 38%;"></div></div>
+            </div>
+            <div style="border: 1px solid #eceff4; border-radius: 10px; padding: 12px; background: #fbfcfe;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><p class="mono" style="font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #9aa2ae;">Memory</p><p class="mono" style="font-size: 11.5px; color: #4d5661;">2.4 / 4 GB</p></div>
+              <div style="height: 6px; border-radius: 999px; background: #e9ecf2; margin-top: 9px; overflow: hidden;"><div style="height: 6px; border-radius: 999px; background: #7c9cf5; width: 61%;"></div></div>
+            </div>
+          </div>
+
+          <div class="mono" style="margin-top: 14px; border: 1px solid #e9ecf2; border-radius: 11px; background: #0e1117; padding: 14px 15px; font-size: 11.5px; line-height: 1.85; overflow-x: auto;">
+            <div style="display: flex; gap: 10px; white-space: nowrap;"><span style="color: #5b6675;">14:21:52</span><span style="color: #cbd5e3;">==&gt; Cloning debutweb/marketing-genius#main</span></div>
+            <div style="display: flex; gap: 10px; white-space: nowrap;"><span style="color: #5b6675;">14:21:58</span><span style="color: #cbd5e3;">==&gt; Detected Next.js 15 · node 22.4.0</span></div>
+            <div style="display: flex; gap: 10px; white-space: nowrap;"><span style="color: #5b6675;">14:22:01</span><span style="color: #cbd5e3;">==&gt; npm ci &amp;&amp; npm run build</span></div>
+            <div style="display: flex; gap: 10px; white-space: nowrap;"><span style="color: #5b6675;">14:22:04</span><span style="color: #cbd5e3;">==&gt; Uploading container image (182 MB)</span></div>
+            <div style="display: flex; gap: 10px; white-space: nowrap;"><span style="color: #5b6675;">14:22:06</span><span style="color: #cbd5e3;">==&gt; Health check /api/health → 200 OK</span></div>
+            <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:22:07</span><span style="color: #4ade80;">✓ Deploy live · https://marketing.debutwebconsultants.co.uk</span><span aria-hidden="true" style="color: #4ade80; animation: dd-blink 1.1s steps(1) infinite;">▍</span></div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 11px 13px; border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe;">
+            <span class="mono" style="font-size: 11.5px; color: #4d5661;">postgres · mg-primary · 20 GB</span>
+            <span class="mono" style="font-size: 11px; color: #15803d;">connected · backup 03:00 UTC</span>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- POSTGRES -->
-<section>
-  <div class="wrap" style="padding:70px 24px">
-    <div class="sec-head"><h2>Managed Postgres</h2><p style="max-width:44ch">Add a database to any app. Automated backups and volumes included — storage overage at $0.10/GB.</p></div>
-    <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden" class="db-scroll">
-      <div class="db-head mono" style="background:var(--paper);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)"><span>Database</span><span>Spec</span><span>Price</span><span>Elsewhere</span><span></span></div>
-      <div id="dbRows"></div>
+  <section aria-label="Platform guarantees" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div style="max-width: 1280px; margin: 0 auto; padding: 22px 32px; display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; justify-content: space-between;">
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">◆</span>European infrastructure</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">◇</span>No cold starts</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">⬢</span>Automated TLS</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">▣</span>Isolated workloads</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">⧉</span>Managed backups</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">◉</span>Live platform status</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #4d5661; font-weight: 500;"><span aria-hidden="true" style="color: #2563eb; font-size: 12px;">≡</span>Predictable monthly billing</span>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- BUNDLES -->
-<section>
-  <div class="wrap" style="padding:70px 24px">
-    <div class="sec-head"><h2>Bundles</h2><p style="max-width:44ch">Common set-ups at a set price. Mix compute and Postgres however you like — bundles just do the maths for you.</p></div>
-    <div class="bundle-grid" id="bundleGrid"></div>
-  </div>
-</section>
-
-<!-- INCLUDED -->
-<section>
-  <div class="wrap" style="padding:70px 24px">
-    <div class="sec-head"><h2>In every plan</h2><p style="max-width:44ch">No metered surprises. The things other platforms bill you for after the fact are just part of the price here.</p></div>
-    <div class="incl-grid">
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.5 15.5 5v8L9 16.5 2.5 13V5L9 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>20 TB traffic</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">Included every month, on every plan. Render, Fly, Railway and DigitalOcean all bill egress by the gigabyte — we don't.</div></div>
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M9 5v4l2.5 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Always on</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">No sleeping services, no 30-second cold starts. Your app answers the first request as fast as the millionth.</div></div>
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2.5" y="2.5" width="13" height="13" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M6 9l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Fully isolated</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">Every app runs in its own container with clean resource boundaries — your workloads stay genuinely separate.</div></div>
-      <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;color:var(--accent)"><div class="mono" style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--ink)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2v14M2 9h14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Locked GBP pricing</div><div style="color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.5">UK-based and billed in pounds if you want it. Toggle the currency up top — the rate is fixed on your invoice, not the day's FX.</div></div>
-    </div>
-  </div>
-</section>
-
-<!-- COMPARE -->
-<section>
-  <div class="wrap" style="padding:70px 24px">
-    <div class="sec-head"><h2>How we compare</h2><p style="max-width:50ch">One production workload — a 2 vCPU / 4 GB web service plus a small managed Postgres and ~100 GB of traffic — priced against the platforms you'd otherwise reach for.</p></div>
-    <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;min-width:720px">
-        <thead>
-          <tr style="background:var(--paper)">
-            <th style="text-align:left;padding:14px 18px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600">Platform</th>
-            <th style="text-align:left;padding:14px 18px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600">Same workload / mo</th>
-            <th style="text-align:left;padding:14px 18px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600">100 GB egress</th>
-            <th style="text-align:left;padding:14px 18px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600">Cold starts</th>
-            <th style="text-align:left;padding:14px 18px;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600">You save</th>
-          </tr>
-        </thead>
-        <tbody style="font-size:14px">
-          <tr style="background:var(--accent-soft)">
-            <td style="padding:16px 18px;font-weight:700;color:var(--accent-ink)">DebutDeploy</td>
-            <td class="mono" style="padding:16px 18px;font-weight:700;color:var(--ink)">$57</td>
-            <td style="padding:16px 18px;color:var(--accent-ink);font-weight:600">$0 · 20 TB included</td>
-            <td style="padding:16px 18px;color:var(--accent-ink);font-weight:600">Never — always on</td>
-            <td style="padding:16px 18px;color:var(--ink-3)">—</td>
-          </tr>
-          <tr style="border-top:1px solid var(--line)">
-            <td style="padding:16px 18px;font-weight:600;color:var(--ink)">Render</td>
-            <td class="mono" style="padding:16px 18px;color:var(--ink-2)">~$104</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">Metered over allowance</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">Paid: no · free tier sleeps</td>
-            <td style="padding:16px 18px"><span class="chip">~45% less</span></td>
-          </tr>
-          <tr style="border-top:1px solid var(--line)">
-            <td style="padding:16px 18px;font-weight:600;color:var(--ink)">Railway</td>
-            <td class="mono" style="padding:16px 18px;color:var(--ink-2)">~$115 *</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">+$0.10/GB (+$10)</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">No</td>
-            <td style="padding:16px 18px"><span class="chip">~50% less</span></td>
-          </tr>
-          <tr style="border-top:1px solid var(--line)">
-            <td style="padding:16px 18px;font-weight:600;color:var(--ink)">Fly.io</td>
-            <td class="mono" style="padding:16px 18px;color:var(--ink-2)">~$105 *</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">$0.02/GB (+$2)</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">Opt-in auto-stop</td>
-            <td style="padding:16px 18px"><span class="chip">~46% less</span></td>
-          </tr>
-          <tr style="border-top:1px solid var(--line)">
-            <td style="padding:16px 18px;font-weight:600;color:var(--ink)">Heroku</td>
-            <td class="mono" style="padding:16px 18px;color:var(--ink-2)">~$259</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">No published egress fee</td>
-            <td style="padding:16px 18px;color:var(--ink-2)">Eco dynos sleep</td>
-            <td style="padding:16px 18px"><span class="chip">~78% less</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="mono" style="font-size:11px;color:var(--ink-3);margin-top:14px;line-height:1.7">Prices in USD, per month, ex-VAT. Our figure = Pro Plus compute ($45) + DB Starter ($12), 20 TB traffic included. Competitor figures are published list rates as of July 2026, matched to the nearest plan that meets the workload; usage-based platforms (Railway, Fly.io) are computed always-on and marked indicative (*). Sources: render.com/pricing · railway.com/pricing · fly.io/docs/about/pricing · heroku.com/pricing.</p>
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer>
-  <div class="wrap" style="padding:64px 24px 72px">
-    <div style="font-weight:700;letter-spacing:-.03em;font-size:clamp(26px,3.6vw,40px);line-height:1.08;max-width:20ch">Same app. <em style="font-style:normal;color:var(--accent)">Half the price.</em> Your call.</div>
-    <p style="color:var(--ink-2);margin-top:16px;max-width:50ch">Move a Render or Railway app across in an afternoon — import straight from your current provider and we'll match the setup.</p>
-    <nav style="display:flex;flex-wrap:wrap;gap:20px;margin-top:34px;font-size:14px">
-      <a href="/security.html" style="color:var(--ink-2);text-decoration:none">Security</a>
-      <a href="/about.html" style="color:var(--ink-2);text-decoration:none">About</a>
-      <a href="/contact.html" style="color:var(--ink-2);text-decoration:none">Contact</a>
-      <a href="/legal.html" style="color:var(--ink-2);text-decoration:none">Legal</a>
-      <a href="/terms.html" style="color:var(--ink-2);text-decoration:none">Terms</a>
-      <a href="/privacy.html" style="color:var(--ink-2);text-decoration:none">Privacy</a>
-      <a href="/webmail.html" style="color:var(--ink-2);text-decoration:none">Webmail</a>
-      <a href="https://status.debutdepoly.com" style="color:var(--ink-2);text-decoration:none">Status</a>
-    </nav>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:34px;padding-top:26px;border-top:1px solid var(--line);flex-wrap:wrap;gap:16px">
-      <div>
-        <div class="mono" style="font-size:12.5px;color:var(--ink-3)">Enterprise-grade European infrastructure · EU data residency</div>
-        <div class="mono" style="font-size:11px;color:var(--ink-3);margin-top:8px;line-height:1.6">Prices per month, ex-VAT. GBP shown at a fixed £1 = $1.27. Competitor prices from published rates, July 2026. Bill estimates are indicative.</div>
+  <section id="platform" style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Product demonstration</p>
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">From Git repository to live application.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Connect your repository, add environment variables and deploy. DebutDeploy handles builds, TLS, networking, service health and infrastructure management.</p>
       </div>
-      <div style="display:flex;gap:10px"><a href="#" class="btn btn-ghost">See plans</a><a href="https://app.debutdepoly.com" class="btn">Start deploying</a></div>
+
+      <div data-2col style="margin-top: 44px; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 28px; align-items: start;">
+        <div data-steps role="tablist" aria-label="Deployment steps" style="display: grid; gap: 10px;">
+          <button type="button" role="tab" data-step="1" data-crumb="Step 01 — repositories" aria-selected="true" style="text-align: left; cursor: pointer; padding: 16px 18px; border-radius: 13px; background: #ffffff; border: 1px solid #c9d4e8; display: grid; grid-template-columns: 26px 1fr; gap: 14px; align-items: start;">
+            <span class="mono" data-step-num style="font-size: 11.5px; font-weight: 600; color: #2563eb; padding-top: 2px;">01</span>
+            <span style="display: block;"><span style="display: block; font-size: 15.5px; font-weight: 650; color: #0b0d12; letter-spacing: -0.01em;">Connect GitHub</span><span style="display: block; font-size: 13.5px; line-height: 1.5; color: #5a6472; margin-top: 5px;">Authorise once and pick the repository you want to deploy.</span></span>
+          </button>
+          <button type="button" role="tab" data-step="2" data-crumb="Step 02 — service configuration" aria-selected="false" style="text-align: left; cursor: pointer; padding: 16px 18px; border-radius: 13px; background: transparent; border: 1px solid #e5e8ee; display: grid; grid-template-columns: 26px 1fr; gap: 14px; align-items: start;">
+            <span class="mono" data-step-num style="font-size: 11.5px; font-weight: 600; color: #9aa2ae; padding-top: 2px;">02</span>
+            <span style="display: block;"><span style="display: block; font-size: 15.5px; font-weight: 650; color: #0b0d12; letter-spacing: -0.01em;">Configure application</span><span style="display: block; font-size: 13.5px; line-height: 1.5; color: #5a6472; margin-top: 5px;">Framework detection fills in build and start commands — override anything.</span></span>
+          </button>
+          <button type="button" role="tab" data-step="3" data-crumb="Step 03 — environment" aria-selected="false" style="text-align: left; cursor: pointer; padding: 16px 18px; border-radius: 13px; background: transparent; border: 1px solid #e5e8ee; display: grid; grid-template-columns: 26px 1fr; gap: 14px; align-items: start;">
+            <span class="mono" data-step-num style="font-size: 11.5px; font-weight: 600; color: #9aa2ae; padding-top: 2px;">03</span>
+            <span style="display: block;"><span style="display: block; font-size: 15.5px; font-weight: 650; color: #0b0d12; letter-spacing: -0.01em;">Add environment variables</span><span style="display: block; font-size: 13.5px; line-height: 1.5; color: #5a6472; margin-top: 5px;">Paste your .env; values are encrypted at rest and write-only afterwards.</span></span>
+          </button>
+          <button type="button" role="tab" data-step="4" data-crumb="Step 04 — deployment log" aria-selected="false" style="text-align: left; cursor: pointer; padding: 16px 18px; border-radius: 13px; background: transparent; border: 1px solid #e5e8ee; display: grid; grid-template-columns: 26px 1fr; gap: 14px; align-items: start;">
+            <span class="mono" data-step-num style="font-size: 11.5px; font-weight: 600; color: #9aa2ae; padding-top: 2px;">04</span>
+            <span style="display: block;"><span style="display: block; font-size: 15.5px; font-weight: 650; color: #0b0d12; letter-spacing: -0.01em;">Deploy</span><span style="display: block; font-size: 13.5px; line-height: 1.5; color: #5a6472; margin-top: 5px;">Watch the build log, get a live domain with TLS issued automatically.</span></span>
+          </button>
+          <a href="/faq.html#runtime" style="margin-top: 6px; font-size: 14px; font-weight: 600; padding: 4px 2px;">See how deployment works →</a>
+        </div>
+
+        <div style="border: 1px solid #dfe4ec; border-radius: 16px; background: #fff; overflow: hidden; box-shadow: 0 20px 44px -30px rgba(11,13,18,0.24);">
+          <div class="mono" data-step-crumb style="padding: 11px 16px; border-bottom: 1px solid #eceff4; background: #fbfcfe; font-size: 11.5px; color: #8b939f;">Step 01 — repositories</div>
+          <div style="padding: 22px; min-height: 348px;">
+            <div data-step-panel="1">
+              <p style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Select a repository</p>
+              <div style="border: 1px solid #eceff4; border-radius: 11px; overflow: hidden;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-bottom: 1px solid #f2f4f8;"><span style="display: flex; align-items: center; gap: 11px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #0e1117; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700;">M</span><span class="mono" style="font-size: 12.5px; color: #2b323c;">debutweb/marketing-genius</span></span><span style="display: flex; align-items: center; gap: 12px;"><span class="mono" style="font-size: 11px; color: #9aa2ae;">4h ago</span><span style="font-size: 12px; font-weight: 600; color: #2563eb; border: 1px solid #d3e0ff; padding: 5px 10px; border-radius: 7px;">Connect</span></span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-bottom: 1px solid #f2f4f8;"><span style="display: flex; align-items: center; gap: 11px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #0e1117; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700;">F</span><span class="mono" style="font-size: 12.5px; color: #2b323c;">debutweb/fully-informed</span></span><span style="display: flex; align-items: center; gap: 12px;"><span class="mono" style="font-size: 11px; color: #9aa2ae;">2d ago</span><span style="font-size: 12px; font-weight: 600; color: #2563eb; border: 1px solid #d3e0ff; padding: 5px 10px; border-radius: 7px;">Connect</span></span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; border-bottom: 1px solid #f2f4f8;"><span style="display: flex; align-items: center; gap: 11px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #0e1117; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700;">A</span><span class="mono" style="font-size: 12.5px; color: #2b323c;">debutweb/aurora-assistant</span></span><span style="display: flex; align-items: center; gap: 12px;"><span class="mono" style="font-size: 11px; color: #9aa2ae;">5d ago</span><span style="font-size: 12px; font-weight: 600; color: #2563eb; border: 1px solid #d3e0ff; padding: 5px 10px; border-radius: 7px;">Connect</span></span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px;"><span style="display: flex; align-items: center; gap: 11px;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #0e1117; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700;">L</span><span class="mono" style="font-size: 12.5px; color: #2b323c;">debutweb/lc-traders</span></span><span style="display: flex; align-items: center; gap: 12px;"><span class="mono" style="font-size: 11px; color: #9aa2ae;">3w ago</span><span style="font-size: 12px; font-weight: 600; color: #2563eb; border: 1px solid #d3e0ff; padding: 5px 10px; border-radius: 7px;">Connect</span></span></div>
+              </div>
+              <p style="margin-top: 14px; font-size: 12.5px; color: #8b939f;">Repository access uses a single read-only deploy key. Only the GitHub scopes needed to build and deploy are requested.</p>
+            </div>
+
+            <div data-step-panel="2" style="display: none;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 10px; background: #f2f6ff; border: 1px solid #d3e0ff; font-size: 13px; color: #1b4ed1; font-weight: 550;">Framework detected — Next.js 15 · Node 22</div>
+              <div style="margin-top: 16px; display: grid; gap: 14px;">
+                <label style="display: block;"><span class="mono" style="display: block; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f; margin-bottom: 7px;">Build command</span><span class="mono" style="display: block; font-size: 12.5px; color: #2b323c; border: 1px solid #e5e8ee; background: #fbfcfe; border-radius: 9px; padding: 11px 13px;">npm ci &amp;&amp; npm run build</span></label>
+                <label style="display: block;"><span class="mono" style="display: block; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f; margin-bottom: 7px;">Start command</span><span class="mono" style="display: block; font-size: 12.5px; color: #2b323c; border: 1px solid #e5e8ee; background: #fbfcfe; border-radius: 9px; padding: 11px 13px;">npm run start</span></label>
+                <label style="display: block;"><span class="mono" style="display: block; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f; margin-bottom: 7px;">Instance</span><span class="mono" style="display: block; font-size: 12.5px; color: #2b323c; border: 1px solid #e5e8ee; background: #fbfcfe; border-radius: 9px; padding: 11px 13px;">Pro Plus · 2 vCPU / 4 GB · dedicated</span></label>
+                <label style="display: block;"><span class="mono" style="display: block; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f; margin-bottom: 7px;">Region</span><span class="mono" style="display: block; font-size: 12.5px; color: #2b323c; border: 1px solid #e5e8ee; background: #fbfcfe; border-radius: 9px; padding: 11px 13px;">fra1 — Falkenstein, Germany</span></label>
+              </div>
+            </div>
+
+            <div data-step-panel="3" style="display: none;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <p style="font-size: 14px; font-weight: 600;">Environment variables</p>
+                <span class="mono" style="font-size: 11px; color: #15803d; background: #eafaf0; border-radius: 7px; padding: 5px 9px;">encrypted at rest</span>
+              </div>
+              <div class="mono" style="margin-top: 14px; border: 1px solid #eceff4; border-radius: 11px; overflow: hidden; font-size: 12.5px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 12px 15px; border-bottom: 1px solid #f2f4f8;"><span style="color: #2b323c;">DATABASE_URL</span><span style="color: #9aa2ae; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">postgres://•••••••••••••••</span></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 12px 15px; border-bottom: 1px solid #f2f4f8;"><span style="color: #2b323c;">OPENAI_API_KEY</span><span style="color: #9aa2ae; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">sk-•••••••••••••••••••</span></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 12px 15px; border-bottom: 1px solid #f2f4f8;"><span style="color: #2b323c;">SESSION_SECRET</span><span style="color: #9aa2ae; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">•••••••••••••••••••••</span></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 12px 15px; border-bottom: 1px solid #f2f4f8;"><span style="color: #2b323c;">NODE_ENV</span><span style="color: #9aa2ae; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">production</span></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 12px 15px;"><span style="color: #2b323c;">NEXT_PUBLIC_APP_URL</span><span style="color: #9aa2ae; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">https://app.example.com</span></div>
+              </div>
+              <p style="margin-top: 14px; font-size: 12.5px; color: #8b939f;">Secrets are write-only after saving and are never rendered back into the browser.</p>
+            </div>
+
+            <div data-step-panel="4" style="display: none;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <span class="mono" style="display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; color: #15803d; background: #eafaf0; padding: 6px 10px; border-radius: 999px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>DEPLOY SUCCEEDED</span>
+                <span class="mono" style="font-size: 11.5px; color: #8b939f;">build 1m 48s</span>
+              </div>
+              <div class="mono" style="margin-top: 14px; border-radius: 11px; background: #0e1117; padding: 15px; font-size: 11.5px; line-height: 1.9;">
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:20:11</span><span style="color: #cbd5e3;">==&gt; Build started · commit 8f2c9ab</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:20:19</span><span style="color: #cbd5e3;">==&gt; Installing dependencies</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:21:02</span><span style="color: #cbd5e3;">==&gt; Compiled successfully in 43s</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:21:24</span><span style="color: #cbd5e3;">==&gt; Pushing image to eu registry</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:21:47</span><span style="color: #cbd5e3;">==&gt; Starting container · 2 vCPU / 4 GB</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:21:55</span><span style="color: #cbd5e3;">==&gt; Health check /api/health → 200 OK</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:21:57</span><span style="color: #cbd5e3;">==&gt; Requesting TLS certificate</span></div>
+                <div style="display: flex; gap: 10px;"><span style="color: #5b6675;">14:21:59</span><span style="color: #cbd5e3;">==&gt; Live · previous deploy retained for rollback</span></div>
+              </div>
+              <div class="mono" style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid #d3e0ff; background: #f2f6ff; border-radius: 10px;">
+                <span style="font-size: 12px; color: #1b4ed1;">https://app.example.com</span>
+                <span style="font-size: 11px; color: #1b4ed1;">TLS issued automatically</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-</footer>
+  </section>
 
-<script>
-(function(){
-  var RATE=1.27, cur='usd';
-  function fmt(usd){ var v=cur==='gbp'?usd/RATE:usd; var sym=cur==='gbp'?'£':'$'; var s=Math.round(v*100)/100; return sym+(Number.isInteger(s)?s:s.toFixed(2)); }
-  function bar(pct,color){ return 'height:100%;width:'+pct+'%;background:'+color+';border-radius:999px;transition:width 1s cubic-bezier(.16,1,.3,1)'; }
-  var OURS='var(--accent)',THEM='var(--them)',CURRENT='var(--ink-2)';
+  <section id="showcase" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: end; justify-content: space-between;">
+        <div style="max-width: 700px;">
+          <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Running in production</p>
+          <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">We trust DebutDeploy with our own production products.</h2>
+          <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">DebutDeploy was built to run the applications we develop and operate ourselves. From multi-model AI and autonomous marketing to automotive, finance and logistics platforms, these are live products rather than demonstration templates.</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" data-rail-prev aria-label="Previous products" class="h-ghost" style="width: 44px; height: 44px; border-radius: 11px; border: 1px solid #d8dde6; background: #fff; cursor: pointer; font-size: 15px; color: #2b323c;">←</button>
+          <button type="button" data-rail-next aria-label="Next products" class="h-ghost" style="width: 44px; height: 44px; border-radius: 11px; border: 1px solid #d8dde6; background: #fff; cursor: pointer; font-size: 15px; color: #2b323c;">→</button>
+        </div>
+      </div>
 
-  // currency: re-render all data-price spans
-  function applyCurrency(){
-    document.querySelectorAll('[data-price]').forEach(function(el){ el.textContent=fmt(+el.getAttribute('data-price')); });
-    document.querySelectorAll('.cur-btn').forEach(function(b){
-      var on=b.getAttribute('data-cur')===cur;
-      b.style.cssText='font-size:13px;font-weight:500;border:0;padding:6px 14px;border-radius:999px;cursor:pointer;transition:.18s;'+(on?'background:var(--ink);color:#fff':'background:transparent;color:var(--ink-2)');
-    });
-    renderDynamic();
-  }
-  document.querySelectorAll('.cur-btn').forEach(function(b){ b.onclick=function(){ cur=b.getAttribute('data-cur'); applyCurrency(); }; });
+      <div class="rail" data-rail style="margin-top: 40px; display: flex; gap: 20px; overflow-x: auto; padding-bottom: 18px;">
 
-  // ---- data ----
-  var HERO=[
-    {name:'Server power',ours:'2 vCPU',them:'2 vCPU',op:100,tp:100,v:'Matched',save:false},
-    {name:'Memory',ours:'4 GB',them:'4 GB',op:100,tp:100,v:'Matched',save:false},
-    {name:'Price / mo',ourU:45,themU:85,op:45/85*100,tp:100,v:'Save 47%',save:true}
-  ];
-  var PLANS=[
-    {name:'Hobby',ram:'512 MB',cpu:'0.5 vCPU',host:'shared box',ours:5,comp:7,compName:'Render',compFull:'Render Starter'},
-    {name:'Starter',ram:'1 GB',cpu:'0.5 vCPU',host:'shared box',ours:9,comp:10,compName:'Market',compFull:'the going rate'},
-    {name:'Pro',ram:'2 GB',cpu:'1 vCPU',host:'shared box',ours:15,comp:25,compName:'Render',compFull:'Render Standard'},
-    {name:'Pro Plus',ram:'4 GB',cpu:'2 vCPU',host:'dedicated',ours:45,comp:85,compName:'Render',compFull:'Render Pro',feat:true},
-    {name:'Scale',ram:'8 GB',cpu:'4 vCPU',host:'dedicated',ours:85,comp:175,compName:'Render',compFull:'Render Pro Plus'}
-  ];
-  var DBS=[
-    {name:'DB Hobby',spec:'256 MB · 2 GB storage',ours:5,comp:6,save:'17%'},
-    {name:'DB Starter',spec:'1 GB · 10 GB storage',ours:12,comp:19,save:'37%'},
-    {name:'DB Pro',spec:'4 GB · 50 GB storage',ours:45,comp:75,save:'40%'},
-    {name:'DB Scale',spec:'8 GB · 100 GB storage',ours:90,comp:100,save:'up to 51%'}
-  ];
-  var BUNDLES=[
-    {name:'Indie',inc:['1 × Pro compute','DB Starter'],ours:27,render:45},
-    {name:'Growth',inc:['3 × Pro compute','DB Pro'],ours:90,render:170},
-    {name:'Team',inc:['5 × Pro Plus compute','DB Pro'],ours:270,render:520}
-  ];
-  var LINE=[{l:'3 × Web service · 4 GB',a:255},{l:'Managed Postgres · 4 GB / 50 GB',a:90},{l:'Redis · 1 GB',a:20},{l:'Bandwidth · 380 GB egress',a:47}];
-  var CURRENT_USD=412,DD_USD=188,RAIL_USD=330,AI_MAX=412;
-  var PLAT=[{name:'DebutDeploy',usd:DD_USD,ours:true,tag:'20 TB traffic included'},{name:'Railway',usd:RAIL_USD,ours:false,tag:'usage-based estimate'},{name:'Render',usd:CURRENT_USD,ours:false,tag:'your current setup'}];
+        <article data-card class="h-card" style="flex: 0 0 460px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <div class="shot">Marketing Genius campaign dashboard<br>1600×900</div>
+            <span class="mono" style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #eceff4; background: #fff; display: grid; place-items: center; overflow: hidden; flex: none;"><img src="/assets/img/marketing-genius-icon.png" data-monogram="MG" alt="Marketing Genius logo" style="display: block; width: 30px; height: 30px; object-fit: contain;"></span>
+              <span><span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Marketing Genius</span><span class="mono" style="display: block; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Autonomous marketing operating system</span></span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A multi-service marketing platform combining AI agents, campaign workflows, analytics, integrations and automation.</p>
+            <div class="mono" style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10.5px;">
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">multi-service</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">AI workloads</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">background processes</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">API integrations</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">postgres</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" data-case="0" class="h-ghost" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;">View application</button>
+              <span class="mono" style="font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
 
-  var mounted=false, billFill=false;
+        <article data-card class="h-card" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <div class="shot">Fully Informed report view<br>1600×900</div>
+            <span class="mono" style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; overflow: hidden; display: grid; place-items: center; flex: none;"><img src="/assets/img/fi-monogram-purple.svg" data-monogram="FI" alt="Fully Informed logo" style="display: block; width: 36px; height: 36px; object-fit: contain;"></span>
+              <span><span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Fully Informed</span><span class="mono" style="display: block; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Multi-model decision intelligence</span></span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A multi-model reasoning platform that combines several AI systems into structured, evidence-led decision reports.</p>
+            <div class="mono" style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10.5px;">
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">multi-model orchestration</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">live inference</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">file processing</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">credit billing</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" data-case="1" class="h-ghost" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;">View application</button>
+              <span class="mono" style="font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
 
-  function renderDynamic(){
-    // hero metrics
-    document.getElementById('heroMetrics').innerHTML=HERO.map(function(m,i){
-      var chip=m.save?'background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--accent-line)':'background:var(--track);color:var(--ink-2)';
-      var oursVal=m.ourU!=null?fmt(m.ourU):m.ours, themVal=m.themU!=null?fmt(m.themU):m.them;
-      return '<div style="padding:14px 0;'+(i===0?'':'border-top:1px solid var(--line)')+'">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">'+m.name+'</span><span class="mono" style="display:inline-flex;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;'+chip+'">'+m.v+'</span></div>'+
-        '<div style="display:flex;flex-direction:column;gap:8px">'+
-          '<div style="display:flex;align-items:center;gap:11px"><span class="mono" style="width:86px;flex:none;font-size:11.5px;font-weight:600;color:var(--accent-ink)">DebutDeploy</span><div class="track"><div class="fill" style="'+bar(mounted?m.op.toFixed(1):0,OURS)+'"></div></div><span class="mono" style="width:58px;flex:none;text-align:right;font-size:12.5px;font-weight:600;color:var(--ink)">'+oursVal+'</span></div>'+
-          '<div style="display:flex;align-items:center;gap:11px"><span class="mono" style="width:86px;flex:none;font-size:11.5px;color:var(--ink-3)">Render Pro</span><div class="track"><div class="fill" style="'+bar(mounted?m.tp.toFixed(1):0,THEM)+'"></div></div><span class="mono" style="width:58px;flex:none;text-align:right;font-size:12.5px;color:var(--ink-2)">'+themVal+'</span></div>'+
-        '</div></div>';
-    }).join('');
+        <article data-card class="h-card" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <div class="shot">Aurora Assistant workspace<br>1600×900</div>
+            <span class="mono" style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #eceff4; background: #fff; display: grid; place-items: center; overflow: hidden; flex: none;"><img src="/assets/img/aurora-icon.png" data-monogram="AA" alt="Aurora Assistant logo" style="display: block; width: 30px; height: 30px; object-fit: contain;"></span>
+              <span><span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Aurora Assistant</span><span class="mono" style="display: block; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Intelligent assistant platform</span></span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">An AI assistant platform designed for structured workflows, intelligent support and secure application interactions.</p>
+            <div class="mono" style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10.5px;">
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">AI workflows</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">authentication</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">API services</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" data-case="2" class="h-ghost" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;">View application</button>
+              <span class="mono" style="font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
 
-    // plans
-    document.getElementById('planGrid').innerHTML=PLANS.map(function(p){
-      var save=Math.round((1-p.ours/p.comp)*100);
-      var cta=p.feat?'<a href="https://app.debutdepoly.com" class="btn" style="display:block;text-align:center;width:100%">Choose '+p.name+'</a>':'<a href="https://app.debutdepoly.com" class="btn btn-ghost" style="display:block;text-align:center;width:100%">Choose '+p.name+'</a>';
-      return '<div class="plan-card'+(p.feat?' feat':'')+'">'+
-        (p.feat?'<span style="position:absolute;top:-11px;left:20px;background:var(--accent);color:#fff;font-family:\'Geist Mono\',monospace;font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:6px">Most popular</span>':'')+
-        '<h3 style="font-weight:700;font-size:19px;letter-spacing:-.02em">'+p.name+'</h3>'+
-        '<div class="mono" style="font-size:12px;color:var(--ink-2);margin-top:6px;line-height:1.7">'+p.ram+' RAM · '+p.cpu+'<br><span style="color:var(--ink-3)">'+p.host+'</span></div>'+
-        '<div class="mono" style="font-weight:600;font-size:32px;letter-spacing:-.02em;margin-top:16px;line-height:1">'+fmt(p.ours)+' <span style="font-size:13px;color:var(--ink-3);font-weight:400">/mo</span></div>'+
-        '<span class="chip" style="margin-top:11px">Save '+save+'% vs '+p.compFull+'</span>'+
-        '<div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">'+
-          '<div style="display:flex;align-items:center;gap:9px"><span class="mono" style="width:42px;flex:none;font-size:10px;font-weight:600;color:var(--accent-ink)">You</span><div class="track" style="height:11px"><div class="fill" style="'+bar(mounted?(p.ours/p.comp*100).toFixed(1):0,OURS)+'"></div></div><span class="mono" style="width:44px;flex:none;text-align:right;font-size:11px;font-weight:600;color:var(--ink)">'+fmt(p.ours)+'</span></div>'+
-          '<div style="display:flex;align-items:center;gap:9px"><span class="mono" style="width:42px;flex:none;font-size:10px;color:var(--ink-3)">'+p.compName+'</span><div class="track" style="height:11px"><div class="fill" style="'+bar(mounted?100:0,THEM)+'"></div></div><span class="mono" style="width:44px;flex:none;text-align:right;font-size:11px;color:var(--ink-2)">'+fmt(p.comp)+'</span></div>'+
-        '</div><div style="margin-top:auto;padding-top:22px">'+cta+'</div></div>';
-    }).join('');
+        <article data-card class="h-card" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <div class="shot">CryptoPilot dashboard, redacted<br>1600×900</div>
+            <span class="mono" style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="width: 36px; height: 36px; border-radius: 9px; background: #0d1117; display: grid; place-items: center; overflow: hidden; flex: none; color: #fff; font-size: 12px; font-weight: 800;">CP</span>
+              <span><span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">CryptoPilot</span><span class="mono" style="display: block; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Autonomous trading platform</span></span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A private trading intelligence platform using persistent workers, real-time data and secure authenticated dashboards.</p>
+            <div class="mono" style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10.5px;">
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">real-time data</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">persistent workers</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">scheduled processes</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">authenticated</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" data-case="3" class="h-ghost" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;">Private platform</button>
+              <span class="mono" style="font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
 
-    // dbs
-    document.getElementById('dbRows').innerHTML=DBS.map(function(d){
-      return '<div class="db-row"><span style="font-weight:600;font-size:15px">'+d.name+'</span><span class="mono" style="font-size:12.5px;color:var(--ink-2)">'+d.spec+'</span><span class="mono" style="font-weight:600;font-size:21px">'+fmt(d.ours)+' <span style="font-size:11px;color:var(--ink-3);font-weight:400">/mo</span></span><span class="mono" style="font-size:13px;color:var(--ink-3)">from <s>'+fmt(d.comp)+'</s></span><span class="mono chip" style="justify-self:end;white-space:nowrap">Save '+d.save+'</span></div>';
-    }).join('');
+        <article data-card class="h-card" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <div class="shot">L&amp;C Traders stock listing<br>1600×900</div>
+            <span class="mono" style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="height: 36px; padding: 0 5px; border-radius: 9px; background: #1c1c1c; display: grid; place-items: center; flex: none;"><img src="/assets/img/lc-traders-logo.png" data-monogram="L&amp;C" alt="Logistics &amp; Consultancy logo" style="display: block; height: 24px; width: auto; max-width: 124px; object-fit: contain;"></span>
+              <span><span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">L&amp;C Traders</span><span class="mono" style="display: block; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Automotive trade network</span></span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A closed dealer platform supporting vehicle stock, dealer accounts and automotive trade workflows.</p>
+            <div class="mono" style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10.5px;">
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">dealer accounts</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">stock workflows</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">database-backed</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" data-case="4" class="h-ghost" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;">View website</button>
+              <span class="mono" style="font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
 
-    // bundles
-    document.getElementById('bundleGrid').innerHTML=BUNDLES.map(function(b){
-      var cut=Math.round((1-b.ours/b.render)*100);
-      return '<div class="plan-card" style="padding:24px 22px"><div style="font-weight:700;font-size:21px;letter-spacing:-.02em">'+b.name+'</div>'+
-        '<div class="mono" style="font-size:12.5px;color:var(--ink-2);margin-top:10px;line-height:1.8;display:flex;flex-direction:column">'+b.inc.map(function(i){return '<span>· '+i+'</span>';}).join('')+'</div>'+
-        '<div class="mono" style="font-weight:600;font-size:30px;margin-top:18px">'+fmt(b.ours)+' <span style="font-size:13px;color:var(--ink-3);font-weight:400">/mo</span></div>'+
-        '<div style="font-size:13px;color:var(--ink-2);margin-top:8px">Same stack on Render ≈ '+fmt(b.render)+' — <b style="color:var(--accent-ink);font-weight:600">'+cut+'% less</b></div></div>';
-    }).join('');
+        <article data-card class="h-card" style="flex: 0 0 380px; scroll-snap-align: start; border: 1px solid #e5e8ee; border-radius: 16px; background: #fff; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="aspect-ratio: 16 / 9; background: #f4f6fa; border-bottom: 1px solid #eceff4; position: relative;">
+            <div class="shot">Trusted Car Finance eligibility flow<br>1600×900</div>
+            <span class="mono" style="position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #e5e8ee; font-size: 10px; font-weight: 600; color: #15803d; pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span>LIVE</span>
+          </div>
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <span style="height: 36px; padding: 0 4px; border-radius: 9px; border: 1px solid #eceff4; background: #fff; display: grid; place-items: center; flex: none;"><img src="/assets/img/trusted-car-finance-logo.png" data-monogram="TCF" alt="Trusted Car Finance logo" style="display: block; height: 26px; width: auto; max-width: 118px; object-fit: contain;"></span>
+              <span><span style="display: block; font-size: 16.5px; font-weight: 700; letter-spacing: -0.015em;">Trusted Car Finance</span><span class="mono" style="display: block; font-size: 10.5px; color: #8b939f; margin-top: 3px;">Automotive finance platform</span></span>
+            </div>
+            <p style="font-size: 14px; line-height: 1.55; color: #4d5661; text-wrap: pretty;">A UK vehicle-finance platform supporting eligibility journeys, calculators and secure customer applications.</p>
+            <div class="mono" style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10.5px;">
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">multi-step forms</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">eligibility journeys</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">finance calculators</span>
+              <span style="color: #4d5661; background: #f4f6fa; border: 1px solid #eceff4; padding: 4px 8px; border-radius: 6px;">secure data</span>
+            </div>
+            <div style="margin-top: auto; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+              <button type="button" data-case="5" class="h-ghost" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; padding: 10px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; min-height: 44px;">View application</button>
+              <span class="mono" style="font-size: 10px; color: #9aa2ae; text-align: right;">Running on DebutDeploy</span>
+            </div>
+          </div>
+        </article>
 
-    // ai line items + platforms (when done)
-    var li=document.getElementById('lineItems'); if(li) li.innerHTML=LINE.map(function(x){return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)"><span style="font-size:13px;color:var(--ink-2)">'+x.l+'</span><span class="mono" style="font-size:13px;font-weight:500;color:var(--ink)">'+fmt(x.a)+'</span></div>';}).join('');
-    var ap=document.getElementById('aiPlatforms'); if(ap) ap.innerHTML=PLAT.map(function(pl){
-      var col=pl.ours?OURS:(pl.usd===CURRENT_USD?CURRENT:THEM);
-      return '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px"><span style="font-weight:600;font-size:14px;color:'+(pl.ours?'var(--accent-ink)':'var(--ink)')+'">'+pl.name+'</span><span class="mono" style="font-size:11px;color:var(--ink-3)">'+pl.tag+'</span></div><div style="display:flex;align-items:center;gap:11px"><div style="flex:1;height:22px;background:var(--track);border-radius:7px;overflow:hidden"><div style="'+bar(billFill?(pl.usd/AI_MAX*100).toFixed(1):0,col)+';border-radius:7px"></div></div><span class="mono" style="width:66px;flex:none;text-align:right;font-size:15px;font-weight:600;color:var(--ink)">'+fmt(pl.usd)+'</span></div></div>';
-    }).join('');
-  }
+      </div>
+      <p class="mono" style="margin-top: 4px; font-size: 12px; color: #8b939f;">Multiple production products · multiple industries · one deployment platform</p>
 
-  // ---- AI bill analyzer state machine ----
-  var idle=document.getElementById('billIdle'),analy=document.getElementById('billAnalyzing'),done=document.getElementById('billDone'),drop=document.getElementById('drop');
-  function show(state){ idle.style.display=state==='idle'?'block':'none'; analy.style.display=state==='analyzing'?'block':'none'; done.style.display=state==='done'?'grid':'none'; }
-  function analyze(name){ document.getElementById('fileLabel').textContent=name||'your bill'; billFill=false; show('analyzing'); setTimeout(function(){ show('done'); renderDynamic(); setTimeout(function(){ billFill=true; renderDynamic(); },90); },1900); }
-  document.getElementById('billInput').onchange=function(e){ var f=e.target.files&&e.target.files[0]; analyze(f?f.name:''); };
-  document.getElementById('sample').onclick=function(){ analyze('sample-render-bill.pdf'); };
-  document.getElementById('reset').onclick=function(){ billFill=false; show('idle'); };
-  drop.addEventListener('dragover',function(e){ e.preventDefault(); drop.style.borderColor='var(--accent)'; drop.style.background='var(--accent-soft)'; });
-  drop.addEventListener('dragleave',function(e){ e.preventDefault(); drop.style.borderColor='var(--line-2)'; drop.style.background='var(--card)'; });
-  drop.addEventListener('drop',function(e){ e.preventDefault(); var f=e.dataTransfer.files&&e.dataTransfer.files[0]; analyze(f?f.name:''); });
+      <div data-case-panel style="display: none; margin-top: 28px; border: 1px solid #d3e0ff; background: #f7f9ff; border-radius: 16px; padding: 26px;">
+        <div style="display: flex; align-items: start; justify-content: space-between; gap: 20px;">
+          <p class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #2563eb;">Case detail</p>
+          <button type="button" data-case-close aria-label="Close detail" style="border: 1px solid #d8dde6; background: #fff; border-radius: 9px; width: 44px; height: 44px; cursor: pointer; font-size: 15px;">✕</button>
+        </div>
 
-  applyCurrency();
-  requestAnimationFrame(function(){ setTimeout(function(){ mounted=true; renderDynamic(); },160); });
-})();
-</script>
+        <div data-case-body="0">
+          <h3 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px;">Marketing Genius</h3>
+          <div style="display: grid; gap: 16px; margin-top: 20px;">
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">What it does</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Runs campaign planning, AI content generation, analytics reporting and third-party integrations for marketing teams.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Why DebutDeploy suits it</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">A web service, background workers and scheduled tasks share one predictable monthly cost instead of metered usage across four billing lines.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Services deployed</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Web application · queue worker · scheduler · managed Postgres</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Deployment</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Push to main builds and deploys automatically; database backed up nightly with a retained rollback target.</p></div>
+            <a href="https://marketing.debutwebconsultants.co.uk/" style="font-size: 14px; font-weight: 600;">Open marketing.debutwebconsultants.co.uk →</a>
+          </div>
+        </div>
+
+        <div data-case-body="1" style="display: none;">
+          <h3 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px;">Fully Informed</h3>
+          <div style="display: grid; gap: 16px; margin-top: 20px;">
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">What it does</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Runs a question through several AI models and assembles the responses into a structured, sourced decision report.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Why DebutDeploy suits it</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Long-running inference requests need a service that never sleeps, and file processing needs steady memory rather than burst credits.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Services deployed</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Web application · inference worker · managed Postgres · object storage</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Deployment</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Credit accounting and user accounts run against a managed database with automated backups.</p></div>
+            <a href="https://fullyinformed.co.uk/" style="font-size: 14px; font-weight: 600;">Open fullyinformed.co.uk →</a>
+          </div>
+        </div>
+
+        <div data-case-body="2" style="display: none;">
+          <h3 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px;">Aurora Assistant</h3>
+          <div style="display: grid; gap: 16px; margin-top: 20px;">
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">What it does</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Provides an assistant interface over structured workflows with authenticated user sessions.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Why DebutDeploy suits it</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">API traffic is continuous, so cold starts are unacceptable and per-request pricing is unpredictable.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Services deployed</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Web application · API service · managed Postgres</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Deployment</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Deployed from Git with automatic TLS on a custom domain.</p></div>
+            <a href="https://auroraassistant.ai/" style="font-size: 14px; font-weight: 600;">Open auroraassistant.ai →</a>
+          </div>
+        </div>
+
+        <div data-case-body="3" style="display: none;">
+          <h3 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px;">CryptoPilot</h3>
+          <div style="display: grid; gap: 16px; margin-top: 20px;">
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">What it does</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Ingests market data continuously and runs autonomous strategy processes behind an authenticated dashboard.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Why DebutDeploy suits it</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Persistent workers must stay resident 24/7 — exactly the workload that becomes expensive on metered platforms.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Services deployed</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Private dashboard · persistent workers · scheduler · managed Postgres</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Deployment</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Access is restricted; this overview describes the architecture without exposing infrastructure detail.</p></div>
+          </div>
+        </div>
+
+        <div data-case-body="4" style="display: none;">
+          <h3 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px;">L&amp;C Traders</h3>
+          <div style="display: grid; gap: 16px; margin-top: 20px;">
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">What it does</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Runs the public trade site plus a closed dealer area for stock and account management.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Why DebutDeploy suits it</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">A modest but always-available service with a managed database, at a fixed monthly price.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Services deployed</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Web application · managed Postgres</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Deployment</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Deployed from Git with nightly database backups.</p></div>
+            <a href="https://logisticsandconsultancy.co.uk/" style="font-size: 14px; font-weight: 600;">Open logisticsandconsultancy.co.uk →</a>
+          </div>
+        </div>
+
+        <div data-case-body="5" style="display: none;">
+          <h3 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px;">Trusted Car Finance</h3>
+          <div style="display: grid; gap: 16px; margin-top: 20px;">
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">What it does</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Guides customers through eligibility questions and finance calculations, then submits applications to partners.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Why DebutDeploy suits it</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Customer application data stays in the EU on a managed database with controlled access.</p></div>
+            <div><p class="mono" style="font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Services deployed</p><p style="font-size: 14.5px; line-height: 1.55; color: #2b323c; margin-top: 6px;">Web application · managed Postgres</p></div>
+            <a href="https://trustedcarfinance.com/" style="font-size: 14px; font-weight: 600;">Open trustedcarfinance.com →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; max-width: 620px;">Everything required to run a production application.</h2>
+      <div data-grid="3" style="margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+        <article class="h-tile" style="border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px;">
+          <div class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe; padding: 12px 13px; font-size: 11.5px; color: #4d5661; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">push → main</span><span style="color: #2563eb; font-weight: 600;">deployed 1m 48s</span></div>
+          <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 18px;">Deploy directly from Git</h3>
+          <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Connect a GitHub repository and automatically build and deploy every approved change, with the previous release retained for rollback.</p>
+        </article>
+        <article class="h-tile" style="border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px;">
+          <div class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe; padding: 12px 13px; font-size: 11.5px; color: #4d5661; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">uptime 30d</span><span style="color: #2563eb; font-weight: 600;">always on</span></div>
+          <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 18px;">No sleeping services</h3>
+          <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Applications remain available without cold-start delays or inactivity shutdowns — including background workers.</p>
+        </article>
+        <article class="h-tile" style="border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px;">
+          <div class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe; padding: 12px 13px; font-size: 11.5px; color: #4d5661; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">invoice</span><span style="color: #2563eb; font-weight: 600;">same every month</span></div>
+          <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 18px;">Predictable monthly pricing</h3>
+          <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Select fixed CPU and memory resources instead of reconciling dozens of usage-based line items at the end of the month.</p>
+        </article>
+        <article class="h-tile" style="border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px;">
+          <div class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe; padding: 12px 13px; font-size: 11.5px; color: #4d5661; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">pg_backup</span><span style="color: #2563eb; font-weight: 600;">03:00 UTC nightly</span></div>
+          <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 18px;">Managed Postgres</h3>
+          <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Provision production databases with automated nightly backups, secure connection details and a full export whenever you want one.</p>
+        </article>
+        <article class="h-tile" style="border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px;">
+          <div class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe; padding: 12px 13px; font-size: 11.5px; color: #4d5661; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">region</span><span style="color: #2563eb; font-weight: 600;">fra1 · hel1</span></div>
+          <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 18px;">European infrastructure</h3>
+          <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Run workloads close to UK and European users in Germany and Finland, with the hosting location stated on every service.</p>
+        </article>
+        <article class="h-tile" style="border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px;">
+          <div class="mono" style="border: 1px solid #eceff4; border-radius: 10px; background: #fbfcfe; padding: 12px 13px; font-size: 11.5px; color: #4d5661; display: flex; justify-content: space-between; gap: 12px;"><span style="color: #9aa2ae;">events</span><span style="color: #2563eb; font-weight: 600;">logs · health · usage</span></div>
+          <h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 18px;">Built-in operational visibility</h3>
+          <p style="margin-top: 9px; font-size: 14.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Review deployments, logs, service health and resource utilisation from one control panel, without adding an observability vendor.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="comparison" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Clear cost comparison</p>
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">See exactly what you are paying for.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Compare equivalent application resources rather than headline prices that exclude databases, workspace fees or transfer charges.</p>
+      </div>
+
+      <div style="margin-top: 36px; border: 1px solid #e5e8ee; border-radius: 16px; overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
+            <caption class="mono" style="text-align: left; padding: 18px 22px; background: #fbfcfe; border-bottom: 1px solid #eceff4; font-size: 11.5px; color: #6c7480;">One production workload — a 2 vCPU / 4 GB web service, a small managed Postgres and ~100 GB of traffic</caption>
+            <thead>
+              <tr class="mono" style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
+                <th scope="col" style="text-align: left; padding: 13px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Platform</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Same workload / mo</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">100 GB egress</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Cold starts</th>
+                <th scope="col" style="text-align: left; padding: 13px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">You save</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #f2f4f8; background: #f2f6ff;">
+                <th scope="row" style="text-align: left; padding: 15px 22px; font-size: 14px; font-weight: 700; color: #2563eb; white-space: nowrap;">DebutDeploy</th>
+                <td style="padding: 15px 16px; font-size: 14px; font-weight: 600; color: #2563eb;">$57</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #1b4ed1;">$0 · 20 TB included</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #1b4ed1;">Never — always on</td>
+                <td style="padding: 15px 22px;"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: #9aa2ae; padding: 5px 11px;">—</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f2f4f8; background: #ffffff;">
+                <th scope="row" style="text-align: left; padding: 15px 22px; font-size: 14px; font-weight: 700; color: #0b0d12; white-space: nowrap;">Render</th>
+                <td style="padding: 15px 16px; font-size: 14px; font-weight: 600; color: #0b0d12;">~$104</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">Metered over allowance</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">Paid: no · free tier sleeps</td>
+                <td style="padding: 15px 22px;"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 5px 11px;">~45% less</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f2f4f8; background: #ffffff;">
+                <th scope="row" style="text-align: left; padding: 15px 22px; font-size: 14px; font-weight: 700; color: #0b0d12; white-space: nowrap;">Railway</th>
+                <td style="padding: 15px 16px; font-size: 14px; font-weight: 600; color: #0b0d12;">~$115 *</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">+$0.10/GB (+$10)</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">No</td>
+                <td style="padding: 15px 22px;"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 5px 11px;">~50% less</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f2f4f8; background: #ffffff;">
+                <th scope="row" style="text-align: left; padding: 15px 22px; font-size: 14px; font-weight: 700; color: #0b0d12; white-space: nowrap;">Fly.io</th>
+                <td style="padding: 15px 16px; font-size: 14px; font-weight: 600; color: #0b0d12;">~$105 *</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">$0.02/GB (+$2)</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">Opt-in auto-stop</td>
+                <td style="padding: 15px 22px;"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 5px 11px;">~46% less</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f2f4f8; background: #ffffff;">
+                <th scope="row" style="text-align: left; padding: 15px 22px; font-size: 14px; font-weight: 700; color: #0b0d12; white-space: nowrap;">Heroku</th>
+                <td style="padding: 15px 16px; font-size: 14px; font-weight: 600; color: #0b0d12;">~$259</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">No published egress fee</td>
+                <td style="padding: 15px 16px; font-size: 13.5px; color: #4d5661;">Eco dynos sleep</td>
+                <td style="padding: 15px 22px;"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 5px 11px;">~78% less</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="mono" style="padding: 16px 22px; border-bottom: 1px solid #e5e8ee; font-size: 11.5px; color: #8b939f; line-height: 1.8;">Prices in USD, per month, ex-VAT. Our figure = Pro Plus compute ($45) + DB Starter ($12), 20 TB traffic included. Competitor figures are published list rates as of July 2026, matched to the nearest plan that meets the workload; usage-based platforms (Railway, Fly.io) are computed always-on and marked indicative (*). Sources: <a href="https://render.com/pricing">render.com/pricing</a> · <a href="https://railway.com/pricing">railway.com/pricing</a> · <a href="https://fly.io/docs/about/pricing">fly.io/docs/about/pricing</a> · <a href="https://heroku.com/pricing">heroku.com/pricing</a>.</p>
+
+          <table style="width: 100%; border-collapse: collapse; min-width: 900px;">
+            <caption class="mono" style="text-align: left; padding: 18px 22px; background: #fbfcfe; border-bottom: 1px solid #eceff4; font-size: 11.5px; color: #6c7480;">Line-by-line: what each provider actually bills for the same service · USD excl. VAT · checked 24 July 2026</caption>
+            <thead>
+              <tr style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
+                <th scope="col" class="mono" style="text-align: left; padding: 13px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Component</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #2563eb;">DebutDeploy</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 13px; font-weight: 600; color: #4d5661;">Render</th>
+                <th scope="col" style="text-align: left; padding: 13px 16px; font-size: 13px; font-weight: 600; color: #4d5661;">Railway</th>
+                <th scope="col" class="mono" style="text-align: left; padding: 13px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Notes</th>
+              </tr>
+            </thead>
+            <tbody class="mono">
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Web service</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">Pro Plus</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">Pro</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">Hobby+usage</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Equivalent 2 vCPU / 4 GB instance</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">CPU</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">2 vCPU dedicated</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">2 vCPU</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">metered vCPU</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Railway bills per vCPU-hour</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">RAM</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">4 GB</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">4 GB</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">metered GB</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Same memory ceiling</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">CPU type</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">dedicated</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">dedicated</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">shared</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Shared CPU can be throttled under load</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Managed Postgres</th><td style="padding: 13px 16px; font-size: 12.5px; color: #15803d; background: #f7f9ff; font-weight: 600;">$12 (DB Starter)</td><td style="padding: 13px 16px; font-size: 12.5px; color: #dc2626; font-weight: 600;">$19</td><td style="padding: 13px 16px; font-size: 12.5px; color: #dc2626; font-weight: 600;">metered</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">1 GB RAM production instance</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Database storage</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">10 GB included</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">16 GB</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">metered</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Overage $0.10/GB</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Backup retention</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">7 days nightly</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">7 days</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">plan dependent</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Point-in-time on request</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Outbound transfer</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">20 TB included</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">500 GB then $0.10/GB</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">$0.05/GB</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">The line that causes surprise bills</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Workspace fee</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">none</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">$19/user (Professional)</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">$20/seat</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Team seats are free on DebutDeploy</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Log retention</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">7 days</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">7 days</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">7 days</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Longer retention on request</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Custom domains</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">unlimited</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">unlimited</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">unlimited</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">DNS remains under your control</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">TLS</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">automatic</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">automatic</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">automatic</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Issued via Traefik</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Support</th><td style="padding: 13px 16px; font-size: 12.5px; color: #0b0d12; background: #f7f9ff;">email, next business day</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">community / paid tiers</td><td style="padding: 13px 16px; font-size: 12.5px; color: #4d5661;">community</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">Migration help included</td></tr>
+              <tr style="border-bottom: 1px solid #f2f4f8;"><th scope="row" style="text-align: left; padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #2b323c; white-space: nowrap;">Estimated monthly total</th><td style="padding: 13px 16px; font-size: 14px; color: #15803d; background: #f7f9ff; font-weight: 700;">$57</td><td style="padding: 13px 16px; font-size: 14px; color: #dc2626; font-weight: 700;">~$104</td><td style="padding: 13px 16px; font-size: 14px; color: #dc2626; font-weight: 700;">~$115</td><td style="padding: 13px 22px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; color: #6c7480; line-height: 1.5;">1 service + 1 database, 1 seat</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 20px 22px; background: #fbfcfe; border-top: 1px solid #eceff4; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center;">
+          <p style="font-size: 14.5px; color: #2b323c;"><strong style="font-weight: 700;">Example saving: $47 per month</strong> · equivalent annual saving $564 against Render on this configuration.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #8b939f;">
+            <a href="https://render.com/pricing">Render pricing source</a>
+            <a href="https://railway.com/pricing">Railway pricing source</a>
+            <span class="mono">shared vs dedicated CPU noted per row</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="databases" style="margin-top: 40px; display: flex; flex-wrap: wrap; gap: 24px; align-items: end; justify-content: space-between;">
+        <h3 style="font-size: 30px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800;">Managed Postgres</h3>
+        <p style="font-size: 15px; line-height: 1.6; color: #4d5661; max-width: 34em;">Add a database to any app. Automated backups and volumes included — storage overage at $0.10/GB.</p>
+      </div>
+      <div style="margin-top: 20px; border: 1px solid #e5e8ee; border-radius: 16px; overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 720px;">
+            <thead>
+              <tr class="mono" style="background: #fbfcfe; border-bottom: 1px solid #e5e8ee;">
+                <th scope="col" style="text-align: left; padding: 14px 22px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Database</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Spec</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Price</th>
+                <th scope="col" style="text-align: left; padding: 14px 16px; font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #8b939f; font-weight: 500;">Elsewhere</th>
+                <th scope="col" style="padding: 14px 22px;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Saving</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #f2f4f8;">
+                <th scope="row" style="text-align: left; padding: 17px 22px; font-size: 15px; font-weight: 700; white-space: nowrap;">DB Hobby</th>
+                <td class="mono" style="padding: 17px 16px; font-size: 12.5px; color: #4d5661;">256 MB · 2 GB storage</td>
+                <td style="padding: 17px 16px;"><span data-usd="5" style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em;">$5</span> <span class="mono" style="font-size: 11.5px; color: #8b939f;">/mo</span></td>
+                <td class="mono" style="padding: 17px 16px; font-size: 12.5px; color: #8b939f;">from <s data-usd="6">$6</s></td>
+                <td style="padding: 17px 22px; text-align: right;"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 5px 11px;">Save 17%</span></td>
+              </tr>
+              <tr>
+                <th scope="row" style="text-align: left; padding: 17px 22px; font-size: 15px; font-weight: 700; white-space: nowrap;">DB Starter</th>
+                <td class="mono" style="padding: 17px 16px; font-size: 12.5px; color: #4d5661;">1 GB · 10 GB storage</td>
+                <td style="padding: 17px 16px;"><span data-usd="12" style="font-size: 22px; font-weight: 800; letter-spacing: -0.03em;">$12</span> <span class="mono" style="font-size: 11.5px; color: #8b939f;">/mo</span></td>
+                <td class="mono" style="padding: 17px 16px; font-size: 12.5px; color: #8b939f;">from <s data-usd="19">$19</s></td>
+                <td style="padding: 17px 22px; text-align: right;"><span class="mono" style="font-size: 11.5px; font-weight: 600; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 999px; padding: 5px 11px;">Save 37%</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing" style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: end; justify-content: space-between;">
+        <div style="max-width: 640px;">
+          <h2 style="font-size: 42px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800;">Compute</h2>
+          <p style="margin-top: 16px; font-size: 17px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">One app per plan. Each plan lists the resources you get and what the same box costs on Render — same power, same memory, a fraction of the price. Monthly billing, no contract, cancel any time.</p>
+        </div>
+        <div role="group" aria-label="Currency" style="display: inline-flex; padding: 4px; background: #eceff4; border-radius: 999px;">
+          <button type="button" data-cur="usd" aria-pressed="true" style="padding: 9px 16px; border: 0; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600;">USD $</button>
+          <button type="button" data-cur="gbp" aria-pressed="false" style="padding: 9px 16px; border: 0; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600;">GBP £</button>
+        </div>
+      </div>
+
+      <div data-grid="plans" style="margin-top: 40px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; align-items: start;">
+
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; background: #ffffff; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 100%;">
+          <span class="mono" style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: #b3bac5;">PLAN</span>
+          <h3 style="font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">Hobby</h3>
+          <p class="mono" style="font-size: 12px; color: #4d5661; line-height: 1.7;">512 MB RAM · 0.5 vCPU<br><span style="color: #8b939f;">shared box</span></p>
+          <p style="display: flex; align-items: baseline; gap: 6px;"><span data-usd="5" style="font-size: 36px; font-weight: 800; letter-spacing: -0.04em;">$5</span><span class="mono" style="font-size: 12px; color: #8b939f;">/mo</span></p>
+          <p class="mono" style="font-size: 11.5px; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 8px; padding: 8px 10px; line-height: 1.45;">Save 29% vs Render Starter ($7)</p>
+          <ul style="display: grid; gap: 7px; font-size: 12.5px; color: #4d5661;">
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>1 application · unlimited team members</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>20 TB outbound transfer included</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>No cold starts, no inactivity sleep</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Automatic TLS + custom domains</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Nightly backups, 7-day retention</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Email support, next business day</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Managed Postgres priced separately</span></li>
+          </ul>
+          <a href="https://app.debutdepoly.com" class="h-ghost" style="margin-top: auto; text-align: center; padding: 12px 14px; min-height: 44px; border-radius: 10px; font-size: 14px; font-weight: 600; background: #ffffff; color: #0b0d12; border: 1px solid #d8dde6; display: grid; place-items: center;">Choose Hobby</a>
+        </article>
+
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; background: #ffffff; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 100%;">
+          <span class="mono" style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: #b3bac5;">PLAN</span>
+          <h3 style="font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">Starter</h3>
+          <p class="mono" style="font-size: 12px; color: #4d5661; line-height: 1.7;">1 GB RAM · 0.5 vCPU<br><span style="color: #8b939f;">shared box</span></p>
+          <p style="display: flex; align-items: baseline; gap: 6px;"><span data-usd="9" style="font-size: 36px; font-weight: 800; letter-spacing: -0.04em;">$9</span><span class="mono" style="font-size: 12px; color: #8b939f;">/mo</span></p>
+          <p class="mono" style="font-size: 11.5px; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 8px; padding: 8px 10px; line-height: 1.45;">Save 10% vs the going rate ($10)</p>
+          <ul style="display: grid; gap: 7px; font-size: 12.5px; color: #4d5661;">
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>1 application · unlimited team members</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>20 TB outbound transfer included</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>No cold starts, no inactivity sleep</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Automatic TLS + custom domains</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Nightly backups, 7-day retention</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Email support, next business day</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Managed Postgres priced separately</span></li>
+          </ul>
+          <a href="https://app.debutdepoly.com" class="h-ghost" style="margin-top: auto; text-align: center; padding: 12px 14px; min-height: 44px; border-radius: 10px; font-size: 14px; font-weight: 600; background: #ffffff; color: #0b0d12; border: 1px solid #d8dde6; display: grid; place-items: center;">Choose Starter</a>
+        </article>
+
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; background: #ffffff; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 100%;">
+          <span class="mono" style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: #b3bac5;">PLAN</span>
+          <h3 style="font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">Pro</h3>
+          <p class="mono" style="font-size: 12px; color: #4d5661; line-height: 1.7;">2 GB RAM · 1 vCPU<br><span style="color: #8b939f;">shared box</span></p>
+          <p style="display: flex; align-items: baseline; gap: 6px;"><span data-usd="15" style="font-size: 36px; font-weight: 800; letter-spacing: -0.04em;">$15</span><span class="mono" style="font-size: 12px; color: #8b939f;">/mo</span></p>
+          <p class="mono" style="font-size: 11.5px; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 8px; padding: 8px 10px; line-height: 1.45;">Save 40% vs Render Standard ($25)</p>
+          <ul style="display: grid; gap: 7px; font-size: 12.5px; color: #4d5661;">
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>1 application · unlimited team members</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>20 TB outbound transfer included</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>No cold starts, no inactivity sleep</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Automatic TLS + custom domains</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Nightly backups, 7-day retention</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Email support, next business day</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Managed Postgres priced separately</span></li>
+          </ul>
+          <a href="https://app.debutdepoly.com" class="h-ghost" style="margin-top: auto; text-align: center; padding: 12px 14px; min-height: 44px; border-radius: 10px; font-size: 14px; font-weight: 600; background: #ffffff; color: #0b0d12; border: 1px solid #d8dde6; display: grid; place-items: center;">Choose Pro</a>
+        </article>
+
+        <article style="border: 1px solid #2563eb; border-radius: 15px; background: #f5f8ff; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 100%;">
+          <span class="mono" style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: #2563eb;">MOST POPULAR</span>
+          <h3 style="font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">Pro Plus</h3>
+          <p class="mono" style="font-size: 12px; color: #4d5661; line-height: 1.7;">4 GB RAM · 2 vCPU<br><span style="color: #8b939f;">dedicated</span></p>
+          <p style="display: flex; align-items: baseline; gap: 6px;"><span data-usd="45" style="font-size: 36px; font-weight: 800; letter-spacing: -0.04em;">$45</span><span class="mono" style="font-size: 12px; color: #8b939f;">/mo</span></p>
+          <p class="mono" style="font-size: 11.5px; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 8px; padding: 8px 10px; line-height: 1.45;">Save 47% vs Render Pro ($85)</p>
+          <ul style="display: grid; gap: 7px; font-size: 12.5px; color: #4d5661;">
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>1 application · unlimited team members</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>20 TB outbound transfer included</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>No cold starts, no inactivity sleep</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Automatic TLS + custom domains</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Nightly backups, 7-day retention</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Email support, next business day</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Managed Postgres priced separately</span></li>
+          </ul>
+          <a href="https://app.debutdepoly.com" class="h-primary" style="margin-top: auto; text-align: center; padding: 12px 14px; min-height: 44px; border-radius: 10px; font-size: 14px; font-weight: 600; background: #2563eb; color: #ffffff; border: 1px solid #2563eb; display: grid; place-items: center;">Choose Pro Plus</a>
+        </article>
+
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; background: #ffffff; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 100%;">
+          <span class="mono" style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: #b3bac5;">PLAN</span>
+          <h3 style="font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">Scale</h3>
+          <p class="mono" style="font-size: 12px; color: #4d5661; line-height: 1.7;">8 GB RAM · 4 vCPU<br><span style="color: #8b939f;">dedicated</span></p>
+          <p style="display: flex; align-items: baseline; gap: 6px;"><span data-usd="85" style="font-size: 36px; font-weight: 800; letter-spacing: -0.04em;">$85</span><span class="mono" style="font-size: 12px; color: #8b939f;">/mo</span></p>
+          <p class="mono" style="font-size: 11.5px; color: #1b4ed1; background: #eef3fe; border: 1px solid #d8e3ff; border-radius: 8px; padding: 8px 10px; line-height: 1.45;">Save 51% vs Render Pro Plus ($175)</p>
+          <ul style="display: grid; gap: 7px; font-size: 12.5px; color: #4d5661;">
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>1 application · unlimited team members</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>20 TB outbound transfer included</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>No cold starts, no inactivity sleep</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Automatic TLS + custom domains</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Nightly backups, 7-day retention</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Email support, next business day</span></li>
+            <li style="display: flex; gap: 8px;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Managed Postgres priced separately</span></li>
+          </ul>
+          <a href="https://app.debutdepoly.com" class="h-ghost" style="margin-top: auto; text-align: center; padding: 12px 14px; min-height: 44px; border-radius: 10px; font-size: 14px; font-weight: 600; background: #ffffff; color: #0b0d12; border: 1px solid #d8dde6; display: grid; place-items: center;">Choose Scale</a>
+        </article>
+
+      </div>
+
+      <div style="margin-top: 20px; border: 1px solid #e5e8ee; border-radius: 15px; background: #fff; padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between;">
+        <div style="max-width: 620px;">
+          <h3 style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em;">Custom</h3>
+          <p style="margin-top: 8px; font-size: 14.5px; line-height: 1.6; color: #4d5661;">Multi-service applications, agency portfolios and workloads that need more than 8 GB or 4 vCPU. Databases priced separately per instance; team seats included at no extra charge.</p>
+        </div>
+        <a href="#migrate" class="h-dark" style="padding: 13px 20px; min-height: 44px; display: grid; place-items: center; border-radius: 10px; font-size: 14px; font-weight: 600; color: #fff; background: #0b0d12;">Speak to an infrastructure specialist</a>
+      </div>
+      <p class="mono" data-cur-note="usd" style="margin-top: 16px; font-size: 11.5px; color: #8b939f; line-height: 1.8;">Prices in USD, excluding VAT · monthly billing via Stripe · no contract · managed Postgres from $5/mo · 20 TB transfer included on every plan · shared boxes may be co-tenanted, dedicated boxes are not.</p>
+      <p class="mono" data-cur-note="gbp" style="display: none; margin-top: 16px; font-size: 11.5px; color: #8b939f; line-height: 1.8;">Prices converted from USD at 0.79 and confirmed at checkout · excluding VAT · monthly billing via Stripe · no contract · managed Postgres from £4/mo · 20 TB transfer included on every plan.</p>
+    </div>
+  </section>
+
+  <section id="calculator" style="border-bottom: 1px solid #e5e8ee; background: linear-gradient(180deg, #ffffff 0%, #f2f6ff 100%);">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div data-dd-calculator></div>
+    </div>
+  </section>
+
+  <section id="migrate" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #2563eb; display: flex; align-items: center; gap: 12px;"><span aria-hidden="true" style="width: 22px; height: 2px; background: #2563eb; flex: none;"></span>Assisted migration</p>
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin-top: 16px;">Move without risking your production application.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">DebutDeploy can help reproduce your current service configuration, migrate your data, validate the deployment and prepare a rollback plan before traffic is moved.</p>
+      </div>
+      <div data-grid="4" style="margin-top: 44px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;">
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 22px; background: #fbfcfe;"><span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">01</span><h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 12px;">Review</h3><p style="margin-top: 9px; font-size: 14px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Assess services, databases, environment variables, storage, domains and background workers on your current provider.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 22px; background: #fbfcfe;"><span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">02</span><h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 12px;">Reproduce</h3><p style="margin-top: 9px; font-size: 14px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Configure the equivalent DebutDeploy services and confirm build output matches.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 22px; background: #fbfcfe;"><span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">03</span><h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 12px;">Validate</h3><p style="margin-top: 9px; font-size: 14px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Test application behaviour, database connectivity, build output and performance under realistic load.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 15px; padding: 22px; background: #fbfcfe;"><span class="mono" style="font-size: 11px; font-weight: 600; color: #2563eb;">04</span><h3 style="font-size: 18px; font-weight: 700; letter-spacing: -0.018em; margin-top: 12px;">Switch</h3><p style="margin-top: 9px; font-size: 14px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Move DNS only after the new deployment is confirmed, keeping the old service warm as a rollback route.</p></article>
+      </div>
+      <div data-2col style="margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; align-items: start;">
+        <ul data-grid="2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px;">
+          <li style="display: flex; gap: 10px; font-size: 14.5px; color: #2b323c; line-height: 1.5;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Existing application remains active during preparation</span></li>
+          <li style="display: flex; gap: 10px; font-size: 14.5px; color: #2b323c; line-height: 1.5;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Database migration plan agreed in advance</span></li>
+          <li style="display: flex; gap: 10px; font-size: 14.5px; color: #2b323c; line-height: 1.5;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Environment variables handled securely, never in email</span></li>
+          <li style="display: flex; gap: 10px; font-size: 14.5px; color: #2b323c; line-height: 1.5;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Rollback route retained after cutover</span></li>
+          <li style="display: flex; gap: 10px; font-size: 14.5px; color: #2b323c; line-height: 1.5;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>DNS changes stay under your control</span></li>
+          <li style="display: flex; gap: 10px; font-size: 14.5px; color: #2b323c; line-height: 1.5;"><span aria-hidden="true" style="color: #2563eb;">✓</span><span>Migration support from an engineer, not a ticket queue</span></li>
+        </ul>
+        <div style="border: 1px solid #d3e0ff; background: #f7f9ff; border-radius: 15px; padding: 22px;">
+          <p style="font-size: 14.5px; line-height: 1.6; color: #2b323c;">Most single-service applications move in a day. Multi-service platforms, large databases and workloads with persistent storage need a scheduled window — we will tell you which case you are in before you commit.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px;">
+            <a href="/contact.html" class="h-primary" style="padding: 12px 18px; min-height: 44px; display: grid; place-items: center; border-radius: 10px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600;">Book a migration review</a>
+            <a href="/faq.html#migration" class="h-ghost" style="padding: 12px 18px; min-height: 44px; display: grid; place-items: center; border-radius: 10px; background: #fff; border: 1px solid #d8dde6; color: #0b0d12; font-size: 14px; font-weight: 600;">Read the migration answers</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="capabilities" style="background: #f7f9fc; border-bottom: 1px solid #e5e8ee;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; max-width: 560px;">Platform capabilities, labelled honestly.</h2>
+      <div style="margin-top: 40px; display: grid; gap: 28px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h3 class="mono" style="font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #0b0d12;">Available now</h3>
+            <span style="flex: 1; height: 1px; background: #e0e4ec;"></span>
+            <span class="mono" style="font-size: 11px; color: #8b939f;">in production today</span>
+          </div>
+          <ul data-grid="4" style="margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>GitHub deployment</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Docker deployment</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Custom domains</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Automatic TLS</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Environment variables</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Deployment logs</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Health checks</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Rollbacks</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Background workers</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Scheduled jobs</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Managed Postgres</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Automated backups</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Persistent storage</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Resource utilisation</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Team access</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>API access</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">AVAILABLE</span></li>
+          </ul>
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h3 class="mono" style="font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #0b0d12;">In beta</h3>
+            <span style="flex: 1; height: 1px; background: #e0e4ec;"></span>
+            <span class="mono" style="font-size: 11px; color: #8b939f;">usable, still changing</span>
+          </div>
+          <ul data-grid="4" style="margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Private networking</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">BETA</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Service-to-service calls</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">BETA</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Monitoring alerts</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">BETA</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Webhooks</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">BETA</span></li>
+          </ul>
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h3 class="mono" style="font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #0b0d12;">Planned</h3>
+            <span style="flex: 1; height: 1px; background: #e0e4ec;"></span>
+            <span class="mono" style="font-size: 11px; color: #8b939f;">not available yet — do not plan around these</span>
+          </div>
+          <ul data-grid="4" style="margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Preview environments</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">PLANNED</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Point-in-time recovery</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">ON REQUEST</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Multi-region failover</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">PLANNED</span></li>
+            <li style="border: 1px solid #e5e8ee; background: #fff; border-radius: 10px; padding: 13px 14px; font-size: 13.5px; color: #2b323c; display: flex; justify-content: space-between; gap: 10px; align-items: center;"><span>Custom SLA terms</span><span class="mono" style="font-size: 9.5px; letter-spacing: 0.08em; color: #8b939f;">CONTACT US</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="security" style="border-bottom: 1px solid #e5e8ee; background: #fff;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 104px 32px;">
+      <div style="max-width: 720px;">
+        <h2 style="font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800;">Security and reliability built into the platform.</h2>
+        <p style="margin-top: 18px; font-size: 17.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">DebutDeploy applies platform-level controls across networking, secrets, backups, access and service monitoring. Security controls are designed around industry-standard practices; we publish certifications only once they are genuinely held.</p>
+      </div>
+      <div data-grid="4" style="margin-top: 44px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;">
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Workload isolation</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Every application and database runs in its own fully isolated container with clean resource boundaries. Dedicated plans do not co-tenant CPU.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Secret management</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Environment secrets are encrypted at rest and become write-only after saving. Our upstream infrastructure credentials never reach your browser or your repository.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Encryption</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">All traffic is served over HTTPS with certificates issued automatically via Traefik. There are no plaintext endpoints.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Backups</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Managed Postgres is backed up nightly with 7-day retention. Platform configuration is backed up on the same schedule.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Access and tokens</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Sign in with GitHub or Google. API tokens are scoped read-only or full, revocable, with per-resource ownership checks.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Least-privilege deploys</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Repository access uses a single read-only deploy key, requesting only the GitHub scopes needed to build and deploy.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Monitoring and incidents</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Service health is checked continuously and incidents are published to the status page as they are investigated.</p></article>
+        <article style="border: 1px solid #e5e8ee; border-radius: 14px; padding: 20px; background: #fbfcfe;"><h3 style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.015em;">Data location</h3><p style="margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: #4d5661; text-wrap: pretty;">Compute and storage run in data centres in Germany and Finland, inside the EU. No customer data is processed outside the region without notice.</p></article>
+      </div>
+      <div style="margin-top: 22px; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; padding: 18px 22px; border: 1px solid #e5e8ee; border-radius: 14px; background: #fbfcfe;">
+        <span class="mono" style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8b939f;">Data processing</span>
+        <a href="/privacy.html" style="font-size: 13.5px; font-weight: 550;">Privacy Policy</a>
+        <a href="/dpa.html" style="font-size: 13.5px; font-weight: 550;">Data Processing Agreement</a>
+        <a href="/dpa.html#subprocessors" style="font-size: 13.5px; font-weight: 550;">Subprocessor list</a>
+        <a href="/security.html" style="font-size: 13.5px; font-weight: 550;">Security overview</a>
+        <a href="https://status.debutdepoly.com" style="font-size: 13.5px; font-weight: 550;">Live status</a>
+      </div>
+    </div>
+  </section>
+
+  <section style="background: #0b0d12; color: #fff;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 96px 32px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: end; justify-content: space-between;">
+        <h2 style="font-size: 38px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; max-width: 520px;">A platform measured by what it runs.</h2>
+        <p class="mono" style="font-size: 11.5px; color: #7d8796; max-width: 320px; line-height: 1.7;">Figures are read directly from platform telemetry and refresh daily. Values shown as — are pending the public telemetry feed; we publish nothing we cannot measure.</p>
+      </div>
+      <div data-grid="4" style="margin-top: 40px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+        <div style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b;"><p style="font-size: 34px; font-weight: 800; letter-spacing: -0.035em;">—</p><p class="mono" style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7d8796; margin-top: 10px;">Active services</p></div>
+        <div style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b;"><p style="font-size: 34px; font-weight: 800; letter-spacing: -0.035em;">—</p><p class="mono" style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7d8796; margin-top: 10px;">Successful deployments</p></div>
+        <div style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b;"><p style="font-size: 34px; font-weight: 800; letter-spacing: -0.035em;">—</p><p class="mono" style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7d8796; margin-top: 10px;">Managed databases</p></div>
+        <div style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b;"><p style="font-size: 34px; font-weight: 800; letter-spacing: -0.035em;">—</p><p class="mono" style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7d8796; margin-top: 10px;">Measured platform uptime</p></div>
+      </div>
+      <div data-grid="3" style="margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
+        <article style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b; display: flex; flex-direction: column; gap: 12px;">
+          <span class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">Internal case study</span>
+          <p style="font-size: 15.5px; line-height: 1.6; color: #dfe4ec; text-wrap: pretty;">Marketing Genius runs a web application, background workers, scheduled tasks, AI orchestration and database-backed reporting through DebutDeploy on a single fixed monthly cost.</p>
+          <p class="mono" style="font-size: 11.5px; color: #7d8796; line-height: 1.7; margin-top: auto;">Marketing Genius · operated by Debut Web Consultants · 4 services · previously metered PaaS</p>
+          <a href="#showcase" style="font-size: 13.5px; font-weight: 600; color: #7fa5ff;">Read the case study →</a>
+        </article>
+        <article style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b; display: flex; flex-direction: column; gap: 12px;">
+          <span class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">Internal case study</span>
+          <p style="font-size: 15.5px; line-height: 1.6; color: #dfe4ec; text-wrap: pretty;">Fully Informed keeps long-running multi-model inference online without cold starts, and pays for memory once rather than per request.</p>
+          <p class="mono" style="font-size: 11.5px; color: #7d8796; line-height: 1.7; margin-top: auto;">Fully Informed · operated by Debut Web Consultants · 3 services · credit-billed SaaS</p>
+          <a href="#showcase" style="font-size: 13.5px; font-weight: 600; color: #7fa5ff;">Read the case study →</a>
+        </article>
+        <article style="border: 1px solid #1e232c; border-radius: 14px; padding: 22px; background: #10141b; display: flex; flex-direction: column; gap: 12px;">
+          <span class="mono" style="font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: #6f8bd6;">Internal case study</span>
+          <p style="font-size: 15.5px; line-height: 1.6; color: #dfe4ec; text-wrap: pretty;">CryptoPilot holds persistent workers resident around the clock — the workload that gets expensive fastest on usage-metered platforms.</p>
+          <p class="mono" style="font-size: 11.5px; color: #7d8796; line-height: 1.7; margin-top: auto;">CryptoPilot · private platform · 4 services · always-on workers</p>
+          <a href="#showcase" style="font-size: 13.5px; font-weight: 600; color: #7fa5ff;">Read the case study →</a>
+        </article>
+      </div>
+      <p style="margin-top: 20px; font-size: 12.5px; color: #6b7482;">Built and operated by Debut Web Consultants. External customer case studies will be published with named attribution once available.</p>
+    </div>
+  </section>
+
+  <section id="start" style="border-bottom: 1px solid #1e232c; background: #0b0d12; color: #fff;">
+    <div data-wrap data-2col style="max-width: 1280px; margin: 0 auto; padding: 96px 32px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: center;">
+      <div>
+        <p class="mono" style="font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7fa5ff;">Ready when you are</p>
+        <h2 style="margin-top: 16px; font-size: 42px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; max-width: 650px;">Put your next deployment on infrastructure you can explain.</h2>
+        <p style="margin-top: 18px; font-size: 17px; line-height: 1.6; color: #aeb7c5; max-width: 620px;">Start with a test application, or bring an existing service for a guided migration. You can keep your repository, domain and deployment workflow.</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end;">
+        <a href="https://app.debutdepoly.com" class="h-primary" style="padding: 14px 22px; border-radius: 11px; background: #2563eb; color: #fff; font-size: 15px; font-weight: 600;">Deploy an app</a>
+        <a href="#migrate" class="h-ghost" style="padding: 14px 22px; border-radius: 11px; background: transparent; border: 1px solid #394252; color: #fff; font-size: 15px; font-weight: 600;">Plan a migration</a>
+      </div>
+    </div>
+  </section>
+
+  <footer style="background: #0b0d12; color: #fff;">
+    <div data-wrap style="max-width: 1280px; margin: 0 auto; padding: 64px 32px 28px;">
+      <div data-grid="footer" style="display: grid; grid-template-columns: 1.5fr repeat(4, minmax(0, 1fr)); gap: 36px;">
+        <div>
+          <a href="#top" style="display: inline-flex; align-items: center; gap: 10px; color: #fff; font-weight: 700; font-size: 17px;">
+            <span style="width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: #2563eb; font-weight: 800;">D</span>DebutDeploy
+          </a>
+          <p style="margin-top: 18px; max-width: 270px; color: #8f99a8; font-size: 13.5px; line-height: 1.65;">European application deployment with predictable infrastructure and practical human support.</p>
+        </div>
+        <div><h3 class="mono" style="font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #7d8796;">Platform</h3><nav style="display: grid; gap: 11px; margin-top: 16px;"><a href="#platform" style="color: #cbd3df; font-size: 13.5px;">How it works</a><a href="#pricing" style="color: #cbd3df; font-size: 13.5px;">Pricing</a><a href="#capabilities" style="color: #cbd3df; font-size: 13.5px;">Capabilities</a><a href="/managed-postgres.html" style="color: #cbd3df; font-size: 13.5px;">Managed Postgres</a></nav></div>
+        <div><h3 class="mono" style="font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #7d8796;">Compare</h3><nav style="display: grid; gap: 11px; margin-top: 16px;"><a href="/render-alternative.html" style="color: #cbd3df; font-size: 13.5px;">Render alternative</a><a href="/railway-alternative.html" style="color: #cbd3df; font-size: 13.5px;">Railway alternative</a><a href="/heroku-alternative.html" style="color: #cbd3df; font-size: 13.5px;">Heroku alternative</a><a href="/flyio-alternative.html" style="color: #cbd3df; font-size: 13.5px;">Fly.io alternative</a></nav></div>
+        <div><h3 class="mono" style="font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #7d8796;">Company</h3><nav style="display: grid; gap: 11px; margin-top: 16px;"><a href="/about.html" style="color: #cbd3df; font-size: 13.5px;">About</a><a href="/contact.html" style="color: #cbd3df; font-size: 13.5px;">Contact</a><a href="/faq.html" style="color: #cbd3df; font-size: 13.5px;">FAQ</a><a href="https://status.debutdepoly.com" style="color: #cbd3df; font-size: 13.5px;">Status</a></nav></div>
+        <div><h3 class="mono" style="font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #7d8796;">Legal</h3><nav style="display: grid; gap: 11px; margin-top: 16px;"><a href="/privacy.html" style="color: #cbd3df; font-size: 13.5px;">Privacy</a><a href="/terms.html" style="color: #cbd3df; font-size: 13.5px;">Terms</a><a href="/sla.html" style="color: #cbd3df; font-size: 13.5px;">SLA</a><a href="/security.html" style="color: #cbd3df; font-size: 13.5px;">Security</a></nav></div>
+      </div>
+      <div style="margin-top: 56px; padding-top: 20px; border-top: 1px solid #252b35; display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; color: #707b8b; font-size: 12px;"><span>© 2026 Debut Web Consultants Ltd. All rights reserved.</span><span class="mono">Built for teams that want fewer surprises.</span></div>
+    </div>
+  </footer>
+
+
+
+
+
+</main>
+
+<script src="/assets/dd-site.js" defer></script>
+<script src="/assets/dd-calculator.js" defer></script>
 </body>
 </html>
