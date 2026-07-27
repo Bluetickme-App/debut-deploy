@@ -66,9 +66,20 @@ img { max-width: 100%; }
   background-size: cover;
   background-position: center top;
 }
-#showcase [data-card]:nth-child(1) .shot { background-image: url('/assets/img/dwc-home.png'); }
-#showcase [data-card]:nth-child(2) .shot { background-image: url('/assets/img/render-alternative.png'); }
-#showcase [data-card]:nth-child(3) .shot { background-image: url('/assets/img/nodejs-hosting.png'); }
+#showcase [data-card]:nth-child(1) .shot { background-image: url('/assets/img/marketing-genius.png'); }
+#showcase [data-card]:nth-child(2) .shot,
+#showcase [data-card]:nth-child(3) .shot {
+  color: #9aa2ae;
+  background-image: none;
+}
+#showcase [data-card]:nth-child(1) > div:nth-child(2) img { display: none; }
+#showcase [data-card]:nth-child(1) > div:nth-child(2) span:first-child::after {
+  content: 'MG';
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: #2563eb;
+}
 
 /* Logo tiles fall back to a monogram until the real artwork is dropped in. */
 .logo-fallback {
