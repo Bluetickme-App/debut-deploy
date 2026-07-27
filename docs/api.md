@@ -169,13 +169,40 @@ curl -X POST https://app.debutdepoly.com/api/services/$UUID/domain \
   -d '{"fqdn":"myapp.example.com"}'
 ```
 
-### Volumes
+### Instance size / plan changes
+
+Resizing costs money and only takes effect when Docker recreates the container, so it is
+a preview-then-apply pair rather than a bare field write.
 
 | Method | Path | Purpose | Body | Admin |
 |---|---|---|---|---|
-| GET | `/api/services/:id/volumes` | List volumes. | — | — |
-| POST | `/api/services/:id/volumes` | Add a persistent volume. | `mountPath` (+ Coolify volume fields) | — |
-| DELETE | `/api/services/:id/volumes/:vid` | Delete a volume. | — | — |
+| POST | `/api/services/:id/plan-change/preview` | Price a proposed change: spec before/after, monthly price before/after, pro-rata amount for the rest of the cycle, cycle end date, whether a redeploy is needed, warnings. Writes nothing. | `planId` (or `null` + `cpus`/`memory`) | — |
+| POST | `/api/services/:id/plan-change` | Apply it: container limits → billed plan → billing settlement → redeploy. Returns a per-step outcome. | same | — |
+| PATCH | `/api/services/:id/resources` | **Low-level.** Writes `limits_cpus`/`limits_memory` into Coolify only — no pricing, no billing, no redeploy. The caller owns the deploy. | `cpus`, `memory`, `memorySwap` | — |
+
+Billing settlement depends on how the org pays: a Stripe subscription has its items
+reconciled (`proration_behavior: create_prorations` → the difference lands on the next
+invoice); a wallet-billed org is debited/credited the pro-rata difference on the ledger
+immediately. Moving to an unpriced custom size records the limits but refuses the
+redeploy (`redeploy.skipped: "plan_required"`) — there is no free tier.
+
+```bash
+curl -X POST https://app.debutdepoly.com/api/services/$UUID/plan-change \
+  -H "Authorization: Bearer $DD_TOKEN" -H "Content-Type: application/json" \
+  -d '{"planId":"pro"}'
+```
+
+### Volumes (persistent disks)
+
+Disks are billed per GB per month (`disk-gb`, $0.125/GB/mo ≈ £0.10), so `sizeGb` is
+required — it is the quantity charged. Adding or removing one redeploys the service.
+
+| Method | Path | Purpose | Body | Admin |
+|---|---|---|---|---|
+| GET | `/api/services/:id/volumes` | List volumes, each with its billed `sizeGb` (`null` = attached outside the panel, unmetered). | — | — |
+| POST | `/api/services/:id/volumes/preview` | Price a disk before creating it: monthly rate, pro-rata amount, cycle end, org storage total after. Writes nothing. | `sizeGb`, `action` (`add`\|`remove`) | — |
+| POST | `/api/services/:id/volumes` | Attach a disk: mount → bill → redeploy. | `mountPath`, `sizeGb` | — |
+| DELETE | `/api/services/:id/volumes/:vid` | Detach a disk (destroys its data) and stop billing those GB. | — | — |
 
 ### Apps (create a service from a connected GitHub repo)
 
@@ -361,6 +388,80 @@ Guardrails:
 | GET | `/api/shared-vars` | List team shared env vars. | — | yes |
 | POST | `/api/shared-vars` | Upsert a shared var. | `key`, `value`, `is_secret` | yes |
 | DELETE | `/api/shared-vars/:id` | Delete a shared var. | — | yes |
+
+### Variable groups
+
+Org-scoped, reusable env sets. Values are stored encrypted panel-side; attaching a
+group writes its keys into the target application's own Coolify env (and detaching
+removes them again), so attached services pick changes up on their next deploy.
+Writes require the `deploy` capability; attach/detach also requires ownership of the
+target service. Responses from mutating calls carry a `failures[]` array listing any
+service Coolify rejected the push for.
+
+| Method | Path | Purpose | Body | Admin |
+|---|---|---|---|---|
+| GET | `/api/var-groups` | List groups with their vars + attached service uuids. `?reveal=1` includes secret values. | — | — |
+| POST | `/api/var-groups` | Create a group. | `name`, `scope?`, `vars?[]` | — |
+| PATCH | `/api/var-groups/:id` | Rename / re-scope a group. | `name?`, `scope?` | — |
+| DELETE | `/api/var-groups/:id` | Delete a group and strip its keys from attached services. | — | — |
+| POST | `/api/var-groups/:id/vars` | Upsert one var or many (the .env paste path). | `vars: [{key, value, is_secret}]` | — |
+| PATCH | `/api/var-groups/:id/vars/:key` | Rename a key in place. | `key` | — |
+| DELETE | `/api/var-groups/:id/vars/:key` | Delete a var (and remove it from attached services). | — | — |
+| POST | `/api/var-groups/:id/services` | Attach the group to a service. | `uuid` | — |
+| DELETE | `/api/var-groups/:id/services/:uuid` | Detach the group from a service. | — | — |
+
+### Email hosting
+
+Mailboxes live on the Stalwart mail server, not Coolify. A domain is owned by an org
+(which is what its mailboxes are billed to), and `assertMailDomainOrg` gates every
+per-domain call — you can only touch domains your org owns (admin bypasses). Creating
+a domain does **not** publish DNS; mail flows only once the returned MX/SPF/DKIM/DMARC
+records exist at the registrar, which `…/verify` checks live and caches for the panel.
+
+| Method | Path | Purpose | Body | Admin |
+|---|---|---|---|---|
+| GET | `/api/mail/status` | Whether mail is configured, plus hostname + webmail URL. | — | — |
+| GET | `/api/mail/domains` | Domains with mailboxes, required DNS records, owning org, last verify result. | — | — |
+| POST | `/api/mail/domains` | Add a mail domain; returns the DNS records it needs. | `domain`, `orgId?` (admin) | — |
+| DELETE | `/api/mail/domains/:domain` | Remove a domain **and every mailbox on it**. | — | — |
+| GET | `/api/mail/domains/:domain/verify` | Check live DNS against expected records (pass/fail each). | — | — |
+| POST | `/api/mail/mailboxes` | Create a mailbox on an owned domain. Omit `password` for a generated temp one (returned once). | `address`, `password?` (8+), `quotaMb?` | — |
+| POST | `/api/mail/mailboxes/:address/password` | Reset the password. Omit `password` for a generated temp one. | `password?` (8+) | — |
+| DELETE | `/api/mail/mailboxes/:address` | Delete a mailbox and its stored mail. | — | — |
+| POST | `/api/mail/mailboxes/:address/recovery` | Set the user's recovery email (enables self-service reset). | `recoveryEmail` | — |
+| DELETE | `/api/mail/mailboxes/:address/recovery` | Remove the recovery email. | — | — |
+| PATCH | `/api/mail/domains/:domain` | Assign the domain to an org (who pays); cascades to its mailbox rows. | `orgId` (null to unassign) | yes |
+| POST | `/api/mail/reconcile` | Import domains/mailboxes created directly on the mail server into billing. Idempotent. | — | yes |
+
+#### Self-service password reset (public)
+
+| Method | Path | Purpose | Body |
+|---|---|---|---|
+| GET | `/mail/forgot` | Public page: request a reset link. | — |
+| GET | `/mail/reset?token=…` | Public page: set a new password. | — |
+| POST | `/api/mail/forgot` | Mint + email a reset link to the recovery address. | `address` |
+| POST | `/api/mail/reset` | Spend the token and set the password. | `token`, `password` (8+) |
+
+`POST /api/mail/forgot` returns an **identical response** whether or not the mailbox exists,
+has a recovery address, or the email actually sent — otherwise it becomes an oracle for
+enumerating hosted mailboxes. It is throttled to 5 requests per IP per 15 minutes.
+Tokens are 32 random bytes, **stored only as a SHA-256 hash**, single-use, and expire after
+1 hour; requesting a new link invalidates any earlier unused one.
+
+Outbound mail needs `MAIL_SMTP_USER` + `MAIL_SMTP_PASS` (a real mailbox on the mail server;
+`MAIL_SMTP_HOST`/`MAIL_SMTP_PORT` default to `MAIL_HOSTNAME`:587 with STARTTLS required).
+Without them the reset request still answers generically and logs the failure.
+
+MCP tools: `mail_status`, `list_mail_domains`, `create_mail_domain`, `delete_mail_domain`,
+`verify_mail_dns`, `create_mailbox`, `reset_mailbox_password`, `set_mailbox_recovery`,
+`delete_mailbox`, `assign_mail_domain`, `reconcile_mail_billing`.
+
+**On passwords:** there is no reveal endpoint and there cannot be one — mailcow stores only a
+hash, so an existing password is unrecoverable by anyone, including an admin. A reset is the
+sole recovery path. The reset returns the new plaintext in its **response body only**: it is
+never persisted, and the audit log records *that* a reset happened (`mail.mailbox.password_reset`,
+with `address` and whether it was generated) but never the value. Generated passwords are four
+4-character groups from an alphabet with `0/O/1/l/I` removed (~82 bits), readable aloud.
 
 ### Render importer
 

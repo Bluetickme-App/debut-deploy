@@ -4,7 +4,9 @@
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
-// Force demo mode before importing the module
+// Force demo mode before importing the module. DATABASE_FILE must be set too — addVolume
+// now writes a service_disks billing row, and that must never land in the real DB.
+process.env.DATABASE_FILE = ":memory:";
 process.env.DEMO_MODE = "true";
 process.env.COOLIFY_BASE_URL = "http://localhost:9999";
 process.env.COOLIFY_API_TOKEN = "test-token";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Plus, Trash2, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { Mail, Plus, Trash2, AlertTriangle, Eye, EyeOff, KeyRound, Copy, Check, X, RefreshCw, LifeBuoy } from "lucide-react";
 import { api } from "../lib/api.js";
 import { PageHeader, Card, Button, Field, Input, Spinner, EmptyState } from "../components/ui.jsx";
 import DnsSetup from "../components/DnsSetup.jsx";
@@ -16,6 +16,29 @@ export default function Email() {
   const [newOrgId, setNewOrgId] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null);
+
+  // Pull in anything created straight on the mail server. Reports what it found rather
+  // than silently succeeding — "0 imported" is the useful answer when you expected some.
+  async function reconcile() {
+    setSyncing(true); setSyncMsg(null);
+    try {
+      const r = await api.reconcileMail();
+      const parts = [
+        `${r.domainsAdded} domain${r.domainsAdded === 1 ? "" : "s"} imported`,
+        `${r.mailboxesAdded} mailbox${r.mailboxesAdded === 1 ? "" : "es"} imported`,
+        r.mailboxesReStamped ? `${r.mailboxesReStamped} re-billed` : null,
+        r.mailboxesRemoved ? `${r.mailboxesRemoved} removed (gone upstream)` : null,
+      ].filter(Boolean);
+      const unassigned = r.unassigned?.length
+        ? ` — still unassigned, billing nobody: ${r.unassigned.join(", ")}`
+        : "";
+      setSyncMsg(parts.join(" · ") + unassigned);
+      load();
+    } catch (e) { setSyncMsg(`Sync failed: ${e.message}`); }
+    finally { setSyncing(false); }
+  }
 
   function load() {
     api.mailStatus().then(setStatus).catch(() => setStatus({ configured: false }));
@@ -48,8 +71,22 @@ export default function Email() {
       <PageHeader
         title="Email"
         subtitle="Business mailboxes on your customers' domains — send, receive, webmail."
-        actions={<Button variant="primary" onClick={() => setAdding((v) => !v)}><Plus size={16} /> Add domain</Button>}
+        actions={
+          <>
+            <Button variant="secondary" onClick={reconcile} disabled={syncing}
+              title="Import domains/mailboxes created directly on the mail server into billing">
+              {syncing ? <Spinner /> : <RefreshCw size={14} />} Sync from mail server
+            </Button>
+            <Button variant="primary" onClick={() => setAdding((v) => !v)}><Plus size={16} /> Add domain</Button>
+          </>
+        }
       />
+
+      {syncMsg && (
+        <div className="mb-4 rounded-lg border p-3 text-[13px]" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}>
+          {syncMsg}
+        </div>
+      )}
 
       {!status.configured && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border p-3.5" style={{ background: "#fffbeb", borderColor: "#fde68a" }}>
@@ -90,16 +127,19 @@ export default function Email() {
         <EmptyState title="No email domains yet" description="Add a domain to start hosting mailboxes on it." />
       ) : (
         <div className="flex flex-col gap-3">
-          {domains.map((d) => <DomainCard key={d.domain} d={d} orgs={orgs} webmail={status.webmail} onChange={load} onRemove={() => removeDomain(d.domain)} />)}
+          {domains.map((d) => <DomainCard key={d.domain} d={d} orgs={orgs} onChange={load} onRemove={() => removeDomain(d.domain)} />)}
         </div>
       )}
     </div>
   );
 }
 
-function MailClientSettings({ host }) {
+function MailClientSettings({ host, webmail }) {
   const [open, setOpen] = useState(false);
-  const webmailUrl = `https://${host}/SOGo`; // SOGo is served on the mail host, not a webmail.* subdomain
+  // Comes from /api/mail/status, which derives it from the mail host (SOGo is served
+  // there on a path — there is no working webmail.* subdomain). Fallback keeps the link
+  // alive against an older server that still returns a bare hostname.
+  const webmailUrl = webmail?.startsWith("http") ? webmail : `https://${host}/SOGo`;
   const rows = [
     ["IMAP (incoming)", `${host} · port 993 · SSL/TLS`],
     ["SMTP (outgoing)", `${host} · port 587 (STARTTLS) or 465 (SSL)`],
@@ -137,11 +177,56 @@ function MailClientSettings({ host }) {
   );
 }
 
-function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
+function DomainCard({ d, orgs, onChange, onRemove }) {
   const [showMailbox, setShowMailbox] = useState(false);
+  // The new password lives in component state ONLY, until dismissed. It is never
+  // written anywhere — the server doesn't store it either, so once this is gone the
+  // only way to recover the mailbox is another reset.
+  const [newPw, setNewPw] = useState(null);        // { address, password } | null
+  const [resettingFor, setResettingFor] = useState(null);
+
+  // A recovery address is what turns "email the admin" into self-service: the reset link
+  // goes THERE, because the mailbox itself is the one they cannot read.
+  async function setRecovery(address) {
+    const v = window.prompt(
+      `Recovery email for ${address}
+
+` +
+      `Their OTHER address (personal email). A password-reset link gets sent there, so it ` +
+      `must not be ${address} itself.
+
+Leave blank and press OK to remove it.`
+    );
+    if (v === null) return;
+    try {
+      if (!v.trim()) await api.clearMailboxRecovery(address);
+      else await api.setMailboxRecovery(address, v.trim());
+      onChange();
+    } catch (e) { alert(e.message); }
+  }
+
+  async function resetPassword(address) {
+    const ok = window.confirm(
+      `Reset the password for ${address}?\n\n` +
+      `The current password cannot be recovered — the mail server stores only a hash — so ` +
+      `this replaces it with a new temporary one, shown to you once.\n\n` +
+      `${address} will be signed out of webmail and their mail apps until they enter it.`
+    );
+    if (!ok) return;
+    setResettingFor(address);
+    try {
+      const r = await api.resetMailboxPassword(address);
+      setNewPw({ address: r.address, password: r.password });
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setResettingFor(null);
+    }
+  }
   // Seed from the last cached verify (persisted on the domain row) so checks show on load.
   const [checks, setChecks] = useState(d.dnsChecks || null);   // null | [{key,label,ok,detail,required}]
   const [verifying, setVerifying] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const count = (d.mailboxes || []).length;
   const owner = orgs?.find((o) => o.id === d.org_id)?.name;
   const monthly = (count * 2.99).toFixed(2);
@@ -152,7 +237,7 @@ function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
     finally { setVerifying(false); }
   }
   // The overall badge keys on the REQUIRED records only — the convenience CNAMEs
-  // (autoconfig/autodiscover/webmail) don't make a working mail domain "incomplete".
+  // (autoconfig/autodiscover) don't make a working mail domain "incomplete".
   const allOk = checks && checks.filter((c) => c.required).every((c) => c.ok);
   return (
     <Card>
@@ -167,10 +252,36 @@ function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
               </span>
             )}
           </div>
-          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {count} mailbox{count === 1 ? "" : "es"}
-            {owner ? ` · ${owner}` : " · unassigned"}
-            {count > 0 && ` · £${monthly}/mo`}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+            <span>{count} mailbox{count === 1 ? "" : "es"}</span>
+            <span>·</span>
+            {/* Unassigned isn't cosmetic: the monthly charge counts mailboxes BY ORG, so a
+                domain with no org bills nobody. Flag it in red and make it fixable here. */}
+            {orgs?.length > 0 ? (
+              <select
+                className="rounded border px-1 py-0.5 text-xs"
+                style={{
+                  background: "var(--surface)", borderColor: d.org_id ? "var(--border)" : "var(--err-text)",
+                  color: d.org_id ? "var(--text)" : "var(--err-text)", cursor: "pointer",
+                }}
+                value={d.org_id ?? ""}
+                disabled={assigning}
+                title={d.org_id ? `Billed to ${owner}` : "Not billed to anyone — pick an account"}
+                onChange={async (e) => {
+                  const v = e.target.value ? Number(e.target.value) : null;
+                  setAssigning(true);
+                  try { await api.assignMailDomain(d.domain, v); onChange(); }
+                  catch (err) { alert(err.message); }
+                  finally { setAssigning(false); }
+                }}
+              >
+                <option value="">⚠ unassigned — bills nobody</option>
+                {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            ) : (
+              <span style={{ color: d.org_id ? undefined : "var(--err-text)" }}>{owner || "unassigned"}</span>
+            )}
+            {count > 0 && <span>· £{monthly}/mo{d.org_id ? "" : " (uncharged)"}</span>}
           </div>
         </div>
         <Button variant="ghost" onClick={verify} disabled={verifying}>{verifying ? <Spinner /> : "Verify DNS"}</Button>
@@ -178,13 +289,41 @@ function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
         <button onClick={onRemove} title="Remove domain" className="btn btn-ghost p-1.5" style={{ color: "var(--err-text)" }}><Trash2 size={16} /></button>
       </div>
 
-      {showMailbox && <NewMailbox domain={d.domain} onDone={() => { setShowMailbox(false); onChange(); }} />}
+      {showMailbox && (
+        <NewMailbox
+          domain={d.domain}
+          onDone={(r) => {
+            setShowMailbox(false);
+            // Only present when the server generated it — show it before the refresh,
+            // because it exists nowhere else.
+            if (r?.password) setNewPw({ address: r.address, password: r.password });
+            onChange();
+          }}
+        />
+      )}
+
+      {newPw && <OneTimePassword {...newPw} onDismiss={() => setNewPw(null)} />}
 
       {(d.mailboxes || []).length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-2.5" style={{ borderColor: "var(--border)" }}>
           {d.mailboxes.map((m) => (
             <span key={m.address} className="mono inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
               {m.address}
+              <button
+                onClick={() => setRecovery(m.address)}
+                title="Set the recovery email — lets this user reset their own password"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 0, color: "var(--text-muted)" }}
+              >
+                <LifeBuoy size={12} />
+              </button>
+              <button
+                onClick={() => resetPassword(m.address)}
+                disabled={resettingFor === m.address}
+                title="Reset password — generates a new temporary one, shown once"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 0, color: "var(--text-muted)" }}
+              >
+                <KeyRound size={12} />
+              </button>
               <button
                 onClick={async () => {
                   if (!window.confirm(`Delete mailbox ${m.address}? This removes the inbox and all its mail.`)) return;
@@ -205,17 +344,62 @@ function DomainCard({ d, orgs, webmail, onChange, onRemove }) {
   );
 }
 
+// Shown once, after a reset. Deliberately loud and deliberately dismissible only by the
+// operator: the value exists nowhere else the moment this unmounts.
+function OneTimePassword({ address, password, onDismiss }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try { await navigator.clipboard.writeText(password); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { /* clipboard blocked (insecure context) — the value is on screen to type */ }
+  }
+  return (
+    <div className="mt-3 rounded-md border p-3" style={{ borderColor: "var(--accent)", background: "var(--accent-soft)" }}>
+      <div className="flex items-start gap-2">
+        <KeyRound size={15} style={{ color: "var(--accent-text)", marginTop: 2, flexShrink: 0 }} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+            New password for <span className="mono">{address}</span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <code
+              className="mono select-all rounded px-2 py-1 text-[13.5px] font-semibold"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+            >
+              {password}
+            </code>
+            <Button variant="secondary" onClick={copy} className="text-xs">
+              {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+          <div className="mt-2 text-[11.5px]" style={{ color: "var(--text-muted)" }}>
+            Shown once. It isn't stored anywhere — close this and the only way back is another reset.
+            Send it over something private, not email to the address it unlocks.
+          </div>
+        </div>
+        <button onClick={onDismiss} title="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, lineHeight: 0, color: "var(--text-muted)" }}>
+          <X size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function NewMailbox({ domain, onDone }) {
   const [local, setLocal] = useState("");
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
-  async function create(e) {
+  // generate=true submits WITHOUT a password; the server makes one and returns it once,
+  // which onDone surfaces in the same one-time panel a reset uses. Keeping generation
+  // server-side means there's a single definition of a temp password, not a drifting copy.
+  async function create(e, generate = false) {
     e.preventDefault();
     setBusy(true); setErr(null);
-    try { await api.createMailbox({ address: `${local}@${domain}`, password: pw, quotaMb: 2048 }); onDone(); }
-    catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try {
+      const r = await api.createMailbox({ address: `${local}@${domain}`, quotaMb: 2048, ...(generate ? {} : { password: pw }) });
+      onDone(r);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
   return (
     <form onSubmit={create} className="mt-3 flex flex-wrap items-end gap-2 border-t pt-3" style={{ borderColor: "var(--border)" }}>
@@ -233,6 +417,15 @@ function NewMailbox({ domain, onDone }) {
         </div>
       </Field>
       <Button type="submit" variant="primary" disabled={busy || !local || pw.length < 8}>{busy ? <Spinner /> : "Create"}</Button>
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={(e) => create(e, true)}
+        disabled={busy || !local}
+        title="Create with a generated temporary password, shown once"
+      >
+        <KeyRound size={14} /> Create with generated password
+      </Button>
       {err && <p className="w-full text-sm" style={{ color: "var(--err-text)" }}>{err}</p>}
     </form>
   );

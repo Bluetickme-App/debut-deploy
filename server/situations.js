@@ -3,11 +3,18 @@ import { db } from "./db.js";
 import { fleetOverview as _fleetOverview } from "./metrics.js";
 import { runOnHost } from "./hostexec.js";
 import { controlService as _controlService } from "./coolify.js";
+import { clearDeployQueue as _clearDeployQueue } from "./coolifydb.js";
 const DOWN_STATUSES = new Set(["exited", "stopped", "dead", "not_running", "paused"]);
 
+// The app UUID comes along for the ride so a deploy.zombie's target can BE the uuid —
+// clear-deploy-queue acts on a specific application, and only the uuid identifies one.
+// LEFT JOIN + fallback: a queue row whose application row is gone still gets reported.
+// (application_id is TEXT in Coolify's schema, hence the ::text cast on applications.id.)
 const DEPLOY_QUERY =
-  "SELECT deployment_uuid, application_name, status, EXTRACT(EPOCH FROM (now()-created_at))::int" +
-  " FROM application_deployment_queues WHERE status IN ('in_progress','queued')";
+  "SELECT q.deployment_uuid, COALESCE(a.uuid,''), q.application_name, q.status," +
+  " EXTRACT(EPOCH FROM (now()-q.created_at))::int" +
+  " FROM application_deployment_queues q LEFT JOIN applications a ON a.id::text = q.application_id" +
+  " WHERE q.status IN ('in_progress','queued')";
 
 /**
  * Gather host metrics + live deploy-queue state.
@@ -26,8 +33,8 @@ export async function collectSituationInputs({ fleetOverview = _fleetOverview } 
   try {
     const raw = await runOnHost(`docker exec coolify-db psql -U coolify -d coolify -tAF'|' -c "${DEPLOY_QUERY}"`);
     deploys = raw.split("\n").filter(Boolean).map((line) => {
-      const [uuid, application_name, status, ageSec] = line.split("|");
-      return { uuid, application_name, status, ageSec: Number(ageSec) };
+      const [uuid, appUuid, application_name, status, ageSec] = line.split("|");
+      return { uuid, appUuid: appUuid || null, application_name, status, ageSec: Number(ageSec) };
     });
   } catch { /* best-effort: SSH down or no deploys table */ }
   return { host, sites, deploys };
@@ -57,12 +64,19 @@ export const REGISTRY = {
     command: "coolify-restart",
   },
   "clear-deploy-queue": {
-    title: "Clear the stuck deploy (restart coolify to reconcile)",
+    title: "Clear the stuck deploy (fail its queue rows, drop hung build containers, nudge the worker)",
     situationTypes: ["deploy.zombie"],
     auto: true,
     confidence: "high",
     cooldownSec: 1800,
-    command: "docker restart coolify",
+    // Was `docker restart coolify`, which CANNOT fix a zombie: a stuck row is an orphaned
+    // DB record (its worker process is already dead, or its job never reached redis), and
+    // restarting the orchestrator neither reconciles the row nor re-dispatches the job — it
+    // just takes the whole management plane down. Routes through coolifydb.clearDeployQueue
+    // instead, which fails THIS app's stuck rows, removes its hung build helpers and runs
+    // `queue:restart`. See applyRemediation. // ponytail: same shape as coolify-restart —
+    // a sentinel, not a shell string, because it needs the app uuid from situation.target.
+    command: "coolify-clear-queue",
   },
 };
 
@@ -120,8 +134,11 @@ export function evaluateSituations({ host, sites, deploys }) {
   }
 
   for (const d of deploys) {
+    // target is the app UUID (what clear-deploy-queue needs), mirroring service.unhealthy;
+    // the human-readable name lives in `detail`. Falls back to the name when the app row
+    // is missing — the situation still opens, its remediation just can't resolve a target.
     if (d.status === "in_progress" && d.ageSec > ZOMBIE_DEPLOY_SEC)
-      out.push({ type: "deploy.zombie", target: d.application_name, severity: "crit", detail: `${d.application_name} deploy in_progress for ${d.ageSec}s`, suggested_remediation: "clear-deploy-queue" });
+      out.push({ type: "deploy.zombie", target: d.appUuid ?? d.application_name, severity: "crit", detail: `${d.application_name} deploy in_progress for ${d.ageSec}s`, suggested_remediation: "clear-deploy-queue" });
   }
 
   const queued = deploys.filter((d) => d.status === "queued");
@@ -206,10 +223,10 @@ const stmtLogRemediation = db.prepare(
  *
  * @param {number} situationId
  * @param {string} actor  — email or label for audit trail
- * @param {{ control?: Function, runOnHostFn?: Function, nowIso?: string }} [opts]  — injectable for tests
+ * @param {{ control?: Function, runOnHostFn?: Function, clearQueue?: Function, nowIso?: string }} [opts]  — injectable for tests
  * @returns {Promise<{ ok: boolean, result?: string, error?: string }>}
  */
-export async function applyRemediation(situationId, actor, { control = _controlService, runOnHostFn = runOnHost, nowIso } = {}) {
+export async function applyRemediation(situationId, actor, { control = _controlService, runOnHostFn = runOnHost, clearQueue = _clearDeployQueue, nowIso } = {}) {
   const situation = stmtGetSituation.get(situationId);
   if (!situation) return { ok: false, error: "situation not found" };
 
@@ -224,6 +241,14 @@ export async function applyRemediation(situationId, actor, { control = _controlS
       // ponytail: situation.target must be an app UUID — only service.unhealthy maps here, and its target IS the uuid
       await control(situation.target, "restart");
       result = `restarted ${situation.target}`;
+    } else if (reg.command === "coolify-clear-queue") {
+      // situation.target is the app uuid (deploy.zombie sets it that way). A row opened
+      // before that change carries a NAME instead, which resolves to nothing — report the
+      // 0 honestly rather than logging a success that cleared nothing.
+      const { cleared } = await clearQueue(situation.target);
+      result = cleared
+        ? `cleared ${cleared} stuck deploy(s) for ${situation.target}`
+        : `no stuck deploys found for ${situation.target} — nothing cleared`;
     } else {
       // ponytail: REGISTRY command is a fixed string — situation data never interpolated into it
       result = String(await runOnHostFn(reg.command) ?? "");

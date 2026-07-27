@@ -127,8 +127,10 @@ server.registerTool(
   "update_service_resources",
   {
     description:
-      "Set a service's CPU / memory / memory-swap limits. cpus '0'|'0.5'|'1'|'2'; memory & memorySwap '0'|'512M'|'1G'|'2G'|'4G' ('0' = no limit). " +
-      "IMPORTANT: never set memorySwap without also setting memory — Docker refuses to start the container (the 'flaky deploy' bug). Set both together (swap >= memory), or leave both '0'. Applied on next deploy.",
+      "LOW-LEVEL: set a service's CPU / memory / memory-swap limits with NO pricing, NO billing change and NO redeploy — the limits only take effect when the container is next recreated. " +
+      "For a customer-facing resize use change_service_plan, which prices it, moves the billing and redeploys. " +
+      "cpus '0'|'0.5'|'1'|'2'; memory & memorySwap '0'|'512M'|'1G'|'2G'|'4G' ('0' = no limit). " +
+      "IMPORTANT: never set memorySwap without also setting memory — Docker refuses to start the container (the 'flaky deploy' bug). Set both together (swap >= memory), or leave both '0'.",
     inputSchema: {
       id,
       cpus: z.string().optional().describe("CPU limit, e.g. '1' or '0' for no limit"),
@@ -137,6 +139,38 @@ server.registerTool(
     },
   },
   tool(({ id, cpus, memory, memorySwap }) => api(`/api/services/${id}/resources`, { method: "PATCH", body: { cpus, memory, memorySwap } }))
+);
+
+server.registerTool(
+  "preview_service_plan_change",
+  {
+    description:
+      "Price a proposed instance-size change WITHOUT applying it: current vs new spec, monthly price before/after, the pro-rata amount for the rest of the billing cycle, when the new rate starts, whether a redeploy is needed, and warnings (e.g. a memory drop that risks an OOM kill). Always run this before change_service_plan.",
+    inputSchema: {
+      id,
+      planId: z.string().nullable().optional().describe("Target plan: hobby|starter|pro|proplus|scale, or null for a custom (unpriced) size"),
+      cpus: z.string().optional().describe("Custom CPU limit — only when planId is null"),
+      memory: z.string().optional().describe("Custom memory limit — only when planId is null"),
+    },
+  },
+  tool(({ id, planId, cpus, memory }) =>
+    api(`/api/services/${id}/plan-change/preview`, { method: "POST", body: { planId: planId ?? null, cpus, memory } }))
+);
+
+server.registerTool(
+  "change_service_plan",
+  {
+    description:
+      "Apply a confirmed instance-size change as one operation: sets the container limits, moves the billed plan, settles the billing (Stripe subscription items are reconciled, or the pro-rata difference hits the credit ledger), then REDEPLOYS so the new CPU/RAM actually takes effect. Returns a per-step outcome. Preview it first — this moves money and restarts the service.",
+    inputSchema: {
+      id,
+      planId: z.string().nullable().optional().describe("Target plan: hobby|starter|pro|proplus|scale, or null for a custom (unpriced) size"),
+      cpus: z.string().optional().describe("Custom CPU limit — only when planId is null"),
+      memory: z.string().optional().describe("Custom memory limit — only when planId is null"),
+    },
+  },
+  tool(({ id, planId, cpus, memory }) =>
+    api(`/api/services/${id}/plan-change`, { method: "POST", body: { planId: planId ?? null, cpus, memory } }))
 );
 
 server.registerTool(
@@ -301,6 +335,139 @@ server.registerTool(
     inputSchema: { id: z.number().int().describe("Situation id from list_situations") },
   },
   tool(({ id }) => api(`/api/situations/${id}/remediate`, { method: "POST" }))
+);
+
+// ── Email hosting (Stalwart) ──────────────────────────────────────────────────
+// Mail domains are billed to an org and their DNS is public-facing, so the write
+// tools here carry louder descriptions than the compute ones: adding a domain
+// starts the deliverability clock, and deleting one takes its mail offline.
+
+const mailDomain = z.string().describe("Mail domain, e.g. 'example.com' (no @, no scheme)");
+const mailAddress = z.string().describe("Full email address, e.g. 'paul@example.com'");
+
+server.registerTool(
+  "mail_status",
+  {
+    description: "Whether the mail server is configured, plus its hostname and webmail URL. Call this first — every other mail tool fails if the server isn't wired up.",
+    inputSchema: {},
+  },
+  tool(() => api("/api/mail/status"))
+);
+
+server.registerTool(
+  "list_mail_domains",
+  {
+    description: "List mail domains with their mailboxes, the DNS records they require (MX/SPF/DKIM/DMARC), the owning org, and the last DNS verification result. Admin sees every domain; a customer sees only their org's.",
+    inputSchema: {},
+  },
+  tool(() => api("/api/mail/domains"))
+);
+
+server.registerTool(
+  "create_mail_domain",
+  {
+    description:
+      "Add a mail domain to the mail server and return the DNS records it needs. This does NOT publish DNS — mail will not flow until those records exist at the registrar (use verify_mail_dns to check). Billed to the owning org. Admin may set orgId; a customer's own org is used automatically.",
+    inputSchema: {
+      domain: mailDomain,
+      orgId: z.number().int().optional().describe("Org to bill this domain to (admin only; omit to leave unassigned)"),
+    },
+  },
+  tool(({ domain, orgId }) => api("/api/mail/domains", { method: "POST", body: { domain, ...(orgId ? { orgId } : {}) } }))
+);
+
+server.registerTool(
+  "delete_mail_domain",
+  {
+    description:
+      "DESTRUCTIVE: remove a mail domain from the mail server, along with every mailbox on it and their stored messages. Mail to that domain stops immediately and is not recoverable from here. Confirm with a human before calling.",
+    inputSchema: { domain: mailDomain },
+  },
+  tool(({ domain }) => api(`/api/mail/domains/${encodeURIComponent(domain)}`, { method: "DELETE" }))
+);
+
+server.registerTool(
+  "assign_mail_domain",
+  {
+    description:
+      "Set which organization a mail domain is billed to, and cascade it to that domain's mailbox rows. Until a domain is assigned, its mailboxes are billed to NOBODY (the monthly charge counts mailboxes by org). Pass orgId null to unassign. Admin.",
+    inputSchema: {
+      domain: mailDomain,
+      orgId: z.number().int().nullable().optional().describe("Organization id to bill. Omit or null to unassign."),
+    },
+  },
+  tool(({ domain, orgId }) => api(`/api/mail/domains/${encodeURIComponent(domain)}`, { method: "PATCH", body: { orgId: orgId ?? null } }))
+);
+
+server.registerTool(
+  "reconcile_mail_billing",
+  {
+    description:
+      "Import what the mail server actually hosts into the panel's billing tables: adds rows for domains/mailboxes created directly in mailcow (which are otherwise invisible to billing), re-stamps mailbox rows from their domain's org, and drops rows for mailboxes deleted upstream. Read-mostly, idempotent, safe to re-run. Returns counts plus a list of domains still unassigned to any org. Admin.",
+    inputSchema: {},
+  },
+  tool(() => api("/api/mail/reconcile", { method: "POST" }))
+);
+
+server.registerTool(
+  "verify_mail_dns",
+  {
+    description: "Check a domain's LIVE DNS against the records the mail server expects, one pass/fail per record (MX, SPF, DKIM, DMARC). Read-only, but it re-queries DNS and caches the result for the panel. Use after create_mail_domain to see what's still missing.",
+    inputSchema: { domain: mailDomain },
+  },
+  tool(({ domain }) => api(`/api/mail/domains/${encodeURIComponent(domain)}/verify`))
+);
+
+server.registerTool(
+  "create_mailbox",
+  {
+    description:
+      "Create a mailbox on a domain your org owns. Omit `password` to have a temporary one generated and returned — preferred, since it avoids a human-chosen password travelling through a prompt. Either way the value is readable ONCE in the response and never again (the mail server keeps only a hash): hand it over a secure channel, and never echo it into a shared log, ticket or commit. Adds to the org's monthly mailbox count.",
+    inputSchema: {
+      address: mailAddress,
+      password: z.string().min(8).optional().describe("Set this exact password (8+ chars). Omit to generate a temporary one — recommended."),
+      quotaMb: z.number().int().positive().optional().describe("Mailbox quota in MB (omit for the server default)"),
+    },
+  },
+  tool(({ address, password, quotaMb }) =>
+    api("/api/mail/mailboxes", { method: "POST", body: { address, password, ...(quotaMb ? { quotaMb } : {}) } }))
+);
+
+server.registerTool(
+  "reset_mailbox_password",
+  {
+    description:
+      "Reset a mailbox's password and return the new one. There is NO way to read an existing password — the mail server stores only a hash — so this is the only recovery path, and it locks the user out of their current sessions/clients until they enter the new one. Omit `password` to get a generated temporary one. The plaintext is returned ONCE and is not recorded anywhere: hand it to the user over a secure channel, and never paste it into a commit, ticket, chat log or shared document.",
+    inputSchema: {
+      address: mailAddress,
+      password: z.string().min(8).optional().describe("Set this exact password (8+ chars). Omit to generate a temporary one."),
+    },
+  },
+  tool(({ address, password }) =>
+    api(`/api/mail/mailboxes/${encodeURIComponent(address)}/password`, { method: "POST", body: password ? { password } : {} }))
+);
+
+server.registerTool(
+  "set_mailbox_recovery",
+  {
+    description:
+      "Register a recovery email for a mailbox — the user's OTHER address, used to send them a self-service password-reset link. Without one they cannot reset their own password and every reset has to go through an admin. It must NOT be the mailbox itself (they cannot read it while locked out). Stored as personal data; not written to the audit log.",
+    inputSchema: {
+      address: mailAddress,
+      recoveryEmail: z.string().describe("The user's other email address, e.g. their personal one"),
+    },
+  },
+  tool(({ address, recoveryEmail }) =>
+    api(`/api/mail/mailboxes/${encodeURIComponent(address)}/recovery`, { method: "POST", body: { recoveryEmail } }))
+);
+
+server.registerTool(
+  "delete_mailbox",
+  {
+    description: "DESTRUCTIVE: delete a mailbox and its stored mail. Not recoverable from here. Stops billing for it. Confirm with a human before calling.",
+    inputSchema: { address: mailAddress },
+  },
+  tool(({ address }) => api(`/api/mail/mailboxes/${encodeURIComponent(address)}`, { method: "DELETE" }))
 );
 
 const transport = new StdioServerTransport();

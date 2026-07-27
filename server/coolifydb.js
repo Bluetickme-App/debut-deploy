@@ -272,7 +272,9 @@ export async function listServiceVolumes(appUuid) {
 }
 
 export async function addServiceVolume(appUuid, { mountPath }) {
-  if (DEMO) return { ok: true, uuid: "demo-vol", name: "demo-data", mountPath };
+  // Demo mints a real-shaped unique uuid — a constant would collide with the
+  // UNIQUE(volume_uuid) billing record on a second demo add.
+  if (DEMO) return { ok: true, uuid: coolifyUuid(), name: "demo-data", mountPath };
   const u = String(appUuid).replace(/[^a-z0-9]/gi, "");
   const mp = String(mountPath || "").trim();
   if (!/^\/[A-Za-z0-9._/-]{1,200}$/.test(mp)) {

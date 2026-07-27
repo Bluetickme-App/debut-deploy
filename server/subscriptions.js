@@ -12,10 +12,12 @@
 //   • Top-up minimum         -> £25/$25 for the first top-up; thereafter max(£25, last
 //     month's usage). e.g. £75/mo usage -> £75 minimum, never below £25.
 import { db, getSetting, setSetting } from "./db.js";
-import { planPriceUsd } from "./plans.js";
+import { planPriceUsd, planPricePence, STORAGE_PLAN, MAIL_PLANS } from "./plans.js";
 import { usdGbpRate, stripeClient, stripeMode, getOrCreateStripeCustomer, walletBalance } from "./billing.js";
 import { priceIdFor } from "./stripecatalog.js";
 import { getComp } from "./comp.js";
+import { orgDiskGb } from "./disks.js";
+import { orgMailboxCount } from "./db.js";
 
 export const BASE_MIN_TOPUP_MINOR = 2500;       // £25 / $25 (minor units)
 export const OVERDRAFT_ALLOWANCE_MINOR = 1000;  // wallet may reach -£10 / -$10 before suspend
@@ -45,9 +47,17 @@ export function setOrgCurrency(orgId, currency) {
   return currency;
 }
 
-// A plan's monthly price in the target currency's MINOR units. Plans are priced in USD;
-// GBP converts at the operator FX rate (same rate the wallet already uses).
+// A plan's monthly price in the target currency's MINOR units — the amount a UK org is
+// charged in pence, or a rest-of-world org in cents (orgCurrency picks which).
+//
+// Most plans are USD-native and their GBP figure converts at the operator FX rate.
+// A dual-listed plan (email) carries an explicit price per currency, so its £ figure is
+// returned as quoted and never moves when the rate does.
 export function planAmountMinor(planId, currency) {
+  if (currency === "gbp") {
+    const pence = planPricePence(planId);
+    if (pence != null) return pence;
+  }
   const usd = planPriceUsd(planId);
   const value = currency === "gbp" ? usd * usdGbpRate() : usd;
   return Math.round(value * 100);
@@ -68,10 +78,27 @@ export function linesFromPlanIds(planIds, currency) {
     .sort((a, b) => a.planId.localeCompare(b.planId));
 }
 
-// The org's subscription lines from its owned, priced resources.
+// The org's subscription lines from its owned, priced resources, PLUS one per-GB
+// persistent-disk line (quantity = total attached GB). Disks are an add-on product,
+// not a resource tier, so they never appear in resource_ownership.plan_id.
 export function subscriptionLinesFor(orgId, currency = orgCurrency(orgId)) {
   const rows = db.prepare("SELECT plan_id FROM resource_ownership WHERE org_id = ?").all(orgId);
-  return linesFromPlanIds(rows.map((r) => r.plan_id), currency);
+  const lines = linesFromPlanIds(rows.map((r) => r.plan_id), currency);
+  const gb = orgDiskGb(orgId);
+  if (gb > 0) {
+    const unitAmountMinor = planAmountMinor(STORAGE_PLAN.id, currency);
+    if (unitAmountMinor > 0) lines.push({ planId: STORAGE_PLAN.id, quantity: gb, unitAmountMinor });
+  }
+  // Mailboxes, same shape (quantity = seats). Without this line an org on a Stripe
+  // subscription is invoiced £0 for email however many mailboxes it has: the monthly
+  // wallet charge that DOES count them is skipped for subscription orgs.
+  const mailPlan = MAIL_PLANS[0];
+  const seats = mailPlan ? orgMailboxCount(orgId) : 0;
+  if (seats > 0) {
+    const unitAmountMinor = planAmountMinor(mailPlan.id, currency);
+    if (unitAmountMinor > 0) lines.push({ planId: mailPlan.id, quantity: seats, unitAmountMinor });
+  }
+  return lines;
 }
 
 export const subscriptionTotalMinor = (lines) =>
@@ -113,9 +140,14 @@ export function deployGateDecision({ comp, subStatus, failedAt = null, planId, n
 //   { status:'active'|'past_due'|'suspended'|'canceled'|null, failedAt:ms|null,
 //     suspendedAt:ms|null, reason:string|null, subscriptionId:string|null }
 const subKey = (orgId) => `org_sub_${orgId}`;
+const SUB_DEFAULTS = {
+  status: null, failedAt: null, suspendedAt: null, reason: null, subscriptionId: null,
+  // Cycle boundary (ms) cached from Stripe so previews can name the next billing date.
+  currentPeriodStart: null, currentPeriodEnd: null,
+};
 export function getSubState(orgId) {
-  try { return { status: null, failedAt: null, suspendedAt: null, reason: null, subscriptionId: null, ...JSON.parse(getSetting(subKey(orgId)) || "{}") }; }
-  catch { return { status: null, failedAt: null, suspendedAt: null, reason: null, subscriptionId: null }; }
+  try { return { ...SUB_DEFAULTS, ...JSON.parse(getSetting(subKey(orgId)) || "{}") }; }
+  catch { return { ...SUB_DEFAULTS }; }
 }
 export function setSubState(orgId, patch) {
   const next = { ...getSubState(orgId), ...patch };
@@ -163,6 +195,83 @@ async function couponFor(stripe, pct) {
   return id;
 }
 
+// How mid-cycle changes are settled. 'create_prorations' puts the credit/charge on the
+// NEXT invoice (no surprise card charge the moment someone clicks Save) — which is what
+// the confirmation dialog promises the customer. Switch to 'always_invoice' to bill the
+// difference immediately; the dialog copy in ResourceChangeModal must change with it.
+export const PRORATION_BEHAVIOR = "create_prorations";
+
+// Reconcile the LIVE Stripe subscription's ITEMS to what the org actually owns.
+// This is what makes a plan change cost money: without it, Stripe keeps invoicing the
+// line items captured at the original checkout no matter what the customer resizes to.
+//
+// Returns { synced, changed, reason?, lines, subscriptionId }. Never throws for
+// "there is no subscription" — a wallet-billed org settles plan changes on the ledger
+// instead (see planchange.js).
+export async function syncSubscriptionItems(orgId) {
+  const stripe = stripeClient();
+  if (!stripe) return { synced: false, changed: false, reason: "stripe_unconfigured" };
+  const { subscriptionId } = getSubState(orgId);
+  if (!subscriptionId) return { synced: false, changed: false, reason: "no_subscription" };
+
+  const currency = orgCurrency(orgId);
+  const mode = stripeMode();
+  const want = subscriptionLinesFor(orgId, currency);
+
+  const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items"] });
+  if (["canceled", "incomplete_expired"].includes(sub.status)) {
+    return { synced: false, changed: false, reason: `subscription_${sub.status}` };
+  }
+  const have = sub.items?.data || [];
+
+  // A subscription cannot have zero items. When the org drops to nothing priced we end
+  // it at the period end (already paid for) rather than deleting the last item.
+  if (!want.length) {
+    await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+    return { synced: true, changed: true, action: "cancel_at_period_end", lines: [], subscriptionId };
+  }
+
+  const updates = [];
+  const keep = new Set();
+  for (const l of want) {
+    const price = priceIdFor(mode, l.planId, currency);
+    if (!price) {
+      throw Object.assign(
+        new Error(`No ${currency.toUpperCase()} price for ${l.planId} — sync the plan catalog first`),
+        { status: 400 }
+      );
+    }
+    const existing = have.find((i) => i.price?.id === price);
+    if (existing) {
+      keep.add(existing.id);
+      if (existing.quantity !== l.quantity) updates.push({ id: existing.id, quantity: l.quantity });
+    } else {
+      updates.push({ price, quantity: l.quantity });
+    }
+  }
+  for (const i of have) if (!keep.has(i.id)) updates.push({ id: i.id, deleted: true });
+
+  if (!updates.length) {
+    rememberPeriodEnd(orgId, sub);
+    return { synced: true, changed: false, lines: want, subscriptionId };
+  }
+
+  const next = await stripe.subscriptions.update(subscriptionId, {
+    items: updates,
+    proration_behavior: PRORATION_BEHAVIOR,
+  });
+  rememberPeriodEnd(orgId, next);
+  return { synced: true, changed: true, lines: want, subscriptionId };
+}
+
+// Cache the cycle boundary so the confirmation dialog can name the next billing date
+// without a Stripe round-trip on every preview.
+function rememberPeriodEnd(orgId, sub) {
+  const end = sub?.current_period_end;
+  const start = sub?.current_period_start;
+  if (end) setSubState(orgId, { currentPeriodEnd: end * 1000, currentPeriodStart: start ? start * 1000 : null });
+}
+
 // Reconcile a LIVE Stripe subscription to the org's current comp/discount, so the admin UI can
 // never say one thing while Stripe bills another. No live subscription → no-op (the coupon is
 // applied at the next startSubscriptionCheckout instead). Called from the admin comp route.
@@ -202,7 +311,16 @@ export function applySubscriptionEvent(event) {
   switch (event?.type) {
     case "invoice.paid": {
       const orgId = orgFromInvoice(obj);
-      if (orgId) setSubState(orgId, { status: "active", failedAt: null, reason: null, suspendedAt: null, subscriptionId: obj.subscription || getSubState(orgId).subscriptionId });
+      if (orgId) {
+        // Refresh the cached cycle boundary from the invoice's own line period so the
+        // "next charge on …" copy stays right without polling Stripe.
+        const line = obj.lines?.data?.[0]?.period;
+        setSubState(orgId, {
+          status: "active", failedAt: null, reason: null, suspendedAt: null,
+          subscriptionId: obj.subscription || getSubState(orgId).subscriptionId,
+          ...(line?.end ? { currentPeriodStart: (line.start || 0) * 1000, currentPeriodEnd: line.end * 1000 } : {}),
+        });
+      }
       return { handled: true, orgId };
     }
     case "invoice.payment_failed": {

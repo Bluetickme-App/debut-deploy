@@ -21,3 +21,4 @@ server/_deploydd.mjs
 server/_dodeploy.mjs
 
 services-full.png
+.credentials.local

@@ -6,10 +6,14 @@
 // the old one; the stored value is "<priceId>:<amountMinor>" to detect drift.
 import { stripeClient, stripeMode } from "./billing.js";
 import { getSetting, setSetting } from "./db.js";
-import { computePlans, dbPlans } from "./plans.js";
+import { computePlans, dbPlans, STORAGE_PLAN, MAIL_PLANS } from "./plans.js";
 import { planAmountMinor } from "./subscriptions.js";
 
-const allPlans = () => [...computePlans(), ...dbPlans()].map((p) => ({ id: p.id, name: p.name }));
+// STORAGE_PLAN and the mail plan are per-UNIT prices (per GB/mo, per mailbox/mo) — the
+// subscription item's quantity carries the count. Both need a Product + Price like any
+// tier, or disks and mailboxes can't be invoiced at all.
+const allPlans = () =>
+  [...computePlans(), ...dbPlans(), STORAGE_PLAN, ...MAIL_PLANS].map((p) => ({ id: p.id, name: p.name }));
 const prodKey = (mode, plan) => `stripe_product_${mode}_${plan}`;
 const priceKey = (mode, plan, cur) => `stripe_price_${mode}_${plan}_${cur}`;
 const parseStored = (raw) => {

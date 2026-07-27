@@ -76,15 +76,17 @@ export async function verifyMailDns(domain, { resolveMx = _resolveMx, resolveTxt
   const spf = await txt(domain);
   const dkim = await txt(`dkim._domainkey.${domain}`);
   const dmarc = await txt(`_dmarc.${domain}`);
-  const [autoconfig, autodiscover, webmail] = await Promise.all([
-    cname(`autoconfig.${domain}`), cname(`autodiscover.${domain}`), cname(`webmail.${domain}`),
+  // No webmail.<domain> check — that CNAME is no longer published (mail.js dnsRecords
+  // explains why it never worked). Checking a record we don't ask for shows a permanent ✗.
+  const [autoconfig, autodiscover] = await Promise.all([
+    cname(`autoconfig.${domain}`), cname(`autodiscover.${domain}`),
   ]);
   const has = (arr, sub) => arr.some((v) => v.toLowerCase().includes(sub));
   const norm = (h) => String(h).replace(/\.$/, "").toLowerCase();       // DNS hosts: case- and trailing-dot-insensitive
   const toMail = (arr) => arr.some((v) => norm(v) === norm(MAIL_HOST));
   // Keyed to the records in mail.js dnsRecords so the panel shows a ✓/✗ on each line.
   // `required`: the records mail actually needs (drive the overall "DNS verified" badge);
-  // the autoconfig/autodiscover/webmail CNAMEs are convenience and don't fail that badge.
+  // the autoconfig/autodiscover CNAMEs are convenience and don't fail that badge.
   return [
     { key: "mx",    label: "MX",    required: true,  ok: mx.some((h) => norm(h) === norm(MAIL_HOST)), detail: mx.join(", ") || "not found" },
     { key: "spf",   label: "SPF",   required: true,  ok: has(spf, "v=spf1"),   detail: spf.find((v) => v.toLowerCase().includes("v=spf1")) || "not found" },
@@ -92,6 +94,5 @@ export async function verifyMailDns(domain, { resolveMx = _resolveMx, resolveTxt
     { key: "dmarc", label: "DMARC", required: true,  ok: has(dmarc, "v=dmarc1"), detail: dmarc.find((v) => v.toLowerCase().includes("v=dmarc1")) || "not found" },
     { key: "autoconfig",   label: "Autoconfig",   required: false, ok: toMail(autoconfig),   detail: autoconfig.join(", ") || "not found" },
     { key: "autodiscover", label: "Autodiscover", required: false, ok: toMail(autodiscover), detail: autodiscover.join(", ") || "not found" },
-    { key: "webmail",      label: "Webmail",      required: false, ok: toMail(webmail),      detail: webmail.join(", ") || "not found" },
   ];
 }

@@ -45,11 +45,6 @@ export function insertUsageEvent({ orgId, uuid, type, planId, sampledAt, interva
   ).run(orgId, uuid, type, planId, planRatePencePerHour(planId), sampledAt, intervalSec);
 }
 
-// Allocated-disk rate: pence per GB-hour. No storage price in plans.js, so this is
-// one documented constant. ponytail: flat allocated-disk rate; make per-plan if
-// tiers get distinct storage pricing. ~ £0.10/GB-mo ≈ 10p/730.5h ≈ 0.0137p/GB-hr.
-const DISK_PENCE_PER_GB_HOUR = 10 / HOURS_PER_MONTH; // pence per GB-hour (GBP)
-
 // Bandwidth allowance per plan (GB/mo). plans.js has no field yet, so map by id.
 // ponytail: flat allowance table; move onto plans.js when a bandwidth column lands.
 const BANDWIDTH_GB = {
@@ -77,18 +72,9 @@ function periodBounds(period) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-// Live hours of a resource within [start,end), from its created_at (clamped).
-function resourceHoursInPeriod(createdAt, startMs, endMs, nowMs) {
-  const born = createdAt ? Date.parse(createdAt) : startMs;
-  const from = Math.max(born, startMs);
-  const to = Math.min(endMs, nowMs);
-  return from >= to ? 0 : (to - from) / 3_600_000;
-}
-
 // The Render-style per-org summary. Zero-usage ⇒ { lines: [], totalPence: 0 }.
 export function usageSummary(orgId, period, name = null) {
   const { start, end } = periodBounds(period);
-  const startMs = Date.parse(start), endMs = Date.parse(end), nowMs = Date.now();
   const lines = [];
 
   // Compute lines from metered uptime.
@@ -102,18 +88,18 @@ export function usageSummary(orgId, period, name = null) {
     });
   }
 
-  // Allocated-disk + bandwidth lines from currently-owned+planned resources.
+  // Bandwidth lines from currently-owned+planned resources.
+  //
+  // Storage is NOT metered here. It used to charge 10p/GB-mo against the TIER's own
+  // included disk (Pro "80 GB" → ~£8/mo on top of a $15 plan) — storage the customer
+  // had already paid for in the tier price. Attached persistent disks are the only
+  // billable storage and they are a fixed monthly line (billing.diskMonthlyPence /
+  // the disk-gb subscription item), so metering them here would double-charge again.
   const owned = db.prepare(
     "SELECT coolify_uuid, type, plan_id, created_at FROM resource_ownership " +
       "WHERE org_id = ? AND plan_id IS NOT NULL"
   ).all(orgId);
   for (const r of owned) {
-    const hours = resourceHoursInPeriod(r.created_at, startMs, endMs, nowMs);
-    const gb = planStorageGb(r.plan_id);
-    const diskPence = Math.round(gb * hours * DISK_PENCE_PER_GB_HOUR);
-    if (gb > 0) {
-      lines.push({ type: "disk", uuid: r.coolify_uuid, plan: r.plan_id, allocatedGb: gb, hours: +hours.toFixed(2), pence: diskPence });
-    }
     lines.push({
       type: "bandwidth", uuid: r.coolify_uuid, plan: r.plan_id,
       allowanceGb: BANDWIDTH_GB[r.plan_id] ?? 0, usedGb: 0, pence: 0, // ponytail: bandwidth metering not implemented — flat allowance per plan.

@@ -1,8 +1,15 @@
+// Every app module MUST be a dynamic import below. ESM hoists static `import` above
+// module-body statements, so a static `import … from "./situations.js"` pulled in db.js
+// BEFORE these env lines ran — DATABASE_FILE was still unset, and the suite wrote its
+// test.recon/test.apply rows into the real server/data/debut.db instead of :memory:.
+// (Symptom: tests pass on a clean checkout, then fail on the second run as leftover open
+// situations change reconcile's resolved counts.)
 process.env.DATABASE_FILE = ":memory:";
+process.env.DEMO_MODE = "true"; // coolify.js throws at import without it; keeps the suite self-contained
 import { test } from "node:test";
 import assert from "node:assert/strict";
 const { db } = await import("./db.js");
-import { evaluateSituations, REGISTRY, selectAutoRemediations } from "./situations.js";
+const { evaluateSituations, REGISTRY, selectAutoRemediations } = await import("./situations.js");
 
 test("situations + remediation_log tables exist with expected columns", () => {
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
@@ -168,6 +175,52 @@ test("applyRemediation: restart-service calls control(target, 'restart') and wri
   assert.equal(logRow.actor, "tester");
   assert.equal(logRow.ok, 1);
   assert.equal(logRow.action, "restart-service");
+});
+
+test("applyRemediation: clear-deploy-queue calls clearQueue(target) — NEVER restarts coolify", async () => {
+  const r = reconcileSituations([{ type: "test.apply.zombie", target: "app-uuid-zombie-1", severity: "crit", detail: "X deploy in_progress for 3400s", suggested_remediation: "clear-deploy-queue" }], "2026-01-13T00:00:00.000Z");
+  const situationId = r.opened[0].id;
+
+  let clearedFor = null;
+  let hostCmd = null;
+  const result = await applyRemediation(situationId, "tester-zombie", {
+    clearQueue: async (uuid) => { clearedFor = uuid; return { cleared: 2 }; },
+    runOnHostFn: async (cmd) => { hostCmd = cmd; return ""; },
+  });
+
+  assert.ok(result.ok);
+  assert.equal(clearedFor, "app-uuid-zombie-1", "clearQueue called with situation.target");
+  assert.equal(hostCmd, null, "must NOT fall through to a raw host command (the old `docker restart coolify`)");
+  assert.match(result.result, /cleared 2 stuck deploy/);
+
+  const logRow = db.prepare("SELECT * FROM remediation_log WHERE situation_id = ?").get(situationId);
+  assert.ok(logRow && logRow.ok === 1);
+  assert.equal(logRow.action, "clear-deploy-queue");
+});
+
+test("applyRemediation: clear-deploy-queue reports honestly when nothing was cleared", async () => {
+  const r = reconcileSituations([{ type: "test.apply.zombie2", target: "LegacyAppName", severity: "crit", detail: "legacy row keyed by name", suggested_remediation: "clear-deploy-queue" }], "2026-01-13T01:00:00.000Z");
+  const situationId = r.opened[0].id;
+  const result = await applyRemediation(situationId, "tester-zombie2", { clearQueue: async () => ({ cleared: 0 }) });
+  assert.ok(result.ok);
+  assert.match(result.result, /nothing cleared/);
+});
+
+test("REGISTRY: no remediation shells out to a coolify container restart", () => {
+  for (const [key, reg] of Object.entries(REGISTRY)) {
+    assert.ok(!/restart\s+coolify/.test(reg.command), `${key} must not restart the orchestrator: ${reg.command}`);
+  }
+});
+
+test("evaluateSituations: deploy.zombie targets the app UUID (what clear-deploy-queue needs)", () => {
+  const out = evaluateSituations({
+    host: { diskRoot: { pct: 5 }, diskVolume: null, mem: { pct: 10 } },
+    sites: [],
+    deploys: [{ uuid: "d1", appUuid: "vscnq0p0sa5cqgf2mo6fqb6o", application_name: "SiteName", status: "in_progress", ageSec: 5000 }],
+  });
+  const z = out.find((x) => x.type === "deploy.zombie");
+  assert.equal(z.target, "vscnq0p0sa5cqgf2mo6fqb6o", "target must be the uuid, not the name");
+  assert.match(z.detail, /SiteName/, "the human-readable name stays in detail");
 });
 
 test("applyRemediation: prune-docker calls runOnHostFn with the fixed REGISTRY command (no interpolation) and logs ok", async () => {

@@ -1,10 +1,11 @@
 // Stripe + prepaid credit wallet. All ledger + Stripe logic lives here so
 // index.js routes stay thin. Money is integer pence; balance = SUM(ledger).
 import Stripe from "stripe";
-import { db, getSetting, setSetting } from "./db.js";
-import { planPriceUsd, MAIL_PLANS } from "./plans.js";
+import { db, getSetting, setSetting, orgMailboxCount } from "./db.js";
+import { planPriceUsd, planPricePence, MAIL_PLANS, STORAGE_PLAN } from "./plans.js";
 import { recordSystem } from "./audit.js";
 import { compFactor } from "./comp.js";
+import { orgDiskGb } from "./disks.js";
 
 const DEFAULT_USD_GBP_RATE = 0.79; // ponytail: flat rate; swap in FX feed if drift becomes material
 
@@ -61,23 +62,44 @@ export const recentLedger = (orgId, limit = 20) =>
 export const currentPeriod = (d = new Date()) =>
   `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 
-// Email hosting is priced natively in GBP pence per mailbox (not USD→GBP converted).
-const MAILBOX_PENCE = MAIL_PLANS[0]?.pricePence || 299;
+// Email is dual-listed; the wallet is GBP-only, so the wallet path always uses the
+// quoted £ price (planPricePence), never the USD list price.
+const MAILBOX_PENCE = planPricePence(MAIL_PLANS[0]?.id) ?? 299;
 
 // Per-org email charge (pence): mailbox count (tracked in mail_mailboxes) × the rate.
+// Counts via db.orgMailboxCount rather than repeating the query: an inline copy here made
+// the real export look dead, which reads as "mailboxes are not billed at all" when the
+// actual gap is unassigned org_id on the rows.
 export function mailChargePence(orgId) {
-  return db.prepare("SELECT COUNT(*) c FROM mail_mailboxes WHERE org_id = ?").get(orgId).c * MAILBOX_PENCE;
+  return orgMailboxCount(orgId) * MAILBOX_PENCE;
 }
 
-// Sum the org's owned resources' plan price + its email mailboxes. Compute/DB convert
-// USD→pence (round once); email is already GBP pence. comp/discount applies to both.
+// Sum the org's owned resources' plan price + attached persistent disks + its email
+// mailboxes. Compute/DB/disk convert USD→pence (round once); email is already GBP
+// pence. comp/discount applies to all of them.
 export function computeMonthlyCharge(orgId) {
   const rows = db.prepare("SELECT plan_id FROM resource_ownership WHERE org_id = ?").all(orgId);
   const usd = rows.reduce((sum, r) => sum + planPriceUsd(r.plan_id), 0);
   const factor = compFactor(orgId);
   const hardware = usdToPence(usd * factor);              // compute + DB (USD-priced)
+  // Storage rounds on its OWN line, not into the hardware subtotal: it is invoiced as a
+  // separate line (and as its own Stripe subscription item), and rounding it into the
+  // subtotal made the wallet debit differ from the invoice by a few pence.
+  const disk = diskMonthlyPence(orgId);
   const mail = Math.round(mailChargePence(orgId) * factor); // email (GBP-native)
-  return hardware + mail;
+  return hardware + disk + mail;
+}
+
+// The per-GB storage rate in GBP pence — rounded ONCE, per GB. This rounded figure is
+// the number quoted to the customer, the Stripe Price's unit_amount and the multiplier
+// used everywhere else, so rounding the total instead would make the wallet debit
+// disagree with the invoice (and with Stripe) by a few pence.
+export const diskPencePerGb = () => usdToPence(planPriceUsd(STORAGE_PLAN.id));
+
+// Monthly cost of an org's attached persistent disks, in GBP pence (comp/discount applied).
+// Split out so invoices can show storage as its own line instead of burying it.
+export function diskMonthlyPence(orgId) {
+  return Math.round(diskPencePerGb() * orgDiskGb(orgId) * compFactor(orgId));
 }
 
 // Idempotent per (org, period). Debits the wallet (prepaid-only — NEVER calls Stripe).
