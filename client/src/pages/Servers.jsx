@@ -52,8 +52,15 @@ export default function Servers() {
     <div className="page space-y-8">
       <PageHeader
         title="Servers"
-        subtitle={servers ? `${servers.length} server${servers.length !== 1 ? "s" : ""}` : undefined}
+        subtitle={servers ? `${servers.length} server${servers.length !== 1 ? "s" : ""} running your workloads` : undefined}
       />
+      {/* This list is the servers the deployment layer manages — nothing else. A standalone
+          box (the mail server, say) is real infrastructure but isn't orchestrated here, so
+          its absence is expected rather than a sign something is missing. */}
+      <p className="text-xs -mt-4" style={{ color: "var(--text-muted)" }}>
+        Servers that run deployed services. Standalone infrastructure that isn&apos;t orchestrated
+        here — such as the mail server — is managed separately and won&apos;t appear.
+      </p>
 
       {/* Server list */}
       {loadErr && <p className="text-sm" style={{ color: "var(--err)" }}>{loadErr}</p>}
@@ -74,9 +81,23 @@ export default function Servers() {
               <div className="flex items-center gap-3">
                 <Server className="h-5 w-5 shrink-0" style={{ color: "var(--text-muted)" }} />
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate" style={{ color: "var(--text)" }}>{s.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{s.name}</span>
+                    {/* The orchestrator names its own host "localhost" — say what it actually is. */}
+                    {s.isHost && (
+                      <span className="rounded px-1.5 py-0.5 text-[10.5px] font-semibold uppercase"
+                        style={{ color: "var(--accent, #6ea8ff)", background: "var(--surface-2)", letterSpacing: ".03em" }}
+                        title="Runs the deployment control plane as well as your services">
+                        primary
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
                     {[s.ip, s.region, s.spec].filter(Boolean).join(" · ")}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    {s.resourceCount != null ? `${s.resourceCount} resource${s.resourceCount === 1 ? "" : "s"} deployed` : ""}
+                    {s.usable === false ? " · not accepting deploys" : ""}
                   </div>
                 </div>
                 <StatusPill status={s.reachable ? "running" : (s.status || "stopped")} />

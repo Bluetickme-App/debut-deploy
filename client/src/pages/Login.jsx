@@ -216,6 +216,7 @@ export default function Login() {
       <style>{`@keyframes dd-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}`}</style>
 
       <div
+        className="login-root"
         style={{
           display: "flex",
           minHeight: "100vh",
@@ -225,6 +226,7 @@ export default function Login() {
       >
         {/* LEFT column */}
         <div
+          className="login-left"
           style={{
             flex: 1,
             minWidth: 0,
@@ -239,19 +241,20 @@ export default function Login() {
           <div style={{ width: 372, maxWidth: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
 
             {/* D mark + wordmark */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 26 }}>
+            <div className="login-lockup" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 26, maxWidth: "100%" }}>
               {/* 76px: the pulse rings only expand to 1.34x and fade, so the
                   animation is invisible at small sizes. The negative margin
                   absorbs the mark's ~20% viewBox padding so the hexagon still
                   sits tight against the wordmark. */}
               <img
+                className="login-mark"
                 src="/icon.svg"
                 alt=""
                 width={76}
                 height={76}
-                style={{ display: "block", margin: -9, filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
+                style={{ display: "block", margin: -9, flexShrink: 0, filter: "drop-shadow(0 4px 12px rgba(68,96,238,.45))" }}
               />
-              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: "-0.015em", color: "var(--text)" }}>
+              <span className="login-wordmark" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: "-0.015em", color: "var(--text)", whiteSpace: "nowrap" }}>
                 Debut<span style={{ color: "var(--accent-text)" }}>Deploy</span>
               </span>
             </div>

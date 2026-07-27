@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Cpu, MemoryStick, HardDrive, RefreshCw, ExternalLink, Database, ChevronRight, Power, Eraser } from "lucide-react";
 import { api } from "../lib/api.js";
-import { Button, Card, PageHeader, Spinner, StatusPill } from "../components/ui.jsx";
+import { Button, Card, PageHeader, Spinner, StatusPill, Mono } from "../components/ui.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { fmtMinor } from "../lib/money.js";
 
@@ -11,6 +11,28 @@ const barColor = (v) => (v > 90 ? "var(--err)" : v > 75 ? "var(--warn)" : "var(-
 
 // Fleet-level counters. Leads with the numbers so the page answers "is anything wrong?"
 // before you start reading rows.
+// What KIND of thing a row is. Without this a database renders as a nameless row with
+// a Restart button beside it and reads as a dead orphan — the exact misreading that
+// nearly got twelve production databases deleted.
+const KIND = {
+  application: { label: "service", color: "var(--text-muted)" },
+  database:    { label: "postgres", color: "var(--accent, #6ea8ff)" },
+  redis:       { label: "redis", color: "var(--accent, #6ea8ff)" },
+  unknown:     { label: "not in orchestrator", color: "var(--warn)" },
+};
+function KindTag({ kind }) {
+  const k = KIND[kind] || KIND.unknown;
+  return (
+    <span
+      className="ml-2 rounded px-1.5 py-0.5 text-[10.5px] font-semibold uppercase"
+      style={{ color: k.color, background: "var(--surface-2)", letterSpacing: ".03em" }}
+      title={kind === "unknown" ? "A leftover metrics sample — the container no longer exists" : undefined}
+    >
+      {k.label}
+    </span>
+  );
+}
+
 function Stat({ label, value, sub, tone }) {
   return (
     <Card>
@@ -217,17 +239,26 @@ export default function Fleet() {
                 {[...data.sites].sort((a, b) => (b.disk_bytes || 0) - (a.disk_bytes || 0)).map((s) => (
                   <tr key={s.uuid} style={{ borderTop: "1px solid var(--surface-2)" }}>
                     <td className="p-2">
-                      {/* Straight through to the service's management page — the fleet view is
-                          where you notice a problem, so it should also be where you act on it. */}
-                      <Link
-                        to={`/services/${s.uuid}`}
-                        className="inline-flex items-center gap-1 hover:underline"
-                        style={{ color: "var(--text)", fontWeight: 500 }}
-                        title="Open this service's settings, logs and deploys"
-                      >
-                        {s.name || s.uuid}
-                        <ChevronRight className="h-3.5 w-3.5" style={{ color: "var(--text-muted)" }} />
-                      </Link>
+                      {/* Straight through to the right management page — the fleet view is
+                          where you notice a problem, so it should also be where you act on it.
+                          A database is NOT a service: it links elsewhere, and an unresolved
+                          uuid links nowhere at all rather than to a page that won't exist. */}
+                      {s.kind === "unknown" ? (
+                        <span className="inline-flex items-center gap-1" style={{ color: "var(--text-muted)" }} title="No longer present in the orchestrator — a leftover metrics sample, not a live resource">
+                          <Mono>{s.uuid}</Mono>
+                        </span>
+                      ) : (
+                        <Link
+                          to={s.kind === "application" ? `/services/${s.uuid}` : `/databases/${s.uuid}`}
+                          className="inline-flex items-center gap-1 hover:underline"
+                          style={{ color: "var(--text)", fontWeight: 500 }}
+                          title={s.kind === "application" ? "Open this service's settings, logs and deploys" : "Open this database"}
+                        >
+                          {s.name || s.uuid}
+                          <ChevronRight className="h-3.5 w-3.5" style={{ color: "var(--text-muted)" }} />
+                        </Link>
+                      )}
+                      <KindTag kind={s.kind} />
                       {s.domain && (
                         <a
                           href={`https://${s.domain}`}
@@ -264,18 +295,30 @@ export default function Fleet() {
                       )}
                     </td>
                     <td className="p-2">
+                      {/* Actions are application-only. Restart posts to /api/services/:id and
+                          a database isn't one; "clear queue" is meaningless for something
+                          that never deploys. Showing them anyway would offer buttons that
+                          fail — or worse, look like they apply to a database. */}
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          disabled={busy === s.uuid}
-                          onClick={() => clearQueue(s.uuid)}
-                          title="Unwedge a stuck deploy: fail its queued rows, drop hung build containers, nudge the worker"
-                        >
-                          <Eraser className="h-3.5 w-3.5" /> Clear queue
-                        </Button>
-                        <Button variant="ghost" disabled={busy === s.uuid} onClick={() => restart(s.uuid)}>
-                          {busy === s.uuid ? <Spinner /> : <RefreshCw className="h-3.5 w-3.5" />} Restart
-                        </Button>
+                        {s.kind === "application" ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              disabled={busy === s.uuid}
+                              onClick={() => clearQueue(s.uuid)}
+                              title="Unwedge a stuck deploy: fail its queued rows, drop hung build containers, nudge the worker"
+                            >
+                              <Eraser className="h-3.5 w-3.5" /> Clear queue
+                            </Button>
+                            <Button variant="ghost" disabled={busy === s.uuid} onClick={() => restart(s.uuid)}>
+                              {busy === s.uuid ? <Spinner /> : <RefreshCw className="h-3.5 w-3.5" />} Restart
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                            {s.kind === "unknown" ? "stale sample" : "manage on its own page"}
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>

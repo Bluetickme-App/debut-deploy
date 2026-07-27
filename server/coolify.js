@@ -485,6 +485,16 @@ export async function updateDatabaseResources(uuid, { memory }) {
   return { ok: true, memory };
 }
 
+// The orchestrator runs in a container ON the primary host, so it reports that host's
+// address as "localhost" / "host.docker.internal" — meaningless outside the box, and it
+// reads on the Servers page as though the real primary server is missing. Resolve it to
+// the address the panel actually reaches it on.
+const PRIMARY_HOST = (() => {
+  try { return new URL(process.env.COOLIFY_BASE_URL || "").hostname || ""; } catch { return ""; }
+})();
+const LOOPBACK = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|host\.docker\.internal)$/i;
+const resolveHostIp = (ip) => (!ip || LOOPBACK.test(String(ip).trim()) ? PRIMARY_HOST || ip || null : ip);
+
 export async function listServers() {
   if (isDemo()) return fx.servers;
   const servers = await cf("/servers");
@@ -503,7 +513,8 @@ export async function listServers() {
       uuid: s.uuid,
       name: s.name,
       description: s.description || "",
-      ip: s.ip,
+      ip: resolveHostIp(s.ip),
+      rawIp: s.ip,               // what the orchestrator reported, for diagnostics
       region: s.region || "",
       spec: "",
       reachable: s.is_reachable ?? true,

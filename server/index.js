@@ -572,9 +572,19 @@ app.get(
       sites: [{ uuid: "demo-svc", cpu_pct: 3.2, mem_bytes: 4.8e8, mem_pct: 6, disk_bytes: 8.8e9 }],
     };
     const o = fleetOverview();
-    // enrich uuids with names/status from the services list (falls back gracefully if Coolify unavailable)
-    const svcs = await coolify.listServices().then((all) => filterByOwnership(all, req.user, "application")).catch(() => []);
-    const byId = Object.fromEntries(svcs.map((s) => [s.uuid, s]));
+    // Enrich uuids from BOTH resource lists. Metrics are sampled per container, and a
+    // database container is a container — but listServices() returns applications only,
+    // so joining just that left every database as a nameless, statusless row that read
+    // as a dead orphan next to a Restart button. Anything in neither list is a genuinely
+    // stale sample and is labelled as such rather than left ambiguous.
+    const [svcs, dbs] = await Promise.all([
+      coolify.listServices().then((all) => filterByOwnership(all, req.user, "application")).catch(() => []),
+      coolify.listDatabases().then((all) => filterByOwnership(all, req.user, "database")).catch(() => []),
+    ]);
+    const byId = Object.fromEntries([
+      ...svcs.map((s) => [s.uuid, { ...s, kind: "application" }]),
+      ...dbs.map((d) => [d.uuid, { ...d, kind: d.type === "redis" ? "redis" : "database" }]),
+    ]);
 
     // Attached persistent disks per service — the storage a site is actually BILLED for,
     // which container disk usage (disk_bytes) doesn't show: that's the image+writable layer,
@@ -585,13 +595,18 @@ app.get(
     o.sites = o.sites.map((s) => {
       const attached = disksByApp[s.uuid] || [];
       const gb = attached.reduce((n, d) => n + d.size_gb, 0);
+      const r = byId[s.uuid];
       return {
         ...s,
-        name: byId[s.uuid]?.name || s.uuid,
-        status: byId[s.uuid]?.status,
-        health: byId[s.uuid]?.health,
-        server: byId[s.uuid]?.server ?? null,   // which host it runs on (multi-host fleet)
-        domain: byId[s.uuid]?.domain ?? null,   // so the row can link to the live site
+        // `kind` drives BOTH the label and where the row links. An unresolved uuid is
+        // reported as "unknown" — a stale metrics sample for a container that no longer
+        // exists — never silently rendered as if it were a normal resource.
+        kind: r?.kind ?? "unknown",
+        name: r?.name || s.uuid,
+        status: r?.status,
+        health: r?.health,
+        server: r?.server ?? null,   // which host it runs on (multi-host fleet)
+        domain: r?.domain ?? null,   // so the row can link to the live site
         disks: attached.map((d) => ({ mountPath: d.mount_path, sizeGb: d.size_gb })),
         diskGb: gb,
         diskMonthlyPence: diskPencePerGb() * gb,
