@@ -22,3 +22,6 @@ server/_dodeploy.mjs
 
 services-full.png
 .credentials.local
+
+# local agent config — contains an API token
+.codex/config.toml

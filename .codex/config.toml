@@ -1,7 +1,0 @@
-[mcp_servers.debutdeploy]
-command = "node"
-args = ["c:/Dev/debut-deploy/mcp/server.js"]
-
-[mcp_servers.debutdeploy.env]
-DEBUTDEPLOY_URL = "https://app.debutdepoly.com"
-DEBUTDEPLOY_TOKEN = "dd_06900c788b1721e95130754ad6be3153e7e2f3e599a9a3ba"
