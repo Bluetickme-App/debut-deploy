@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Search, FileText, Plus, Minus, Info } from "lucide-react";
 import { api } from "../lib/api.js";
 import { Spinner, timeAgo } from "../components/ui.jsx";
@@ -64,6 +65,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
   const [billingErr, setBillingErr] = useState(null);
   const [svcPlans, setSvcPlans] = useState(null); // { services:[{uuid,name,cpus,memory,plan_id,detected_plan_id}], plans:[] }
   const [svcBusy, setSvcBusy] = useState(null);   // uuid being assigned
+  const [projects, setProjects] = useState(null); // this client's folders
 
   useEffect(() => { api.adminOrgUsage(org.id).then((u) => setSpend(u.totalPence)).catch(() => setSpend(0)); }, [org.id]);
   useEffect(() => {
@@ -71,6 +73,7 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
     api.adminOrgWallet(org.id).then(setWallet).catch(() => setWallet({ balance_pence: org.balance_pence, recent_ledger: [] }));
     api.adminOrgPayments(org.id).then(setPayments).catch(() => setPayments({ payments: [], configured: false }));
     api.adminOrgResources(org.id).then(setResources).catch(() => setResources({ monthly_total_pence: 0 }));
+    api.adminOrgProjects(org.id).then((d) => setProjects(d.projects || [])).catch(() => setProjects([]));
     api.adminOrgBillingInfo(org.id).then(setInfo).catch(() => setInfo({}));
     api.orgBilling(org.id).then(setBilling).catch(setBillingErr);
     api.orgServicePlans(org.id).then(setSvcPlans).catch(() => setSvcPlans(null));
@@ -165,6 +168,28 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 10 }}><div style={s.blockTitle}>Usage this month</div><span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{spend == null ? "…" : gbp(spend)}</span></div>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>{accrued > 0 ? "Compute, bandwidth & storage." : "No metered usage yet."}</p>
             </div>
+          </div>
+
+          {/* This client's folders. Drill-down from Clients rather than a flat cross-org
+              list — that stops being readable once there are more than a handful. */}
+          <div style={{ ...s.card, marginBottom: 14 }}>
+            <div style={{ ...s.blockTitle, marginBottom: 12 }}>Folders</div>
+            {projects == null ? (
+              <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>Loading…</p>
+            ) : projects.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>No folders — this client owns nothing yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {projects.map((p) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Link to={`/projects/${p.id}`} style={{ fontSize: 13.5, color: "var(--text)", fontWeight: 500, textDecoration: "none" }}>
+                      {p.name}
+                    </Link>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.slug}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Services & plans — detect the tier from live limits, assign with one click */}

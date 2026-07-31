@@ -204,6 +204,7 @@ export const api = {
   adminOrgWallet: (id) => req(`/admin/orgs/${id}/wallet`),
   adminOrgPayments: (id) => req(`/admin/orgs/${id}/payments`),
   adminOrgResources: (id) => req(`/admin/orgs/${id}/resources`),
+  adminOrgProjects: (id) => req(`/admin/orgs/${id}/projects`), // client's folders — admins drill in from Clients
   adminOrgBillingInfo: (id) => req(`/admin/orgs/${id}/billing-info`),
   adminSaveBillingInfo: (id, body) => req(`/admin/orgs/${id}/billing-info`, { method: "PATCH", body }),
   adminAdjustCredit: (id, body) => req(`/admin/orgs/${id}/credit`, { method: "POST", body }),

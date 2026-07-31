@@ -889,6 +889,12 @@ export function transferProject(projectId, targetUserId) {
     slug = `${proj.slug}-${n}`;
   }
   const now = nowIso();
+  // Resources with no environment belong to no project, so they CANNOT ride along.
+  // Counted and returned: a bare `moved` reads as success while stock stays behind
+  // in the old org, still billed to the wrong client.
+  const leftBehind = db.prepare(
+    "SELECT COUNT(*) n FROM resource_ownership WHERE org_id = ? AND environment_id IS NULL"
+  ).get(proj.org_id).n;
   const run = db.transaction(() => {
     const moved = db.prepare(`UPDATE resource_ownership SET org_id = ?, user_id = ?
       WHERE environment_id IN (SELECT id FROM environments WHERE project_id = ?)`)
@@ -897,7 +903,7 @@ export function transferProject(projectId, targetUserId) {
       .run(targetOrg, slug, now, projectId);
     return moved;
   });
-  return { moved: run(), project: projectId, slug, org_id: targetOrg };
+  return { moved: run(), leftBehind, project: projectId, slug, org_id: targetOrg, from_org_id: proj.org_id };
 }
 
 // Validates the project belongs to the org before creating the env under it.

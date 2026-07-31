@@ -995,9 +995,23 @@ app.post("/api/admin/projects/:id/transfer", requireAuth, requireAdmin, mutateGu
   const target = email && getUserByEmail(email);
   if (!target) throw Object.assign(new Error("No user found with that email"), { status: 404 });
   const result = transferProject(Number(req.params.id), target.id);
-  record(req, "project.transfer", { metadata: { projectId: Number(req.params.id), toEmail: target.email, moved: result.moved } });
-  return result;
+  // Policy B — clean break: no mid-cycle proration. The monthly charge follows
+  // resource_ownership.org_id at the next run, so the wallet path self-corrects.
+  // Both subscriptions still have to be reconciled or Stripe keeps invoicing the old
+  // owner for resources they no longer have. A no-op while nobody is subscribed.
+  const billing = {};
+  for (const [k, orgId] of [["from", result.from_org_id], ["to", result.org_id]]) {
+    billing[k] = await subscriptions.syncSubscriptionItems(orgId).catch((e) => ({ synced: false, error: e.message }));
+  }
+  record(req, "project.transfer", { metadata: { projectId: Number(req.params.id), toEmail: target.email, moved: result.moved, leftBehind: result.leftBehind } });
+  return { ...result, billing };
 }));
+
+// Admin: one client's folders. Admins navigate Clients → client → folders rather than
+// a flat cross-org list, which stops being readable the moment there are more than a
+// handful. Reuses listProjects — same shape the customer's own /api/projects returns.
+app.get("/api/admin/orgs/:id/projects", requireAuth, requireAdmin,
+  h((req) => ({ projects: listProjects(Number(req.params.id)) })));
 
 app.post("/api/projects/:id/environments", requireAuth, mutateGuard, attachOrgContext, requireCapability("manage"),
   h(async (req) => createEnvironment(orgOf(req.user), Number(req.params.id), String(req.body?.name || "").trim() || "Untitled")));
