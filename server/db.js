@@ -588,6 +588,8 @@ export function seedUser(fields) {
 
 export const getUserById = (id) => db.prepare("SELECT * FROM users WHERE id = ?").get(id);
 export const getUserByEmail = (email) => db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+export const setUserRole = (id, role) =>
+  db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, id).changes;
 export const listUsers = () => db.prepare("SELECT * FROM users ORDER BY id").all();
 
 export const getIdentity = (provider, providerUserId) =>

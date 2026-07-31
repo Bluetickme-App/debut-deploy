@@ -8,7 +8,7 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as GitHubStrategy } from "passport-github2";
 import {
-  createUser, getIdentity, getUserByEmail, getUserById, getUserByIdentity, seedUser, upsertIdentity,
+  createUser, getIdentity, getUserByEmail, getUserById, getUserByIdentity, seedUser, setUserRole, upsertIdentity,
   ensureUserOrg, getMembership, getValidInvite, addMembership, markInviteAccepted,
 } from "./db.js";
 import { record } from "./audit.js";
@@ -137,6 +137,19 @@ function strategyReady(provider) {
 
 export function setupAuth(app, { demoMode, clientOrigin }) {
   const adminEmails = new Set(splitList(process.env.ADMIN_EMAILS));
+
+  // ADMIN_EMAILS is authoritative on EVERY login, not just at signup.
+  // The role used to be stamped once when the user row was created and never looked at
+  // again, so anyone listed the day they first signed in kept `admin` permanently and
+  // removing them from the variable did nothing. An admin bypasses filterByOwnership,
+  // so a CUSTOMER holding a stale admin role could see every other tenant's services
+  // and databases. Reconciling here is what makes revocation actually work.
+  const syncRole = (user, email) => {
+    const want = adminEmails.has(email) ? "admin" : "customer";
+    if (user.role === want) return user;
+    setUserRole(user.id, want);
+    return { ...user, role: want };
+  };
   const sessionSecret = process.env.SESSION_SECRET || "";
   const serverDir = path.dirname(fileURLToPath(import.meta.url));
   const sessionDir = path.join(serverDir, "data");
@@ -193,7 +206,7 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
 
             const existing = getUserByIdentity("google", profile.id);
             if (existing) {
-              return done(null, existing);
+              return done(null, syncRole(existing, email));
             }
 
             let user = getUserByEmail(email);
@@ -207,7 +220,7 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
             }
 
             upsertIdentity({ provider: "google", provider_user_id: profile.id, user_id: user.id });
-            return done(null, user);
+            return done(null, syncRole(user, email));
           } catch (err) {
             return done(err);
           }
@@ -231,7 +244,7 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
 
             const existing = getUserByIdentity("github", profile.id);
             if (existing) {
-              return done(null, existing);
+              return done(null, syncRole(existing, email));
             }
 
             let user = getUserByEmail(email);
@@ -245,7 +258,7 @@ export function setupAuth(app, { demoMode, clientOrigin }) {
             }
 
             upsertIdentity({ provider: "github", provider_user_id: profile.id, user_id: user.id });
-            return done(null, user);
+            return done(null, syncRole(user, email));
           } catch (err) {
             return done(err);
           }
