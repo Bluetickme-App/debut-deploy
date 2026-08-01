@@ -25,3 +25,8 @@ services-full.png
 
 # local agent config — contains an API token
 .codex/config.toml
+
+# transient tool output — Playwright session dumps, screenshots, pid files.
+# The site's real assets live in www/assets/img/; these are duplicate build artifacts.
+.playwright-cli/
+output/
