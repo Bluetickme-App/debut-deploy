@@ -46,6 +46,11 @@ export function creditWallet({
        (org_id, amount_pence, type, stripe_session_id, stripe_payment_intent_id, period, notes, created_at, created_by)
      VALUES (?,?,?,?,?,?,?,?,?)`
   ).run(orgId, amountPence, type, stripeSessionId, stripePaymentIntentId, period, notes, nowIso(), createdBy);
+  // Recompute arrears here — the one path every balance change goes through — so a
+  // credit clears the flag, not just next month's charge. Unconditional on purpose:
+  // a no-op call (replayed webhook, reconcile) still self-heals a stale status.
+  db.prepare("UPDATE organizations SET billing_status = ? WHERE id = ?")
+    .run(walletBalance(orgId) < 0 ? "arrears" : "ok", orgId);
   return { inserted: info.changes > 0 };
 }
 
@@ -126,9 +131,7 @@ export function chargeMonthlyHardware(orgId, period) {
   const charge = computeMonthlyCharge(orgId);
   if (charge === 0) return { charged: 0, skipped: "no_priced_resources" };
 
-  creditWallet({ orgId, amountPence: -charge, type: "hardware_charge", period, notes: `Hardware ${period}` });
-  const status = walletBalance(orgId) < 0 ? "arrears" : "ok";
-  db.prepare("UPDATE organizations SET billing_status = ? WHERE id = ?").run(status, orgId);
+  creditWallet({ orgId, amountPence: -charge, type: "hardware_charge", period, notes: `Hardware ${period}` }); // recomputes billing_status
   return { charged: charge };
 }
 

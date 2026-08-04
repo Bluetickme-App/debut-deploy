@@ -20,11 +20,14 @@ const paidSession = (org, id, amount) => ({
   id, mode: "payment", payment_status: "paid", amount_total: amount, metadata: { org_id: String(org) },
 });
 
-test("credits a paid session the webhook missed; replay is a no-op", async () => {
+test("credits a paid session the webhook missed; replay is a no-op; arrears clears", async () => {
   const org = mkOrg();
+  db.prepare("UPDATE organizations SET billing_status = 'arrears' WHERE id = ?").run(org);
   setStripeForTests({ checkout: { sessions: { list: async () => ({ data: [paidSession(org, "cs_1", 5000)] }) } } });
   assert.deepEqual(await reconcileTopups(org), { credited: 5000, sessions: 1 });
   assert.equal(walletBalance(org), 5000);
+  assert.equal(db.prepare("SELECT billing_status FROM organizations WHERE id = ?").get(org).billing_status, "ok",
+    "a credit that restores the balance clears the arrears flag");
   assert.deepEqual(await reconcileTopups(org), { credited: 0, sessions: 1 }, "second run credits nothing");
   assert.equal(walletBalance(org), 5000);
 });
