@@ -10,6 +10,7 @@ const { setComp } = await import("./comp.js");
 const { getAutoRecharge, setAutoRecharge, maybeAutoRecharge } = await import("./autorecharge.js");
 
 let seq = 0;
+let piSeq = 0;
 function mkOrg(balancePence = 0) {
   const email = `ar${++seq}@x.com`;
   createUser({ email, name: "ar", role: "admin" });
@@ -19,13 +20,16 @@ function mkOrg(balancePence = 0) {
   return org;
 }
 
-function stubStripe({ pm = "pm_1", piStatus = "succeeded", piError = null } = {}) {
+function stubStripe({ pm = "pm_1", savedCards = [], piStatus = "succeeded", piError = null } = {}) {
   const calls = { pi: [] };
   setStripeForTests({
     calls,
     customers: { retrieve: async () => ({ invoice_settings: { default_payment_method: pm } }) },
+    paymentMethods: { list: async () => ({ data: savedCards }) },
     paymentIntents: {
-      create: async (params, opts) => { calls.pi.push({ params, opts }); if (piError) throw piError; return { id: `pi_${calls.pi.length}`, status: piStatus }; },
+      // Globally unique id: creditWallet is idempotent on the PI id, so a reused
+      // "pi_1" across tests makes the credit a silent no-op and the balance wrong.
+      create: async (params, opts) => { calls.pi.push({ params, opts }); if (piError) throw piError; return { id: `pi_${++piSeq}`, status: piStatus }; },
     },
   });
   return calls;
@@ -65,6 +69,23 @@ test("charges the saved card in GBP off-session and credits the wallet once", as
   assert.equal(params.metadata.type, "wallet_autorecharge");
   assert.match(opts.idempotencyKey, new RegExp(`^autorecharge-${org}-`));
   assert.equal(getAutoRecharge(org).inflightToken, null, "lock released after success");
+});
+
+test("no default PM falls back to a card saved by a top-up Checkout", async () => {
+  const calls = stubStripe({ pm: null, savedCards: [{ id: "pm_topup" }] });
+  const org = mkOrg();
+  const r = await maybeAutoRecharge(org);
+  assert.equal(r.charged, 2500);
+  assert.equal(calls.pi[0].params.payment_method, "pm_topup");
+});
+
+test("arrears bigger than the configured amount top up enough to clear them, £5-rounded", async () => {
+  const calls = stubStripe();
+  const org = mkOrg(-8734); // in arrears; configured amount (2500) wouldn't clear it
+  const r = await maybeAutoRecharge(org);
+  assert.equal(r.charged, 9000); // ceil(8734 / 500) * 500
+  assert.equal(calls.pi[0].params.amount, 9000);
+  assert.equal(walletBalance(org), 266);
 });
 
 test("an in-flight lock makes a concurrent call skip", async () => {

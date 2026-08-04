@@ -95,6 +95,15 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
     } finally { setBusy(false); }
   };
   const saveInfo = async () => { setSavingInfo(true); try { setInfo(await api.adminSaveBillingInfo(org.id, info)); } finally { setSavingInfo(false); } };
+  // Credit any paid Stripe top-ups the webhook never delivered, then refresh the ledger.
+  const reconcile = async () => {
+    setBusy(true);
+    try {
+      await api.adminReconcileTopups(org.id);
+      setWallet(await api.adminOrgWallet(org.id));
+      onChange?.();
+    } finally { setBusy(false); }
+  };
   const setCur = async (c) => { if (billing?.currency === c) return; setCurBusy(true); try { await api.setOrgCurrency(org.id, c); setBilling(await api.orgBilling(org.id)); } finally { setCurBusy(false); } };
   const subscribe = async () => { setSubBusy(true); try { const r = await api.subscribeOrg(org.id); setSubUrl(r.url); window.open(r.url, "_blank", "noopener"); } catch (e) { alert(e.message); } finally { setSubBusy(false); } };
   const saveComp = async (patch) => { setCompBusy(true); try { setBilling({ ...billing, comp: await api.setOrgComp(org.id, patch) }); } catch (e) { alert(e.message); } finally { setCompBusy(false); } };
@@ -315,7 +324,10 @@ function AccountCard({ org, color, expanded, onToggle, onChange }) {
 
           {/* Payments */}
           <div style={{ ...s.card, marginBottom: 14 }}>
-            <div style={{ ...s.blockTitle, marginBottom: 12 }}>Stripe payment attempts</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={s.blockTitle}>Stripe payment attempts</div>
+              <button style={s.btnGhostSm} disabled={busy} onClick={reconcile} title="Credit any paid top-ups the webhook missed">Reconcile top-ups</button>
+            </div>
             {!payments && <Spinner />}
             {payments && payments.payments.length === 0 && <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)" }}>{payments.configured === false ? "Stripe is not configured." : payments.customer ? "No payment attempts on record." : "No Stripe customer yet — this client hasn't started a top-up."}</p>}
             {payments && payments.payments.map((p) => {

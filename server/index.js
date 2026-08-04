@@ -74,7 +74,7 @@ import {
 import { hasCapability } from "./rbac.js";
 import { record, recordSystem } from "./audit.js";
 import {
-  walletBalance, recentLedger, creditWallet, createTopupSession, handleWebhookEvent, stripeClient,
+  walletBalance, recentLedger, creditWallet, createTopupSession, handleWebhookEvent, reconcileTopups, stripeClient,
   getOrCreateStripeCustomer, chargeMonthlyHardware, currentPeriod, usdToPence, diskPencePerGb,
   mailChargePence, stripeMode, setStripeMode, stripeWebhookSecret,
 } from "./billing.js";
@@ -1682,6 +1682,15 @@ app.get("/api/admin/orgs/:id/payments", requireAuth, requireAdmin, h(async (req)
   };
 }));
 
+// Master-Admin: credit any paid Stripe top-ups the webhook never delivered (idempotent).
+app.post("/api/admin/orgs/:id/topups/reconcile", requireAuth, requireAdmin, mutateGuard, h(async (req) => {
+  const orgId = Number(req.params.id);
+  if (!getOrgDetail(orgId)) throw Object.assign(new Error("Organization not found"), { status: 404 });
+  const result = await reconcileTopups(orgId);
+  record(req, "billing.topup_reconcile", { metadata: { org_id: orgId, ...result } });
+  return { ...result, balance_pence: walletBalance(orgId) };
+}));
+
 // Master-Admin: a client's resources and their assigned plan + monthly £ (the "Plan" view).
 app.get("/api/admin/orgs/:id/resources", requireAuth, requireAdmin, h((req) => {
   const orgId = Number(req.params.id);
@@ -3175,6 +3184,16 @@ app.post("/api/billing/topup", requireAuth, mutateGuard, attachOrgContext, requi
       successUrl: `${clientOrigin}/wallet?topup=success`,
       cancelUrl: `${clientOrigin}/wallet?topup=cancel`,
     });
+  })
+);
+
+// Belt-and-braces for the Checkout return: credit any paid top-up the webhook missed.
+// Idempotent (UNIQUE stripe_session_id), so calling it on every ?topup=success is safe.
+app.post("/api/billing/topup/reconcile", requireAuth, mutateGuard, attachOrgContext, requireCapability("owner"),
+  h(async (req) => {
+    const result = await reconcileTopups(req.org.id);
+    if (result.credited > 0) record(req, "billing.topup_reconcile", { metadata: { org_id: req.org.id, ...result } });
+    return { ...result, balance_pence: walletBalance(req.org.id) };
   })
 );
 

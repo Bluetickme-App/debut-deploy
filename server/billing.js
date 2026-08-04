@@ -217,6 +217,9 @@ export async function createTopupSession({ orgId, amountPence, successUrl, cance
     {
       mode: "payment",
       customer,
+      // Save the card: a wallet-only customer never runs subscription setup, so this
+      // is the only chance to capture a card for off-session auto-recharge.
+      payment_intent_data: { setup_future_usage: "off_session" },
       line_items: [{
         price_data: {
           currency: "gbp",
@@ -264,4 +267,29 @@ export function handleWebhookEvent(event) {
   });
   if (inserted) recordSystem("billing.topup_credited", { metadata: { org_id: orgId, amount_pence: amountPence, session: s.id } });
   return { credited: inserted };
+}
+
+// Webhook-miss backstop: poll Stripe for this org's paid Checkout top-ups and credit any
+// the ledger doesn't have. Same idempotency as the webhook path (UNIQUE stripe_session_id),
+// so running it after a late webhook delivery — or twice — is a no-op. Called from the
+// Wallet page on the ?topup=success return and from the admin client page.
+export async function reconcileTopups(orgId) {
+  const stripe = stripeClient();
+  if (!stripe) throw Object.assign(new Error("Stripe is not configured"), { status: 503 });
+  const customer = db.prepare("SELECT stripe_customer_id FROM organizations WHERE id = ?").get(orgId)?.stripe_customer_id;
+  if (!customer) return { credited: 0, sessions: 0 };
+  const sessions = await stripe.checkout.sessions.list({ customer, limit: 20 });
+  let credited = 0;
+  for (const s of sessions.data || []) {
+    if (s.mode !== "payment" || s.payment_status !== "paid") continue;
+    if (Number(s.metadata?.org_id) !== orgId) continue; // customer reused across orgs = never
+    const amountPence = s.amount_total;
+    if (!Number.isInteger(amountPence) || amountPence <= 0) continue;
+    const { inserted } = creditWallet({ orgId, amountPence, type: "topup", stripeSessionId: s.id, notes: "Stripe top-up (reconciled)" });
+    if (inserted) {
+      credited += amountPence;
+      recordSystem("billing.topup_reconciled", { metadata: { org_id: orgId, amount_pence: amountPence, session: s.id } });
+    }
+  }
+  return { credited, sessions: (sessions.data || []).length };
 }

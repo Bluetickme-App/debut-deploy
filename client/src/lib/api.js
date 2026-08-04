@@ -185,6 +185,8 @@ export const api = {
   // Billing (prepaid wallet)
   wallet: () => req("/billing/wallet"),
   topup: (amount_pence) => req("/billing/topup", { method: "POST", body: { amount_pence } }),
+  reconcileTopups: () => req("/billing/topup/reconcile", { method: "POST" }),
+  adminReconcileTopups: (id) => req(`/admin/orgs/${id}/topups/reconcile`, { method: "POST" }),
   billingPortal: () => req("/billing/portal", { method: "POST" }),
   startMySubscription: () => req("/billing/subscribe", { method: "POST" }),
   autoRecharge: () => req("/billing/autorecharge"),

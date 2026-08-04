@@ -20,7 +20,15 @@ export default function Wallet() {
   const load = () => api.wallet().then(setData).catch(setError);
   // Wrap in a block so the effect returns undefined — passing `load` directly made
   // the effect's "cleanup" its returned Promise, which React calls on unmount → crash.
-  useEffect(() => { load(); api.autoRecharge().then(setAr).catch(() => setAr(null)); }, []);
+  useEffect(() => {
+    // Back from Stripe Checkout: the webhook normally credits the wallet, but if it
+    // didn't arrive the money sits at Stripe uncredited — reconcile before loading.
+    if (new URLSearchParams(window.location.search).get("topup") === "success") {
+      window.history.replaceState({}, "", window.location.pathname);
+      api.reconcileTopups().catch(() => {}).then(load);
+    } else load();
+    api.autoRecharge().then(setAr).catch(() => setAr(null));
+  }, []);
 
   const saveAr = async () => {
     setArBusy(true);
@@ -104,7 +112,9 @@ export default function Wallet() {
             <button className="btn btn-primary" disabled={arBusy || (ar.enabled && ar.amountPence < 100)} onClick={saveAr}>Save</button>
           </div>
           <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>
-            Charges the card saved when you started your subscription. {ar.consecutiveFails > 0 && `Last ${ar.consecutiveFails} attempt(s) failed.`}
+            Charges your saved card (from a subscription or a previous top-up). If the amount above wouldn't
+            clear your balance and cover a month of your services, we top up the rounded amount that does.{" "}
+            {ar.consecutiveFails > 0 && `Last ${ar.consecutiveFails} attempt(s) failed.`}
           </p>
         </Card>
       )}

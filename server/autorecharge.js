@@ -6,7 +6,7 @@
 // `...Pence` fields are literally pence. If the wallet ever goes multi-currency, this and
 // createTopupSession change together.
 import { getSetting, setSetting } from "./db.js";
-import { walletBalance, creditWallet, stripeClient, getOrCreateStripeCustomer } from "./billing.js";
+import { walletBalance, creditWallet, stripeClient, getOrCreateStripeCustomer, computeMonthlyCharge } from "./billing.js";
 import { getComp } from "./comp.js";
 import { recordSystem } from "./audit.js";
 
@@ -45,7 +45,19 @@ export function setAutoRecharge(orgId, { enabled, thresholdPence, amountPence } 
 
 async function defaultPaymentMethod(stripe, customerId) {
   const cust = await stripe.customers.retrieve(customerId);
-  return cust?.invoice_settings?.default_payment_method || null;
+  if (cust?.invoice_settings?.default_payment_method) return cust.invoice_settings.default_payment_method;
+  // Wallet-only customers never run subscription setup, so no default PM is ever set —
+  // fall back to the newest card saved by a top-up Checkout (setup_future_usage).
+  const cards = await stripe.paymentMethods.list({ customer: customerId, type: "card", limit: 1 });
+  return cards?.data?.[0]?.id || null;
+}
+
+// The configured amount is a floor, not the whole story: top up at least enough to clear
+// any arrears AND prepay one month of the org's current resources, rounded up to a clean
+// £5 step. This is what keeps a wallet-billed (no-subscription) org from sitting negative.
+export function rechargeAmountPence(orgId, cfg = getAutoRecharge(orgId)) {
+  const need = computeMonthlyCharge(orgId) - Math.min(walletBalance(orgId), 0);
+  return Math.max(cfg.amountPence, Math.ceil(need / 500) * 500);
 }
 
 // Top up the wallet off-session when it's below threshold. Idempotent (Stripe key) and
@@ -70,9 +82,10 @@ export async function maybeAutoRecharge(orgId) {
     const pm = await defaultPaymentMethod(stripe, customer);
     if (!pm) { save(orgId, { inflightToken: null }); return { skipped: "no_card" }; }
 
+    const amountPence = rechargeAmountPence(orgId, cfg);
     const pi = await stripe.paymentIntents.create(
       {
-        amount: cfg.amountPence, currency: "gbp", customer, payment_method: pm,
+        amount: amountPence, currency: "gbp", customer, payment_method: pm,
         off_session: true, confirm: true,
         metadata: { type: "wallet_autorecharge", org_id: String(orgId) },
       },
@@ -82,10 +95,10 @@ export async function maybeAutoRecharge(orgId) {
 
     // Credit via the shared ledger path — idempotent on the PI id (UNIQUE), so a webhook
     // backstop delivering the same PI is a no-op.
-    creditWallet({ orgId, amountPence: cfg.amountPence, type: "topup", stripePaymentIntentId: pi.id, notes: "Auto top-up" });
+    creditWallet({ orgId, amountPence, type: "topup", stripePaymentIntentId: pi.id, notes: "Auto top-up" });
     save(orgId, { consecutiveFails: 0, inflightToken: null });
-    recordSystem("billing.autorecharge_succeeded", { metadata: { org_id: orgId, amount_pence: cfg.amountPence, pi: pi.id } });
-    return { charged: cfg.amountPence };
+    recordSystem("billing.autorecharge_succeeded", { metadata: { org_id: orgId, amount_pence: amountPence, pi: pi.id } });
+    return { charged: amountPence };
   } catch (e) {
     const fails = cfg.consecutiveFails + 1;
     const disabled = fails >= MAX_FAILS;
