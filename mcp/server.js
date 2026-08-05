@@ -117,6 +117,48 @@ server.registerTool(
   )
 );
 
+// --- persistent volumes (disks) ---
+server.registerTool(
+  "list_service_volumes",
+  { description: "List a service's persistent volumes: mount path, size GB, whether it's billed.", inputSchema: { id } },
+  tool(({ id }) => api(`/api/services/${id}/volumes`))
+);
+
+server.registerTool(
+  "preview_service_volume",
+  {
+    description: "Priced preview of attaching (or removing) a persistent disk: monthly rate + prorated charge for the rest of the cycle. Read-only — nothing is created.",
+    inputSchema: {
+      id,
+      sizeGb: z.number().describe("Disk size in GB"),
+      action: z.enum(["add", "remove"]).optional().describe("Default: add"),
+    },
+  },
+  tool(({ id, sizeGb, action }) => api(`/api/services/${id}/volumes/preview`, { method: "POST", body: { sizeGb, action } }))
+);
+
+server.registerTool(
+  "add_service_volume",
+  {
+    description: "Attach a persistent volume to a service at a mount path (e.g. /app/uploads). sizeGb is billed to the owning org. Auto-redeploys the service so Docker mounts it.",
+    inputSchema: {
+      id,
+      mountPath: z.string().describe("Absolute mount path inside the container, e.g. /app/uploads"),
+      sizeGb: z.number().describe("Billed disk size in GB (required — the customer pays per GB)"),
+    },
+  },
+  tool(({ id, mountPath, sizeGb }) => api(`/api/services/${id}/volumes`, { method: "POST", body: { mountPath, sizeGb } }))
+);
+
+server.registerTool(
+  "delete_service_volume",
+  {
+    description: "Detach a persistent volume by its UUID (from list_service_volumes), stop billing pro-rata, and auto-redeploy. The data on the volume is lost to the app — confirm with a human first.",
+    inputSchema: { id, volumeUuid: z.string().describe("Volume UUID to detach") },
+  },
+  tool(({ id, volumeUuid }) => api(`/api/services/${id}/volumes/${volumeUuid}`, { method: "DELETE" }))
+);
+
 server.registerTool(
   "service_build_logs",
   { description: "Build logs for a service's latest deploy — use this to diagnose a failed build.", inputSchema: { id } },
