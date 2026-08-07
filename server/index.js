@@ -114,7 +114,7 @@ import * as domainconnect from "./domainconnect.js";
 import { encryptSecret, decryptSecret } from "./secretbox.js";
 import { getContainerStats, getServiceLogs, runOnHost } from "./hostexec.js";
 import { meterResources, usageSummary } from "./metering.js";
-import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory, fleetOverview } from "./metrics.js";
+import { sampleAndStore, sweepMetrics, metricsHistory, demoHistory, hostHistory, fleetOverview, parseSampleHosts } from "./metrics.js";
 import { evaluateSituations, reconcileSituations, collectSituationInputs, listSituations, applyRemediation, AUTO_REMEDIATE_ENABLED, selectAutoRemediations, markAutoApplied, recentRemediationLog } from "./situations.js";
 import { placeResourceInEnvironment } from "./placement.js";
 import { deriveResourceKind } from "./resourcekind.js";
@@ -862,9 +862,23 @@ app.post(
       record(req, "ssh_exec.denied", { metadata: { command: command.slice(0, 200) } });
       throw Object.assign(new Error("invalid ssh-exec password"), { status: 401 });
     }
-    record(req, "ssh_exec", { metadata: { command: command.slice(0, 500) } });
-    const out = await runOnHost(command);
-    return { ok: true, output: typeof out === "string" ? out : String(out ?? "") };
+    // Optional target host. Resolved ONLY against SAMPLE_HOSTS (the same allowlist the
+    // metrics sampler uses), so the request can never supply an arbitrary address or —
+    // more importantly — its own host-key fingerprint, which would defeat the pin.
+    const target = String(req.body?.host || "").trim();
+    let sshOpts = {};
+    if (target) {
+      const entry = parseSampleHosts(process.env.SAMPLE_HOSTS)
+        .find((h) => h.host === target || h.name === target);
+      if (!entry) {
+        record(req, "ssh_exec.denied", { metadata: { reason: "host_not_allowlisted", host: target.slice(0, 100) } });
+        throw Object.assign(new Error(`Host not allow-listed: ${target}. Add it to SAMPLE_HOSTS (ip|hostkeySha256|name).`), { status: 400 });
+      }
+      sshOpts = { host: entry.host, hostKeySha256: entry.hostKeySha256 };
+    }
+    record(req, "ssh_exec", { metadata: { command: command.slice(0, 500), host: sshOpts.host || "primary" } });
+    const out = await runOnHost(command, sshOpts);
+    return { ok: true, host: sshOpts.host || "primary", output: typeof out === "string" ? out : String(out ?? "") };
   })
 );
 

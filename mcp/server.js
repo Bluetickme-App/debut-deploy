@@ -291,9 +291,10 @@ server.registerTool(
     inputSchema: {
       command: z.string().describe("Shell command to run on the host"),
       password: z.string().describe("The ssh-exec password (SSH_EXEC_PASSWORD) — provided by a human per use"),
+      host: z.string().optional().describe("Target a non-primary host by IP or name (e.g. 'coolify-2'). Must be allow-listed in SAMPLE_HOSTS. Defaults to the primary host."),
     },
   },
-  tool(({ command, password }) => api(`/api/admin/ssh-exec`, { method: "POST", body: { command, password } }))
+  tool(({ command, password, host }) => api(`/api/admin/ssh-exec`, { method: "POST", body: { command, password, host } }))
 );
 
 server.registerTool(
