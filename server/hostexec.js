@@ -52,7 +52,14 @@ export function runOnHost(command, opts = {}) {
             .on("close", (code) => {
               conn.end();
               if (code === 0) resolve(out);
-              else reject(Object.assign(new Error(`host command exit ${code}: ${err.slice(-500)}`), { status: 500 }));
+              // exitCode/stderr/stdout are attached so callers can surface the command's
+              // OWN failure as data. The generic error handler masks 5xx bodies, so
+              // without these the real message (psql syntax error, permission denied…)
+              // reaches the operator as "Internal error" — which reads like the API
+              // refused the command rather than the command itself failing.
+              else reject(Object.assign(new Error(`host command exit ${code}: ${err.slice(-500)}`), {
+                status: 500, exitCode: code, stderr: err.slice(-4000), stdout: out.slice(-4000),
+              }));
             })
             .on("data", (d) => { out += d; })
             .stderr.on("data", (d) => { err += d; });

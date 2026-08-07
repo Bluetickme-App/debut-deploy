@@ -877,8 +877,17 @@ app.post(
       sshOpts = { host: entry.host, hostKeySha256: entry.hostKeySha256 };
     }
     record(req, "ssh_exec", { metadata: { command: command.slice(0, 500), host: sshOpts.host || "primary" } });
-    const out = await runOnHost(command, sshOpts);
-    return { ok: true, host: sshOpts.host || "primary", output: typeof out === "string" ? out : String(out ?? "") };
+    const where = sshOpts.host || "primary";
+    try {
+      const out = await runOnHost(command, sshOpts);
+      return { ok: true, host: where, exitCode: 0, output: typeof out === "string" ? out : String(out ?? "") };
+    } catch (e) {
+      // A non-zero exit is a normal outcome for a shell tool, not a server error — return
+      // it (with the command's own stderr) so the operator can actually debug. Connection
+      // and config failures have no exitCode and still propagate as real errors.
+      if (e.exitCode === undefined) throw e;
+      return { ok: false, host: where, exitCode: e.exitCode, stderr: e.stderr || "", output: e.stdout || "" };
+    }
   })
 );
 
