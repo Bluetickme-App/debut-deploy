@@ -44,3 +44,32 @@ test("getDatabaseCredentials parses a real-shaped inspect via injected run", asy
   const c = await getDatabaseCredentials("abc123", { run });
   assert.equal(c.password, "p@ss/w0rd");
 });
+
+// The bug this guards: a database on a secondary host 404d, because only the
+// primary was ever asked. The container exists on 10.9.9.9 and nowhere else.
+test("getDatabaseCredentials finds a container on a SAMPLE_HOSTS host, not just the primary", async () => {
+  const prev = process.env.SAMPLE_HOSTS;
+  process.env.SAMPLE_HOSTS = "10.9.9.9|abc123def456|host-2";
+  try {
+    const seen = [];
+    const run = async (_cmd, opts = {}) => {
+      seen.push(opts.host ?? "primary");
+      return opts.host === "10.9.9.9" ? JSON.stringify(PG) : "[]";
+    };
+    const c = await getDatabaseCredentials("abc123", { run });
+    assert.equal(c.password, "p@ss/w0rd");
+    assert.deepEqual(seen, ["primary", "10.9.9.9"], "primary is tried first, then the allow-listed host");
+    // publicHost follows the host that answered, so the external URL is reachable.
+    assert.equal(c.externalUrl, "postgresql://myuser:p%40ss%2Fw0rd@10.9.9.9:5433/appdb");
+  } finally {
+    if (prev === undefined) delete process.env.SAMPLE_HOSTS; else process.env.SAMPLE_HOSTS = prev;
+  }
+});
+
+// A host that errors tells us nothing, so a total failure must not look like "no
+// such database" — that sends the operator hunting a missing container instead of
+// a broken SSH config.
+test("getDatabaseCredentials surfaces the host error when every host fails", async () => {
+  const run = async () => { throw Object.assign(new Error("no pinned host key"), { status: 501 }); };
+  await assert.rejects(() => getDatabaseCredentials("abc123", { run }), (e) => e.status === 501);
+});

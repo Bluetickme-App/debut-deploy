@@ -3,6 +3,7 @@
 // (POSTGRES_PASSWORD etc.) via `docker inspect` over the SSH-to-host channel. Pure
 // parsing (parseInspect) is split from the host call so it's unit-testable.
 import { runOnHost } from "./hostexec.js";
+import { parseSampleHosts } from "./metrics.js";
 
 const DEMO = process.env.DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
 
@@ -68,9 +69,39 @@ export async function getDatabaseCredentials(uuid, { run = runOnHost } = {}) {
       internalHost: u, internalPort: 5432, externalHost: null, externalPort: null,
       internalUrl: `postgresql://demo:demo-pass@${u}:5432/demo`, externalUrl: null };
   }
-  const raw = await run(`CID=$(docker ps -q --filter name=${u} | head -1); [ -n "$CID" ] && docker inspect "$CID" || echo '[]'`);
-  let inspect;
-  try { inspect = JSON.parse(String(raw).trim() || "[]"); } catch { inspect = []; }
-  if (!Array.isArray(inspect) || !inspect.length) throw NOT_FOUND();
-  return parseInspect(inspect, { uuid: u, publicHost: process.env.MIGRATION_SSH_HOST || null });
+  const cmd = `CID=$(docker ps -q --filter name=${u} | head -1); [ -n "$CID" ] && docker inspect "$CID" || echo '[]'`;
+
+  // A container is only visible to `docker inspect` on the host actually running it.
+  // This asked the primary host and nothing else, so every database on a secondary
+  // server reported "not found" when it was merely being asked of the wrong machine.
+  // Try the primary, then each allow-listed host — the same list and pinned
+  // fingerprints ssh_exec already uses, so this widens reach without widening trust.
+  const targets = [{ opts: {}, publicHost: process.env.MIGRATION_SSH_HOST || null }].concat(
+    parseSampleHosts(process.env.SAMPLE_HOSTS).map((h) => ({
+      opts: { host: h.host, hostKeySha256: h.hostKeySha256 },
+      publicHost: h.host,
+    })),
+  );
+
+  // A host that answers but holds no such container is a real miss. A host that
+  // errors is not — it tells us nothing. So only when EVERY host errored do we
+  // surface that error, otherwise a broken SSH key or an unset fingerprint would
+  // masquerade as a missing database and send the operator hunting the wrong thing.
+  let reached = false;
+  let firstErr = null;
+  for (const t of targets) {
+    let inspect;
+    try {
+      const raw = await run(cmd, t.opts);
+      inspect = JSON.parse(String(raw).trim() || "[]");
+      reached = true;
+    } catch (e) {
+      firstErr ??= e;
+      continue;
+    }
+    if (Array.isArray(inspect) && inspect.length) {
+      return parseInspect(inspect, { uuid: u, publicHost: t.publicHost });
+    }
+  }
+  throw reached ? NOT_FOUND() : (firstErr || NOT_FOUND());
 }
