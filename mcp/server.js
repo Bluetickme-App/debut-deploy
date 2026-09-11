@@ -86,6 +86,51 @@ server.registerTool(
   tool(({ id }) => api(`/api/services/${id}/deployments`))
 );
 
+const fqdn = z.string().describe("Hostname, e.g. 'shop.example.com'. A scheme is optional and stripped.");
+
+server.registerTool(
+  "list_service_domains",
+  { description: "List the domains currently bound to a service.", inputSchema: { id } },
+  tool(({ id }) => api(`/api/services/${id}/domains`))
+);
+
+server.registerTool(
+  "verify_service_domain",
+  {
+    description:
+      "Check whether a hostname's DNS actually points at the server this service runs on, BEFORE binding it. " +
+      "Use this first: binding a domain whose DNS points elsewhere makes Traefik request a certificate that " +
+      "cannot be validated, and after that failure it backs off and will not retry until the app is restarted.",
+    inputSchema: { id, fqdn },
+  },
+  tool(({ id, fqdn }) => api(`/api/services/${id}/domain/verify?fqdn=${encodeURIComponent(fqdn)}`))
+);
+
+server.registerTool(
+  "add_service_domain",
+  {
+    description:
+      "Bind a custom domain to a service, then redeploy so Traefik builds the route and requests a Let's Encrypt " +
+      "certificate. Binds BOTH the apex and its www form (passing 'www.x.com' or 'x.com' yields the same pair), " +
+      "and MERGES with the service's existing domains rather than replacing them. " +
+      "Requires DNS to already point at the service's server — run verify_service_domain first. " +
+      "Note this triggers a deploy, so the app rebuilds.",
+    inputSchema: { id, fqdn },
+  },
+  tool(({ id, fqdn }) => api(`/api/services/${id}/domain`, { method: "POST", body: { fqdn } }))
+);
+
+server.registerTool(
+  "remove_service_domain",
+  {
+    description:
+      "Unbind a custom domain from a service, removing both the apex and its www form. " +
+      "Does not touch DNS — the record keeps pointing at the server, it just stops being routed.",
+    inputSchema: { id, fqdn },
+  },
+  tool(({ id, fqdn }) => api(`/api/services/${id}/domains`, { method: "DELETE", body: { fqdn } }))
+);
+
 server.registerTool(
   "rollback_service",
   {
