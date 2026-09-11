@@ -357,3 +357,54 @@ test("applyRemediation: null suggested_remediation → ok:false, no control call
   const logRow = db.prepare("SELECT * FROM remediation_log WHERE situation_id = ?").get(situationId);
   assert.equal(logRow, undefined, "no remediation_log row must be written");
 });
+
+const HEALTHY_HOST = { host: { diskRoot: { pct: 5 }, diskVolume: null, mem: { pct: 10 } }, sites: [], deploys: [] };
+
+test("evaluateSituations: untrusted cert → tls.untrusted crit with renew-cert", () => {
+  const out = evaluateSituations({
+    ...HEALTHY_HOST,
+    certs: [{ uuid: "svc1", name: "DMS live", domain: "dms-live.debutdepoly.com", state: "untrusted", detail: 'untrusted certificate, issued by "TRAEFIK DEFAULT CERT"' }],
+  });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].type, "tls.untrusted");
+  assert.equal(out[0].severity, "crit");
+  assert.equal(out[0].target, "svc1", "target must be the app uuid — coolify-restart acts on it");
+  assert.equal(out[0].suggested_remediation, "renew-cert");
+});
+
+test("evaluateSituations: expiring cert → warn, not crit", () => {
+  const out = evaluateSituations({
+    ...HEALTHY_HOST,
+    certs: [{ uuid: "svc1", name: "X", domain: "x.test", state: "expiring", daysLeft: 9, detail: "certificate expires in 9 day(s)" }],
+  });
+  assert.equal(out[0].severity, "warn");
+});
+
+// An unreachable domain must not open a situation: with auto-remediation on, that would
+// restart a healthy app every time the probe hiccuped.
+test("evaluateSituations: an unknown (unprobeable) cert opens nothing", () => {
+  const out = evaluateSituations({
+    ...HEALTHY_HOST,
+    certs: [{ uuid: "svc1", name: "X", domain: "x.test", state: "unknown", detail: "ECONNREFUSED" }],
+  });
+  assert.equal(out.length, 0);
+});
+
+test("evaluateSituations: ok certs open nothing, and certs may be omitted entirely", () => {
+  assert.equal(evaluateSituations({ ...HEALTHY_HOST, certs: [{ uuid: "s", domain: "d.test", state: "ok" }] }).length, 0);
+  assert.equal(evaluateSituations(HEALTHY_HOST).length, 0);
+});
+
+test("renew-cert is auto-appliable, so a bad cert actually self-heals", () => {
+  const reg = REGISTRY["renew-cert"];
+  assert.ok(reg, "renew-cert must exist in the registry");
+  assert.equal(reg.auto, true);
+  assert.equal(reg.confidence, "high", "selectAutoRemediations only auto-applies high confidence");
+  const picked = selectAutoRemediations(
+    [{ id: 1, suggested_remediation: "renew-cert", auto_applied_at: null }],
+    [],
+    Date.now(),
+  );
+  assert.equal(picked.length, 1);
+  assert.equal(picked[0].remediationId, "renew-cert");
+});

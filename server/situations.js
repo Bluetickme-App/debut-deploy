@@ -4,6 +4,8 @@ import { fleetOverview as _fleetOverview } from "./metrics.js";
 import { runOnHost } from "./hostexec.js";
 import { controlService as _controlService } from "./coolify.js";
 import { clearDeployQueue as _clearDeployQueue } from "./coolifydb.js";
+import { listServices as _listServices } from "./coolify.js";
+import { probeServiceCerts as _probeServiceCerts } from "./certs.js";
 const DOWN_STATUSES = new Set(["exited", "stopped", "dead", "not_running", "paused"]);
 
 // The app UUID comes along for the ride so a deploy.zombie's target can BE the uuid —
@@ -37,10 +39,15 @@ const DEPLOY_QUERY_LEGACY =
  * @param {{ fleetOverview?: () => Promise<object> }} [opts]  — injectable for tests
  * @returns {Promise<{ host: object, sites: object[], deploys: object[] }>}
  */
-export async function collectSituationInputs({ fleetOverview = _fleetOverview } = {}) {
+export async function collectSituationInputs({
+  fleetOverview = _fleetOverview,
+  listServices = _listServices,
+  probeServiceCerts = _probeServiceCerts,
+} = {}) {
   let host = { diskRoot: { pct: 0 }, diskVolume: null, mem: { pct: 0 } };
   let sites = [];
   let deploys = [];
+  let certs = [];
   try {
     const fo = await fleetOverview();
     host = fo.host ?? host;
@@ -55,7 +62,12 @@ export async function collectSituationInputs({ fleetOverview = _fleetOverview } 
     catch { raw = await psql(DEPLOY_QUERY_LEGACY); }
     deploys = parseDeployRows(raw);
   } catch { /* best-effort: SSH down or no deploys table */ }
-  return { host, sites, deploys };
+  try {
+    // Domains come from Coolify rather than fleetOverview: fleetOverview's sites are
+    // metrics rows (uuid + cpu/mem/disk) and carry no domain to probe.
+    certs = await probeServiceCerts(await listServices());
+  } catch { /* best-effort: Coolify unreachable, or no TLS egress */ }
+  return { host, sites, deploys, certs };
 }
 
 /** Parse psql's `-tAF'|'` output. Tolerates the 5-column legacy shape. */
@@ -98,6 +110,23 @@ export const REGISTRY = {
     auto: false,
     confidence: "medium",
     // ponytail: routes through control_service, not a raw host cmd — see applyRemediation (Task 3)
+    command: "coolify-restart",
+  },
+  "renew-cert": {
+    title: "Restart the app so Traefik re-requests its TLS certificate",
+    situationTypes: ["tls.untrusted"],
+    // Safe to automate in a way `restart-service` is not: that one fires on an unhealthy
+    // container, where a restart loop can mask a crash. This fires only when the container
+    // is serving fine and merely holds the wrong certificate, so a restart is the whole
+    // cure — it re-registers the route, which is the only thing that makes Traefik ask
+    // Let's Encrypt again after an earlier attempt failed and it backed off.
+    auto: true,
+    confidence: "high",
+    // ponytail: cooldown is per-ACTION, not per-target (see selectAutoRemediations), so a
+    // fleet with several bad certs heals one an hour rather than all at once. Fine at this
+    // size, and it keeps a systemic ACME failure from becoming a fleet-wide restart storm.
+    // Make the cooldown per-target if that pace ever matters.
+    cooldownSec: 3600,
     command: "coolify-restart",
   },
   "clear-deploy-queue": {
@@ -149,7 +178,7 @@ export function selectAutoRemediations(openSituations, recentLog, nowMs) {
  *           deploys: Array<{uuid:string, application_name:string, status:string, ageSec:number}> }} input
  * @returns {Array<{type:string, target:string, severity:string, detail:string, suggested_remediation:string|null}>}
  */
-export function evaluateSituations({ host, sites, deploys }) {
+export function evaluateSituations({ host, sites, deploys, certs = [] }) {
   const out = [];
 
   const checkDisk = (pct, label) => {
@@ -190,6 +219,21 @@ export function evaluateSituations({ host, sites, deploys }) {
   const queued = deploys.filter((d) => d.status === "queued");
   if (queued.length >= QUEUE_PILEUP)
     out.push({ type: "deploy.pileup", target: "host", severity: "warn", detail: `${queued.length} deploys queued`, suggested_remediation: null });
+
+  // A browser refuses an untrusted certificate outright, so the site is down to every
+  // real visitor even though it answers 200 — hence crit, not warn. `unknown` (the host
+  // did not answer the probe) is deliberately ignored: that is a reachability problem,
+  // and restarting an app over a failed probe would turn a network blip into an outage.
+  for (const c of certs) {
+    if (c.state !== "untrusted" && c.state !== "expiring") continue;
+    out.push({
+      type: "tls.untrusted",
+      target: c.uuid,
+      severity: c.state === "untrusted" ? "crit" : "warn",
+      detail: `${c.name ?? c.domain} — ${c.domain}: ${c.detail}`,
+      suggested_remediation: "renew-cert",
+    });
+  }
 
   return out;
 }
@@ -284,7 +328,8 @@ export async function applyRemediation(situationId, actor, { control = _controlS
   let result = "";
   try {
     if (reg.command === "coolify-restart") {
-      // ponytail: situation.target must be an app UUID — only service.unhealthy maps here, and its target IS the uuid
+      // ponytail: situation.target must be an app UUID — service.unhealthy and tls.untrusted
+      // both map here, and both set target to the uuid
       await control(situation.target, "restart");
       result = `restarted ${situation.target}`;
     } else if (reg.command === "coolify-clear-queue") {
