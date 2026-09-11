@@ -9,6 +9,25 @@ import { fmtMinor } from "../lib/money.js";
 const gb = (b) => (b == null ? "—" : `${(b / 1e9).toFixed(1)} GB`);
 const barColor = (v) => (v > 90 ? "var(--err)" : v > 75 ? "var(--warn)" : "var(--ok)");
 
+// A remediation can be applied without working. The old badge said "auto-fixed" the
+// moment one ran, which claimed a cure nobody had checked — and a red alert that says
+// it is handled is one you stop reading.
+//
+// The check needs no new machinery: this list holds OPEN situations only, and every
+// tick re-evaluates and resolves the ones that actually cleared. So a situation still
+// on screen with auto_applied_at set is, by construction, one the fix did not cure.
+// The only nuance is latency — a certificate takes a minute or two to issue after the
+// restart that triggers it — so allow a grace window before calling it a failure.
+const AUTOFIX_GRACE_MS = 5 * 60 * 1000;
+
+/** null = never auto-applied · "applied" = ran, may still be taking effect · "stale" = ran and did not cure it. */
+function autoFixState(situation, nowMs = Date.now()) {
+  if (!situation.auto_applied_at) return null;
+  const appliedMs = Date.parse(situation.auto_applied_at);
+  if (!Number.isFinite(appliedMs)) return "applied";
+  return nowMs - appliedMs < AUTOFIX_GRACE_MS ? "applied" : "stale";
+}
+
 // Fleet-level counters. Leads with the numbers so the page answers "is anything wrong?"
 // before you start reading rows.
 // What KIND of thing a row is. Without this a database renders as a nameless row with
@@ -157,28 +176,40 @@ export default function Fleet() {
           <div className="mb-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>Situations</div>
           {remErr && <p className="mb-2 text-xs" style={{ color: "var(--err)" }}>{remErr}</p>}
           <div className="space-y-2">
-            {situations.map((s) => (
+            {situations.map((s) => {
+              const auto = autoFixState(s);
+              return (
               <div key={s.id} className="flex items-start justify-between gap-3 rounded p-2" style={{ background: "var(--surface-2)" }}>
                 <div className="flex items-start gap-2">
                   <span className="mt-0.5 rounded px-1.5 py-0.5 text-xs font-semibold" style={{
                     background: s.severity === "crit" ? "var(--err)" : "var(--warn)",
                     color: "#fff",
                   }}>{s.severity}</span>
-                  {s.auto_applied_at && (
-                    <span className="mt-0.5 rounded px-1.5 py-0.5 text-xs font-semibold" style={{ color: "var(--ok)", background: "color-mix(in srgb, var(--ok) 15%, transparent)" }}>auto-fixed</span>
+                  {auto === "applied" && (
+                    <span className="mt-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-semibold"
+                      title="An automatic fix was applied and may still be taking effect. This alert clears itself once the problem is actually gone."
+                      style={{ color: "var(--ok)", background: "color-mix(in srgb, var(--ok) 15%, transparent)" }}>auto-applied</span>
+                  )}
+                  {auto === "stale" && (
+                    <span className="mt-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-semibold"
+                      title="The automatic fix ran but the problem is still here, so something else is causing it. Worth a look."
+                      style={{ color: "var(--warn)", background: "color-mix(in srgb, var(--warn) 15%, transparent)" }}>auto-fix didn&apos;t hold</span>
                   )}
                   <div>
                     <div className="text-sm font-medium" style={{ color: "var(--text)" }}>{s.type}</div>
                     {s.detail && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{s.detail}</div>}
                   </div>
                 </div>
-                {s.suggested_remediation && !s.auto_applied_at && (
+                {/* Offer the button again once an auto-fix has demonstrably not worked — by
+                    then the operator may have removed the real cause and want to retry. */}
+                {s.suggested_remediation && auto !== "applied" && (
                   <Button variant="ghost" onClick={() => { setRemErr(""); setDialog({ situation: s }); }}>
-                    Apply fix
+                    {auto === "stale" ? "Retry fix" : "Apply fix"}
                   </Button>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}

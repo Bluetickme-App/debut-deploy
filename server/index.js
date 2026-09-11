@@ -3405,7 +3405,15 @@ if (!demoMode && process.env.NODE_ENV !== "test") {
             const r = await applyRemediation(situation.id, "auto");
             markAutoApplied(situation.id, new Date().toISOString());
             recordSystem("situation.auto_remediated", { resourceType: situation.target === "host" ? "host" : "application", resourceUuid: situation.target, metadata: { type: situation.type, ok: r.ok } });
-            if (situation.target !== "host") notifyOwner(situation.target, { type: "situation", message: `auto-fixed ${situation.type}` });
+            // "applied", not "fixed": nothing here verifies the cure, and applyRemediation
+            // reports only whether the ACTION succeeded. The situation closing on a later
+            // tick is the real proof, so don't promise it in the notification.
+            if (situation.target !== "host") {
+              notifyOwner(situation.target, {
+                type: "situation",
+                message: r.ok ? `applied an automatic fix for ${situation.type}` : `automatic fix for ${situation.type} failed to run`,
+              });
+            }
           }
         } catch (e) { console.error("auto-remediate:", e.message); }
       }
